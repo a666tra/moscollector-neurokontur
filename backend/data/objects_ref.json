@@ -1,0 +1,667 @@
+{
+  "5122": {
+    "object_id": "5122",
+    "hierarchy_level": 3,
+    "parent_id": "5",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Альфа"
+  },
+  "5123": {
+    "object_id": "5123",
+    "hierarchy_level": 3,
+    "parent_id": "5",
+    "object_type": "controlHouse",
+    "name": "ДП объект Альфа"
+  },
+  "5124": {
+    "object_id": "5124",
+    "hierarchy_level": 3,
+    "parent_id": "5",
+    "object_type": "controlHouse",
+    "name": "ДП объект Альфа 2 этаж"
+  },
+  "5339": {
+    "object_id": "5339",
+    "hierarchy_level": 3,
+    "parent_id": "5",
+    "object_type": "guardObject",
+    "name": "объект Пси"
+  },
+  "5340": {
+    "object_id": "5340",
+    "hierarchy_level": 3,
+    "parent_id": "5",
+    "object_type": "controlHouse",
+    "name": "объект Пси шкаф ОПС"
+  },
+  "20": {
+    "object_id": "20",
+    "hierarchy_level": 3,
+    "parent_id": "6",
+    "object_type": "guardObject",
+    "name": "объект Фита"
+  },
+  "111": {
+    "object_id": "111",
+    "hierarchy_level": 3,
+    "parent_id": "6",
+    "object_type": "controlHouse",
+    "name": "ДП объект Бета"
+  },
+  "165": {
+    "object_id": "165",
+    "hierarchy_level": 3,
+    "parent_id": "6",
+    "object_type": "guardObject",
+    "name": "объект Бета"
+  },
+  "4765": {
+    "object_id": "4765",
+    "hierarchy_level": 3,
+    "parent_id": "6",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Бета"
+  },
+  "5961": {
+    "object_id": "5961",
+    "hierarchy_level": 3,
+    "parent_id": "7",
+    "object_type": "guardObject",
+    "name": "объект Гамма ОС"
+  },
+  "5962": {
+    "object_id": "5962",
+    "hierarchy_level": 3,
+    "parent_id": "7",
+    "object_type": "guardObject",
+    "name": "объект Гамма ПС"
+  },
+  "5963": {
+    "object_id": "5963",
+    "hierarchy_level": 3,
+    "parent_id": "7",
+    "object_type": "controlHouse",
+    "name": "объект Гамма ДУ"
+  },
+  "5966": {
+    "object_id": "5966",
+    "hierarchy_level": 3,
+    "parent_id": "7",
+    "object_type": "controlHouse",
+    "name": "объект Гамма шкафы"
+  },
+  "4610": {
+    "object_id": "4610",
+    "hierarchy_level": 3,
+    "parent_id": "8",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Дельта"
+  },
+  "5113": {
+    "object_id": "5113",
+    "hierarchy_level": 3,
+    "parent_id": "8",
+    "object_type": "guardObject",
+    "name": "объект Дельта"
+  },
+  "5114": {
+    "object_id": "5114",
+    "hierarchy_level": 3,
+    "parent_id": "8",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Дельта"
+  },
+  "28": {
+    "object_id": "28",
+    "hierarchy_level": 3,
+    "parent_id": "9",
+    "object_type": "guardObject",
+    "name": "объект Вита"
+  },
+  "99": {
+    "object_id": "99",
+    "hierarchy_level": 3,
+    "parent_id": "9",
+    "object_type": "controlHouse",
+    "name": "ДП объект Вита"
+  },
+  "4767": {
+    "object_id": "4767",
+    "hierarchy_level": 3,
+    "parent_id": "9",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Вита"
+  },
+  "5011": {
+    "object_id": "5011",
+    "hierarchy_level": 3,
+    "parent_id": "9",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Вита"
+  },
+  "3902": {
+    "object_id": "3902",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "controlHouse",
+    "name": "ДП объект Эпсилон"
+  },
+  "3903": {
+    "object_id": "3903",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "controlHouse",
+    "name": "Шкафы ОС объект Эпсилон"
+  },
+  "3904": {
+    "object_id": "3904",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "guardObject",
+    "name": "объект Эпсилон ОС"
+  },
+  "3905": {
+    "object_id": "3905",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "guardObject",
+    "name": "объект Пси ОС"
+  },
+  "4095": {
+    "object_id": "4095",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "guardObject",
+    "name": "объект Хи"
+  },
+  "4541": {
+    "object_id": "4541",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Хи"
+  },
+  "4543": {
+    "object_id": "4543",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Хи"
+  },
+  "5537": {
+    "object_id": "5537",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "guardObject",
+    "name": "объект Пси ПС"
+  },
+  "5539": {
+    "object_id": "5539",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "guardObject",
+    "name": "объект Эпсилон ПС"
+  },
+  "5540": {
+    "object_id": "5540",
+    "hierarchy_level": 3,
+    "parent_id": "11",
+    "object_type": "controlHouse",
+    "name": "Шкафы ПС объект Эпсилон"
+  },
+  "4770": {
+    "object_id": "4770",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Зита"
+  },
+  "5129": {
+    "object_id": "5129",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "guardObject",
+    "name": "объект Фита"
+  },
+  "5132": {
+    "object_id": "5132",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "ДП объект Зита"
+  },
+  "5578": {
+    "object_id": "5578",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "объект Дзета ДУ"
+  },
+  "5579": {
+    "object_id": "5579",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "объект Дзета шкафы"
+  },
+  "5580": {
+    "object_id": "5580",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "guardObject",
+    "name": "объект Дзета ОС"
+  },
+  "5581": {
+    "object_id": "5581",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "guardObject",
+    "name": "объект Дзета ПС"
+  },
+  "5582": {
+    "object_id": "5582",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "guardObject",
+    "name": "объект Зита ОС"
+  },
+  "5583": {
+    "object_id": "5583",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "guardObject",
+    "name": "объект Зита ПС"
+  },
+  "5591": {
+    "object_id": "5591",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "объект Зита ДУ"
+  },
+  "5593": {
+    "object_id": "5593",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "объект Зита шкафы"
+  },
+  "5594": {
+    "object_id": "5594",
+    "hierarchy_level": 3,
+    "parent_id": "12",
+    "object_type": "controlHouse",
+    "name": "объект Дзета щит. ПК48 Г1 ПК5"
+  },
+  "42": {
+    "object_id": "42",
+    "hierarchy_level": 3,
+    "parent_id": "15",
+    "object_type": "guardObject",
+    "name": "объект Каппа ОС"
+  },
+  "5567": {
+    "object_id": "5567",
+    "hierarchy_level": 3,
+    "parent_id": "15",
+    "object_type": "guardObject",
+    "name": "объект Каппа ПС"
+  },
+  "5574": {
+    "object_id": "5574",
+    "hierarchy_level": 3,
+    "parent_id": "15",
+    "object_type": "controlHouse",
+    "name": "объект Каппа шкафы"
+  },
+  "5657": {
+    "object_id": "5657",
+    "hierarchy_level": 3,
+    "parent_id": "15",
+    "object_type": "controlHouse",
+    "name": "объект Каппа ДУ"
+  },
+  "3215": {
+    "object_id": "3215",
+    "hierarchy_level": 3,
+    "parent_id": "3218",
+    "object_type": "guardObject",
+    "name": "объект Йота"
+  },
+  "3216": {
+    "object_id": "3216",
+    "hierarchy_level": 3,
+    "parent_id": "3218",
+    "object_type": "controlHouse",
+    "name": "ДП объект Йота"
+  },
+  "3250": {
+    "object_id": "3250",
+    "hierarchy_level": 3,
+    "parent_id": "3218",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Йота"
+  },
+  "5218": {
+    "object_id": "5218",
+    "hierarchy_level": 3,
+    "parent_id": "3218",
+    "object_type": "controlHouse",
+    "name": "объект Йота ДУ"
+  },
+  "3356": {
+    "object_id": "3356",
+    "hierarchy_level": 3,
+    "parent_id": "3355",
+    "object_type": "guardObject",
+    "name": "ПС объект Тау"
+  },
+  "3388": {
+    "object_id": "3388",
+    "hierarchy_level": 3,
+    "parent_id": "3355",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Тау"
+  },
+  "5009": {
+    "object_id": "5009",
+    "hierarchy_level": 3,
+    "parent_id": "3355",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС ПС объект Тау"
+  },
+  "3360": {
+    "object_id": "3360",
+    "hierarchy_level": 3,
+    "parent_id": "3359",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Омикрон"
+  },
+  "4391": {
+    "object_id": "4391",
+    "hierarchy_level": 3,
+    "parent_id": "3359",
+    "object_type": "guardObject",
+    "name": "объект Омикрон"
+  },
+  "4392": {
+    "object_id": "4392",
+    "hierarchy_level": 3,
+    "parent_id": "3359",
+    "object_type": "controlHouse",
+    "name": "ДП объект Омикрон"
+  },
+  "4763": {
+    "object_id": "4763",
+    "hierarchy_level": 3,
+    "parent_id": "3359",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Омикрон"
+  },
+  "5674": {
+    "object_id": "5674",
+    "hierarchy_level": 3,
+    "parent_id": "3828",
+    "object_type": "controlHouse",
+    "name": "объект Мю ДП"
+  },
+  "5675": {
+    "object_id": "5675",
+    "hierarchy_level": 3,
+    "parent_id": "3828",
+    "object_type": "controlHouse",
+    "name": "объект Мю ДУ"
+  },
+  "5676": {
+    "object_id": "5676",
+    "hierarchy_level": 3,
+    "parent_id": "3828",
+    "object_type": "guardObject",
+    "name": "объект Мю ОС"
+  },
+  "5677": {
+    "object_id": "5677",
+    "hierarchy_level": 3,
+    "parent_id": "3828",
+    "object_type": "guardObject",
+    "name": "объект Мю ПС"
+  },
+  "5678": {
+    "object_id": "5678",
+    "hierarchy_level": 3,
+    "parent_id": "3828",
+    "object_type": "controlHouse",
+    "name": "объект Мю шкафы"
+  },
+  "5773": {
+    "object_id": "5773",
+    "hierarchy_level": 1,
+    "parent_id": "3831",
+    "object_type": "district",
+    "name": "Район по эксплуатации"
+  },
+  "4069": {
+    "object_id": "4069",
+    "hierarchy_level": 3,
+    "parent_id": "4068",
+    "object_type": "guardObject",
+    "name": "объект Сигма"
+  },
+  "4177": {
+    "object_id": "4177",
+    "hierarchy_level": 3,
+    "parent_id": "4068",
+    "object_type": "controlHouse",
+    "name": "ДП объект Сигма"
+  },
+  "4768": {
+    "object_id": "4768",
+    "hierarchy_level": 3,
+    "parent_id": "4068",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС объект Сигма"
+  },
+  "108": {
+    "object_id": "108",
+    "hierarchy_level": 3,
+    "parent_id": "4356",
+    "object_type": "controlHouse",
+    "name": "ДП ПС объект Ро"
+  },
+  "4369": {
+    "object_id": "4369",
+    "hierarchy_level": 3,
+    "parent_id": "4356",
+    "object_type": "controlHouse",
+    "name": "ДУ ПС объект Ро"
+  },
+  "4370": {
+    "object_id": "4370",
+    "hierarchy_level": 3,
+    "parent_id": "4356",
+    "object_type": "guardObject",
+    "name": "объект Ро"
+  },
+  "4569": {
+    "object_id": "4569",
+    "hierarchy_level": 3,
+    "parent_id": "4356",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС ПС объект Ро"
+  },
+  "4574": {
+    "object_id": "4574",
+    "hierarchy_level": 3,
+    "parent_id": "4573",
+    "object_type": "controlHouse",
+    "name": "ДП ПС объект Омега"
+  },
+  "4577": {
+    "object_id": "4577",
+    "hierarchy_level": 3,
+    "parent_id": "4573",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС ПС объект Омега"
+  },
+  "4648": {
+    "object_id": "4648",
+    "hierarchy_level": 3,
+    "parent_id": "4573",
+    "object_type": "guardObject",
+    "name": "ПС объект Омега"
+  },
+  "5003": {
+    "object_id": "5003",
+    "hierarchy_level": 3,
+    "parent_id": "4573",
+    "object_type": "controlHouse",
+    "name": "ДУ ПС объект Омега"
+  },
+  "5332": {
+    "object_id": "5332",
+    "hierarchy_level": 3,
+    "parent_id": "5327",
+    "object_type": "guardObject",
+    "name": "объект Кси ПК0-ПК202"
+  },
+  "5333": {
+    "object_id": "5333",
+    "hierarchy_level": 3,
+    "parent_id": "5327",
+    "object_type": "controlHouse",
+    "name": "ДУ объект Кси"
+  },
+  "5336": {
+    "object_id": "5336",
+    "hierarchy_level": 3,
+    "parent_id": "5327",
+    "object_type": "controlHouse",
+    "name": "ДП объект Кси"
+  },
+  "5338": {
+    "object_id": "5338",
+    "hierarchy_level": 3,
+    "parent_id": "5327",
+    "object_type": "controlHouse",
+    "name": "Шкаф ОПС, ДУ объект Кси"
+  },
+  "5343": {
+    "object_id": "5343",
+    "hierarchy_level": 3,
+    "parent_id": "5327",
+    "object_type": "guardObject",
+    "name": "объект Кси ПК202-ПК302"
+  },
+  "5": {
+    "object_id": "5",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Альфа"
+  },
+  "6": {
+    "object_id": "6",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Бета"
+  },
+  "7": {
+    "object_id": "7",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Гамма"
+  },
+  "8": {
+    "object_id": "8",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "Комплекс объект Дельта"
+  },
+  "9": {
+    "object_id": "9",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Вита"
+  },
+  "11": {
+    "object_id": "11",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Эпсилон"
+  },
+  "12": {
+    "object_id": "12",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Зита"
+  },
+  "15": {
+    "object_id": "15",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Каппа"
+  },
+  "3218": {
+    "object_id": "3218",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Йота"
+  },
+  "3355": {
+    "object_id": "3355",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Тау"
+  },
+  "3359": {
+    "object_id": "3359",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Омикрон"
+  },
+  "3828": {
+    "object_id": "3828",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Мю"
+  },
+  "4068": {
+    "object_id": "4068",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Сигма"
+  },
+  "4356": {
+    "object_id": "4356",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "ПС объект Ро"
+  },
+  "4573": {
+    "object_id": "4573",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "ПС объект Омега"
+  },
+  "5327": {
+    "object_id": "5327",
+    "hierarchy_level": 2,
+    "parent_id": "5773",
+    "object_type": "controlHouse",
+    "name": "объект Кси"
+  }
+}

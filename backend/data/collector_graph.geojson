@@ -1,0 +1,2560 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "obj_5122",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.5931,
+          55.772558
+        ]
+      },
+      "properties": {
+        "object_id": "5122",
+        "name": "ДУ объект Альфа",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК0",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5123",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.613893,
+          55.7301
+        ]
+      },
+      "properties": {
+        "object_id": "5123",
+        "name": "ДП объект Альфа",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК61",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5124",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.590707,
+          55.728946
+        ]
+      },
+      "properties": {
+        "object_id": "5124",
+        "name": "ДП объект Альфа 2 этаж",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5339",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.593348,
+          55.754569
+        ]
+      },
+      "properties": {
+        "object_id": "5339",
+        "name": "объект Пси",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5340",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.578119,
+          55.777688
+        ]
+      },
+      "properties": {
+        "object_id": "5340",
+        "name": "объект Пси шкаф ОПС",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_20",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.610021,
+          55.706875
+        ]
+      },
+      "properties": {
+        "object_id": "20",
+        "name": "объект Фита",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_111",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.573795,
+          55.733106
+        ]
+      },
+      "properties": {
+        "object_id": "111",
+        "name": "ДП объект Бета",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_165",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.68518,
+          55.7486
+        ]
+      },
+      "properties": {
+        "object_id": "165",
+        "name": "объект Бета",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4765",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.632357,
+          55.777882
+        ]
+      },
+      "properties": {
+        "object_id": "4765",
+        "name": "Шкаф ОПС объект Бета",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5961",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.673026,
+          55.731238
+        ]
+      },
+      "properties": {
+        "object_id": "5961",
+        "name": "объект Гамма ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК1",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5962",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.602459,
+          55.773334
+        ]
+      },
+      "properties": {
+        "object_id": "5962",
+        "name": "объект Гамма ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК6",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5963",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.617733,
+          55.730805
+        ]
+      },
+      "properties": {
+        "object_id": "5963",
+        "name": "объект Гамма ДУ",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК67",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5966",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.584346,
+          55.726162
+        ]
+      },
+      "properties": {
+        "object_id": "5966",
+        "name": "объект Гамма шкафы",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК10",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4610",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.587054,
+          55.750815
+        ]
+      },
+      "properties": {
+        "object_id": "4610",
+        "name": "ДУ объект Дельта",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК5",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5113",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.573193,
+          55.78239
+        ]
+      },
+      "properties": {
+        "object_id": "5113",
+        "name": "объект Дельта",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК9",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5114",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.616474,
+          55.708895
+        ]
+      },
+      "properties": {
+        "object_id": "5114",
+        "name": "Шкаф ОПС объект Дельта",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК8",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_28",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.57467,
+          55.732923
+        ]
+      },
+      "properties": {
+        "object_id": "28",
+        "name": "объект Вита",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК5",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_99",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.692986,
+          55.748625
+        ]
+      },
+      "properties": {
+        "object_id": "99",
+        "name": "ДП объект Вита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК10",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4767",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.633141,
+          55.785429
+        ]
+      },
+      "properties": {
+        "object_id": "4767",
+        "name": "Шкаф ОПС объект Вита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК8",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5011",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.681976,
+          55.728669
+        ]
+      },
+      "properties": {
+        "object_id": "5011",
+        "name": "ДУ объект Вита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК9",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3902",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.606517,
+          55.773041
+        ]
+      },
+      "properties": {
+        "object_id": "3902",
+        "name": "ДП объект Эпсилон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК13",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3903",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.62238,
+          55.7308
+        ]
+      },
+      "properties": {
+        "object_id": "3903",
+        "name": "Шкафы ОС объект Эпсилон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК74",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3904",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.578931,
+          55.718986
+        ]
+      },
+      "properties": {
+        "object_id": "3904",
+        "name": "объект Эпсилон ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК19",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3905",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.581445,
+          55.750293
+        ]
+      },
+      "properties": {
+        "object_id": "3905",
+        "name": "объект Пси ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК10",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4095",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.565015,
+          55.784543
+        ]
+      },
+      "properties": {
+        "object_id": "4095",
+        "name": "объект Хи",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК17",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4541",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.619949,
+          55.706814
+        ]
+      },
+      "properties": {
+        "object_id": "4541",
+        "name": "Шкаф ОПС объект Хи",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК15",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4543",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.572302,
+          55.729623
+        ]
+      },
+      "properties": {
+        "object_id": "4543",
+        "name": "ДУ объект Хи",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК9",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5537",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.700992,
+          55.750814
+        ]
+      },
+      "properties": {
+        "object_id": "5537",
+        "name": "объект Пси ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК20",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5539",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.63425,
+          55.787907
+        ]
+      },
+      "properties": {
+        "object_id": "5539",
+        "name": "объект Эпсилон ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК16",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5540",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.687851,
+          55.723098
+        ]
+      },
+      "properties": {
+        "object_id": "5540",
+        "name": "Шкафы ПС объект Эпсилон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК18",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4770",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.61556,
+          55.774291
+        ]
+      },
+      "properties": {
+        "object_id": "4770",
+        "name": "Шкаф ОПС объект Зита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК20",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5129",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.628072,
+          55.732561
+        ]
+      },
+      "properties": {
+        "object_id": "5129",
+        "name": "объект Фита",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК80",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5132",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.576104,
+          55.718371
+        ]
+      },
+      "properties": {
+        "object_id": "5132",
+        "name": "ДП объект Зита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК29",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5578",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.574128,
+          55.75025
+        ]
+      },
+      "properties": {
+        "object_id": "5578",
+        "name": "объект Дзета ДУ",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК15",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5579",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.557404,
+          55.786262
+        ]
+      },
+      "properties": {
+        "object_id": "5579",
+        "name": "объект Дзета шкафы",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК25",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5580",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.628438,
+          55.705844
+        ]
+      },
+      "properties": {
+        "object_id": "5580",
+        "name": "объект Дзета ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК22",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5581",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.567592,
+          55.729839
+        ]
+      },
+      "properties": {
+        "object_id": "5581",
+        "name": "объект Дзета ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК14",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5582",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.707916,
+          55.751955
+        ]
+      },
+      "properties": {
+        "object_id": "5582",
+        "name": "объект Зита ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК30",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5583",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.633835,
+          55.795992
+        ]
+      },
+      "properties": {
+        "object_id": "5583",
+        "name": "объект Зита ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК24",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5591",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.693987,
+          55.720726
+        ]
+      },
+      "properties": {
+        "object_id": "5591",
+        "name": "объект Зита ДУ",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК27",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5593",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.620718,
+          55.77269
+        ]
+      },
+      "properties": {
+        "object_id": "5593",
+        "name": "объект Зита шкафы",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК26",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5594",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.633036,
+          55.733116
+        ]
+      },
+      "properties": {
+        "object_id": "5594",
+        "name": "объект Дзета щит. ПК48 Г1 ПК5",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК87",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_42",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.568877,
+          55.712931
+        ]
+      },
+      "properties": {
+        "object_id": "42",
+        "name": "объект Каппа ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК38",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5567",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.569705,
+          55.752768
+        ]
+      },
+      "properties": {
+        "object_id": "5567",
+        "name": "объект Каппа ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК20",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5574",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.5493,
+          55.788364
+        ]
+      },
+      "properties": {
+        "object_id": "5574",
+        "name": "объект Каппа шкафы",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК33",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5657",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.632732,
+          55.705105
+        ]
+      },
+      "properties": {
+        "object_id": "5657",
+        "name": "объект Каппа ДУ",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК29",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3215",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.5658,
+          55.727279
+        ]
+      },
+      "properties": {
+        "object_id": "3215",
+        "name": "объект Йота",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК18",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3216",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.715638,
+          55.750699
+        ]
+      },
+      "properties": {
+        "object_id": "3216",
+        "name": "ДП объект Йота",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК40",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3250",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.634783,
+          55.801429
+        ]
+      },
+      "properties": {
+        "object_id": "3250",
+        "name": "Шкаф ОПС объект Йота",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК31",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5218",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.70311,
+          55.720773
+        ]
+      },
+      "properties": {
+        "object_id": "5218",
+        "name": "объект Йота ДУ",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК36",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3356",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.629216,
+          55.770601
+        ]
+      },
+      "properties": {
+        "object_id": "3356",
+        "name": "ПС объект Тау",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК33",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3388",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.635703,
+          55.733949
+        ]
+      },
+      "properties": {
+        "object_id": "3388",
+        "name": "ДУ объект Тау",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК93",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5009",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.565564,
+          55.708734
+        ]
+      },
+      "properties": {
+        "object_id": "5009",
+        "name": "Шкаф ОПС ПС объект Тау",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК47",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3360",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.563072,
+          55.748668
+        ]
+      },
+      "properties": {
+        "object_id": "3360",
+        "name": "ДУ объект Омикрон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК25",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4391",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.545704,
+          55.792815
+        ]
+      },
+      "properties": {
+        "object_id": "4391",
+        "name": "объект Омикрон",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК42",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4392",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.636831,
+          55.707837
+        ]
+      },
+      "properties": {
+        "object_id": "4392",
+        "name": "ДП объект Омикрон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК36",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4763",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.562603,
+          55.723891
+        ]
+      },
+      "properties": {
+        "object_id": "4763",
+        "name": "Шкаф ОПС объект Омикрон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК22",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5674",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.725371,
+          55.755206
+        ]
+      },
+      "properties": {
+        "object_id": "5674",
+        "name": "объект Мю ДП",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК50",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5675",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.635889,
+          55.803749
+        ]
+      },
+      "properties": {
+        "object_id": "5675",
+        "name": "объект Мю ДУ",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК39",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5676",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.706945,
+          55.716547
+        ]
+      },
+      "properties": {
+        "object_id": "5676",
+        "name": "объект Мю ОС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК44",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5677",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.635158,
+          55.773717
+        ]
+      },
+      "properties": {
+        "object_id": "5677",
+        "name": "объект Мю ПС",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК40",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5678",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.639788,
+          55.734781
+        ]
+      },
+      "properties": {
+        "object_id": "5678",
+        "name": "объект Мю шкафы",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК100",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5773",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.559297,
+          55.704002
+        ]
+      },
+      "properties": {
+        "object_id": "5773",
+        "name": "Район по эксплуатации",
+        "object_type": "district",
+        "hierarchy_level": 1,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК57",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4069",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.558716,
+          55.747745
+        ]
+      },
+      "properties": {
+        "object_id": "4069",
+        "name": "объект Сигма",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК30",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4177",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.537993,
+          55.797515
+        ]
+      },
+      "properties": {
+        "object_id": "4177",
+        "name": "ДП объект Сигма",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК50",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4768",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.641565,
+          55.70523
+        ]
+      },
+      "properties": {
+        "object_id": "4768",
+        "name": "Шкаф ОПС объект Сигма",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК43",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_108",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.563454,
+          55.723179
+        ]
+      },
+      "properties": {
+        "object_id": "108",
+        "name": "ДП ПС объект Ро",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК27",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4369",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.731611,
+          55.753009
+        ]
+      },
+      "properties": {
+        "object_id": "4369",
+        "name": "ДУ ПС объект Ро",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК60",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4370",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.637042,
+          55.807944
+        ]
+      },
+      "properties": {
+        "object_id": "4370",
+        "name": "объект Ро",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК47",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4569",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.713514,
+          55.714397
+        ]
+      },
+      "properties": {
+        "object_id": "4569",
+        "name": "Шкаф ОПС ПС объект Ро",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК53",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4574",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.641866,
+          55.772679
+        ]
+      },
+      "properties": {
+        "object_id": "4574",
+        "name": "ДП ПС объект Омега",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК46",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4577",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.645268,
+          55.733171
+        ]
+      },
+      "properties": {
+        "object_id": "4577",
+        "name": "Шкаф ОПС ПС объект Омега",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК106",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4648",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.553847,
+          55.702026
+        ]
+      },
+      "properties": {
+        "object_id": "4648",
+        "name": "ПС объект Омега",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК66",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5003",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.551586,
+          55.749268
+        ]
+      },
+      "properties": {
+        "object_id": "5003",
+        "name": "ДУ ПС объект Омега",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК35",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5332",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.528691,
+          55.797805
+        ]
+      },
+      "properties": {
+        "object_id": "5332",
+        "name": "объект Кси ПК0-ПК202",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК58",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5333",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.649488,
+          55.707647
+        ]
+      },
+      "properties": {
+        "object_id": "5333",
+        "name": "ДУ объект Кси",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК50",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5336",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.559515,
+          55.719197
+        ]
+      },
+      "properties": {
+        "object_id": "5336",
+        "name": "ДП объект Кси",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК31",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5338",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.738343,
+          55.754262
+        ]
+      },
+      "properties": {
+        "object_id": "5338",
+        "name": "Шкаф ОПС, ДУ объект Кси",
+        "object_type": "controlHouse",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК70",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5343",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.63702,
+          55.81413
+        ]
+      },
+      "properties": {
+        "object_id": "5343",
+        "name": "объект Кси ПК202-ПК302",
+        "object_type": "guardObject",
+        "hierarchy_level": 3,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК54",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.720548,
+          55.709476
+        ]
+      },
+      "properties": {
+        "object_id": "5",
+        "name": "объект Альфа",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК62",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.648858,
+          55.771173
+        ]
+      },
+      "properties": {
+        "object_id": "6",
+        "name": "объект Бета",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК53",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.649511,
+          55.733471
+        ]
+      },
+      "properties": {
+        "object_id": "7",
+        "name": "объект Гамма",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК113",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_8",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.548283,
+          55.700105
+        ]
+      },
+      "properties": {
+        "object_id": "8",
+        "name": "Комплекс объект Дельта",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК75",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.545009,
+          55.747508
+        ]
+      },
+      "properties": {
+        "object_id": "9",
+        "name": "объект Вита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК40",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.520751,
+          55.800857
+        ]
+      },
+      "properties": {
+        "object_id": "11",
+        "name": "объект Эпсилон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК66",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.654729,
+          55.707075
+        ]
+      },
+      "properties": {
+        "object_id": "12",
+        "name": "объект Зита",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket": "ПК57",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_15",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.558361,
+          55.717113
+        ]
+      },
+      "properties": {
+        "object_id": "15",
+        "name": "объект Каппа",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket": "ПК35",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3218",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.745984,
+          55.758119
+        ]
+      },
+      "properties": {
+        "object_id": "3218",
+        "name": "объект Йота",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket": "ПК80",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3355",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.637058,
+          55.818277
+        ]
+      },
+      "properties": {
+        "object_id": "3355",
+        "name": "объект Тау",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket": "ПК62",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3359",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.728201,
+          55.707472
+        ]
+      },
+      "properties": {
+        "object_id": "3359",
+        "name": "объект Омикрон",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket": "ПК71",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_3828",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.655693,
+          55.773916
+        ]
+      },
+      "properties": {
+        "object_id": "3828",
+        "name": "объект Мю",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК60",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4068",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.650394,
+          55.736937
+        ]
+      },
+      "properties": {
+        "object_id": "4068",
+        "name": "объект Сигма",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket": "ПК120",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4356",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.544357,
+          55.69461
+        ]
+      },
+      "properties": {
+        "object_id": "4356",
+        "name": "ПС объект Ро",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket": "ПК85",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_4573",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.536995,
+          55.749447
+        ]
+      },
+      "properties": {
+        "object_id": "4573",
+        "name": "ПС объект Омега",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket": "ПК45",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "obj_5327",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.514794,
+          55.803761
+        ]
+      },
+      "properties": {
+        "object_id": "5327",
+        "name": "объект Кси",
+        "object_type": "controlHouse",
+        "hierarchy_level": 2,
+        "route_name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket": "ПК75",
+        "status": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.595,
+            55.772
+          ],
+          [
+            37.6025,
+            55.772125
+          ],
+          [
+            37.61,
+            55.77225
+          ],
+          [
+            37.6175,
+            55.772375
+          ],
+          [
+            37.625,
+            55.7725
+          ],
+          [
+            37.6325,
+            55.772625
+          ],
+          [
+            37.64,
+            55.77275
+          ],
+          [
+            37.6475,
+            55.772875
+          ],
+          [
+            37.655,
+            55.773
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор Садовое Кольцо (Север)",
+        "corridor": "Садовое кольцо",
+        "picket_start": "ПК0",
+        "picket_end": "ПК60",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.615,
+            55.731
+          ],
+          [
+            37.619625,
+            55.7315
+          ],
+          [
+            37.62425,
+            55.732
+          ],
+          [
+            37.628875,
+            55.7325
+          ],
+          [
+            37.6335,
+            55.733
+          ],
+          [
+            37.638125,
+            55.7335
+          ],
+          [
+            37.64275,
+            55.734
+          ],
+          [
+            37.647375,
+            55.7345
+          ],
+          [
+            37.652,
+            55.735
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор Садовое Кольцо (Юг)",
+        "corridor": "Садовое кольцо",
+        "picket_start": "ПК61",
+        "picket_end": "ПК120",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.59,
+            55.728
+          ],
+          [
+            37.584375,
+            55.723875
+          ],
+          [
+            37.57875,
+            55.71975
+          ],
+          [
+            37.573125,
+            55.715625
+          ],
+          [
+            37.5675,
+            55.7115
+          ],
+          [
+            37.561875,
+            55.707375
+          ],
+          [
+            37.55625,
+            55.70325
+          ],
+          [
+            37.550625,
+            55.699125
+          ],
+          [
+            37.545,
+            55.695
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Магистральный коллектор Ленинский проспект",
+        "corridor": "Юго-Запад",
+        "picket_start": "ПК1",
+        "picket_end": "ПК85",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.595,
+            55.753
+          ],
+          [
+            37.587875,
+            55.752375
+          ],
+          [
+            37.58075,
+            55.75175
+          ],
+          [
+            37.573625,
+            55.751125
+          ],
+          [
+            37.5665,
+            55.7505
+          ],
+          [
+            37.559375,
+            55.749875
+          ],
+          [
+            37.55225,
+            55.74925
+          ],
+          [
+            37.545125,
+            55.748625
+          ],
+          [
+            37.538,
+            55.748
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Кабельно-тепловой коллектор Новый Арбат — Сити",
+        "corridor": "Запад",
+        "picket_start": "ПК1",
+        "picket_end": "ПК45",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.58,
+            55.778
+          ],
+          [
+            37.571875,
+            55.781375
+          ],
+          [
+            37.56375,
+            55.78475
+          ],
+          [
+            37.555625,
+            55.788125
+          ],
+          [
+            37.5475,
+            55.7915
+          ],
+          [
+            37.539375,
+            55.794875
+          ],
+          [
+            37.53125,
+            55.79825
+          ],
+          [
+            37.523125,
+            55.801625
+          ],
+          [
+            37.515,
+            55.805
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор Ленинградский проспект — Сокол",
+        "corridor": "Север",
+        "picket_start": "ПК1",
+        "picket_end": "ПК75",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.61,
+            55.708
+          ],
+          [
+            37.61625,
+            55.707625
+          ],
+          [
+            37.6225,
+            55.70725
+          ],
+          [
+            37.62875,
+            55.706875
+          ],
+          [
+            37.635,
+            55.7065
+          ],
+          [
+            37.64125,
+            55.706125
+          ],
+          [
+            37.6475,
+            55.70575
+          ],
+          [
+            37.65375,
+            55.705375
+          ],
+          [
+            37.66,
+            55.705
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор ТТК — Автозаводская ветвь",
+        "corridor": "Юг",
+        "picket_start": "ПК1",
+        "picket_end": "ПК65",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.575,
+            55.735
+          ],
+          [
+            37.5725,
+            55.7325
+          ],
+          [
+            37.57,
+            55.73
+          ],
+          [
+            37.5675,
+            55.7275
+          ],
+          [
+            37.565,
+            55.725
+          ],
+          [
+            37.5625,
+            55.7225
+          ],
+          [
+            37.56,
+            55.72
+          ],
+          [
+            37.5575,
+            55.7175
+          ],
+          [
+            37.555,
+            55.715
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коммуникационный коллектор Хамовники — Лужники",
+        "corridor": "ЦАО-ЮЗ",
+        "picket_start": "ПК1",
+        "picket_end": "ПК40",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.685,
+            55.748
+          ],
+          [
+            37.69375,
+            55.74925
+          ],
+          [
+            37.7025,
+            55.7505
+          ],
+          [
+            37.71125,
+            55.75175
+          ],
+          [
+            37.72,
+            55.753
+          ],
+          [
+            37.72875,
+            55.75425
+          ],
+          [
+            37.7375,
+            55.7555
+          ],
+          [
+            37.74625,
+            55.75675
+          ],
+          [
+            37.755,
+            55.758
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор Шоссе Энтузиастов",
+        "corridor": "Восток",
+        "picket_start": "ПК1",
+        "picket_end": "ПК90",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.632,
+            55.779
+          ],
+          [
+            37.63275,
+            55.78475
+          ],
+          [
+            37.6335,
+            55.7905
+          ],
+          [
+            37.63425,
+            55.79625
+          ],
+          [
+            37.635,
+            55.802
+          ],
+          [
+            37.63575,
+            55.80775
+          ],
+          [
+            37.6365,
+            55.8135
+          ],
+          [
+            37.63725,
+            55.81925
+          ],
+          [
+            37.638,
+            55.825
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор Проспект Мира — ВДНХ",
+        "corridor": "СВАО",
+        "picket_start": "ПК1",
+        "picket_end": "ПК70",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            37.675,
+            55.73
+          ],
+          [
+            37.6825,
+            55.726875
+          ],
+          [
+            37.69,
+            55.72375
+          ],
+          [
+            37.6975,
+            55.720625
+          ],
+          [
+            37.705,
+            55.7175
+          ],
+          [
+            37.7125,
+            55.714375
+          ],
+          [
+            37.72,
+            55.71125
+          ],
+          [
+            37.7275,
+            55.708125
+          ],
+          [
+            37.735,
+            55.705
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Коллектор Волгоградский — Текстильщики",
+        "corridor": "ЮВАО",
+        "picket_start": "ПК1",
+        "picket_end": "ПК80",
+        "pipe_types": [
+          "Силовые кабели",
+          "Связь",
+          "Теплотрасса"
+        ],
+        "risk_level": "normal"
+      }
+    }
+  ]
+}

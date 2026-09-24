@@ -1,0 +1,374 @@
+[
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "1",
+    "state_name": "Норма",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "1",
+    "state_name": "Выключен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "1",
+    "state_name": "Отключено устройство",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "2",
+    "state_name": "Норма",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "2",
+    "state_name": "Замкнут",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД Люк",
+    "state_set_id": "3",
+    "state_name": "Не замкнут",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД Люк",
+    "state_set_id": "3",
+    "state_name": "Норма",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Люк",
+    "state_set_id": "4",
+    "state_name": "Включен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Люк",
+    "state_set_id": "4",
+    "state_name": "Выключен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "5",
+    "state_name": "Дыма нет",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "5",
+    "state_name": "Обнаружен дым",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "6",
+    "state_name": "Движения нет",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "6",
+    "state_name": "Обнаружено движение",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "6",
+    "state_name": "Движение вверх",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "6",
+    "state_name": "Движение вниз",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "6",
+    "state_name": "Движение влево",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "КД АВ",
+    "state_set_id": "6",
+    "state_name": "Движение вправо",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик температуры",
+    "state_set_id": "7",
+    "state_name": "Норма",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик температуры",
+    "state_set_id": "7",
+    "state_name": "Обнаружен газ",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "8",
+    "state_name": "Выключен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "8",
+    "state_name": "Включен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "8",
+    "state_name": "Затоплен",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "8",
+    "state_name": "Обесточен",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "9",
+    "state_name": "Выключен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "9",
+    "state_name": "Включен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "9",
+    "state_name": "Обесточен",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "11",
+    "state_name": "Рычаг норма",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "12",
+    "state_name": "Норма",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "12",
+    "state_name": "Разговор",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "12",
+    "state_name": "Вызов",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "1",
+    "state_name": "Неопределен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "КД Дверь",
+    "state_set_id": "1",
+    "state_name": "Неисправен",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "16",
+    "state_name": "Питание от сети",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Состояние насоса",
+    "state_set_id": "14",
+    "state_name": "На охране",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Состояние насоса",
+    "state_set_id": "14",
+    "state_name": "Снято с охраны",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "16",
+    "state_name": "Питание от батарей",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "11",
+    "state_name": "Рычаг сдернут",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "11",
+    "state_name": "Рычаг сдернут влево",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "11",
+    "state_name": "Рычаг сдернут вправо",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "11",
+    "state_name": "Оба рычага сдернуты",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "16",
+    "state_name": "Батарея неисправна",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "10",
+    "state_name": "Есть питание",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Датчик дыма",
+    "state_set_id": "10",
+    "state_name": "Обесточен",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "17",
+    "state_name": "Устройства на объекте исправны",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "17",
+    "state_name": "Много неисправных устройств",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "16",
+    "state_name": "Батарея разряжена",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Состояние фазы",
+    "state_set_id": "18",
+    "state_name": "Работают все насосы АНС",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Состояние вентилятора",
+    "state_set_id": "17",
+    "state_name": "Включены все насосы АНС",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Датчик движения",
+    "state_set_id": "8",
+    "state_name": "Работают все насосы в АНС",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура выше 35ºC1",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура выше 35ºC1",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "В норме от +3 до +351",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура ниже 3ºC1",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура ниже 3ºC1",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура ниже 3ºC",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Не определено",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура ниже 3ºC1",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "В норме от +3 до +40",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура выше 40ºC",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура ниже 3ºC",
+    "is_alarm": true
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "В норме от +3 до +27ºC",
+    "is_alarm": false
+  },
+  {
+    "sensor_type": "Газовый датчик",
+    "state_set_id": "13",
+    "state_name": "Температура выше 27ºC",
+    "is_alarm": true
+  }
+]

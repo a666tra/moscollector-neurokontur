@@ -1,0 +1,38 @@
+[
+  {
+    "channel_id": "56682",
+    "decision": "confirm_false",
+    "status": "DISPATCH_CONFIRMED",
+    "avoided_cost_rub": 0.0,
+    "dispatcher_badge": "7041-ОДС",
+    "timestamp": "2026-09-25 01:39:43",
+    "notes": "??????????? ?????????? ??????? ???????"
+  },
+  {
+    "channel_id": "120578",
+    "decision": "CONFIRM_FALSE_ALARM",
+    "status": "SUPPRESSED_CONFIRMED",
+    "avoided_cost_rub": 18500.0,
+    "dispatcher_badge": "7041-ОДС",
+    "timestamp": "2026-09-25 01:38:45",
+    "notes": "Подтвержден дребезг концевика люка"
+  },
+  {
+    "channel_id": "120578",
+    "decision": "CONFIRM_FALSE_ALARM",
+    "status": "SUPPRESSED_CONFIRMED",
+    "avoided_cost_rub": 18500.0,
+    "dispatcher_badge": "7041-ОДС",
+    "timestamp": "2026-09-25 01:33:18",
+    "notes": "Подтвержден дребезг концевика люка"
+  },
+  {
+    "channel_id": "120578",
+    "decision": "CONFIRM_FALSE_ALARM",
+    "status": "SUPPRESSED_CONFIRMED",
+    "avoided_cost_rub": 18500.0,
+    "dispatcher_badge": "7041-ОДС",
+    "timestamp": "2026-09-25 01:29:50",
+    "notes": "Подтвержден дребезг концевика люка"
+  }
+]

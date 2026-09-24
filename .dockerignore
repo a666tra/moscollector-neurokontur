@@ -1,0 +1,15 @@
+node_modules
+frontend/node_modules
+frontend/dist
+dataset
+tz_pages
+ChatExport*
+__pycache__
+*.pyc
+.pytest_cache
+.git
+.gitignore
+*.pptx
+*.txt
+*.zip
+*.ps1

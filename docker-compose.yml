@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  neurokontur:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moscollector-neurokontur
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

@@ -1,0 +1,10 @@
+{
+  "decision_threshold": 0.42,
+  "chatter_window_seconds": 90,
+  "chatter_min_flips": 5,
+  "gas_warning_threshold_vol_pct": 1.2,
+  "callout_cost_rub": 18500.0,
+  "preventive_cost_rub": 3200.0,
+  "require_dispatcher_confirmation": true,
+  "auto_suppress_chatter": false
+}

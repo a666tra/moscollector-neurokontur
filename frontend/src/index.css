@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #07090E;
+  --bg-surface: #0D1117;
+  --bg-card: #12161F;
+  --bg-hover: #1A202C;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(255, 255, 255, 0.18);
+  --accent-green: #00FF66;
+  --accent-amber: #FFB800;
+  --accent-red: #FF3B30;
+  --accent-cyan: #58A6FF;
+  --text-main: #E6EDF3;
+  --text-muted: #8B949E;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #07090E;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Engineering components */
+.eng-panel {
+  background-color: #0D1117;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.eng-panel:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.eng-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.725rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-normal {
+  background: rgba(0, 255, 102, 0.1);
+  color: #00FF66;
+  border: 1px solid rgba(0, 255, 102, 0.25);
+}
+
+.badge-warning {
+  background: rgba(255, 184, 0, 0.1);
+  color: #FFB800;
+  border: 1px solid rgba(255, 184, 0, 0.25);
+}
+
+.badge-critical {
+  background: rgba(255, 59, 48, 0.1);
+  color: #FF3B30;
+  border: 1px solid rgba(255, 59, 48, 0.25);
+}
+
+.badge-cyan {
+  background: rgba(88, 166, 255, 0.1);
+  color: #58A6FF;
+  border: 1px solid rgba(88, 166, 255, 0.25);
+}
+
+/* Leaflet Map overrides for dark mode */
+.leaflet-container {
+  background: #07090E !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #0D1117 !important;
+  color: #E6EDF3 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8) !important;
+}
+
+.leaflet-popup-tip {
+  background: #0D1117 !important;
+}
