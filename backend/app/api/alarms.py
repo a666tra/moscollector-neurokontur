@@ -29,17 +29,21 @@ def classify_alarm(req: AlarmClassificationRequest):
 
 @router.post("/confirm", response_model=AlarmConfirmationResponse)
 def confirm_alarm_decision(req: AlarmConfirmationRequest):
-    """Фиксация официального решения диспетчера ОДС по тревоге (Human-in-the-loop по ГОСТ Р 53195 / SHA-256 ledger)"""
+    """Фиксация официального решения диспетчера ОДС по тревоге с двухфакторной аутентификацией (Табельный номер + PIN по ГОСТ Р 53195 / SHA-256 ledger)"""
     try:
         res = ml_service.confirm_alarm(
             channel_id=req.channel_id,
             decision=req.decision,
             dispatcher_badge=req.dispatcher_badge,
+            dispatcher_pin=req.dispatcher_pin,
             notes=req.notes
         )
         return AlarmConfirmationResponse(**res)
     except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        err_msg = str(e)
+        if "неверный PIN" in err_msg or "аутентификации" in err_msg:
+            raise HTTPException(status_code=401, detail=err_msg)
+        raise HTTPException(status_code=403, detail=err_msg)
 
 @router.get("/confirmed", response_model=List[Dict[str, Any]])
 def get_confirmed_alarm_log():

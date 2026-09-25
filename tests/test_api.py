@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
@@ -182,6 +184,7 @@ def test_alarm_confirmation():
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "7041-ОДС",
+        "dispatcher_pin": "7041",
         "notes": "Подтвержден дребезг концевика люка"
     })
     assert res.status_code == 200
@@ -235,11 +238,12 @@ def test_audit_chain_integrity():
     assert "ГОСТ Р 53195" in data["standard"]
 
 def test_dispatcher_rbac_security():
-    # 1. Authorized badge should succeed and chain cryptographic block
+    # 1. Authorized badge + valid PIN should succeed and chain cryptographic block
     res_ok = client.post("/api/alarms/confirm", json={
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "ДИСП-7041",
+        "dispatcher_pin": "7041",
         "notes": "Штатная проверка регламента КИИ"
     })
     assert res_ok.status_code == 200
@@ -249,11 +253,23 @@ def test_dispatcher_rbac_security():
     assert len(data_ok["record_hash"]) == 64
     assert len(data_ok["prev_hash"]) == 64
 
-    # 2. Unauthorized badge must be rejected with 403 Forbidden
+    # 2. Invalid PIN must be rejected with 401 Unauthorized
+    res_wrong_pin = client.post("/api/alarms/confirm", json={
+        "channel_id": "120578",
+        "decision": "CONFIRM_FALSE_ALARM",
+        "dispatcher_badge": "ДИСП-7041",
+        "dispatcher_pin": "9999",
+        "notes": "Попытка с неверным PIN"
+    })
+    assert res_wrong_pin.status_code == 401
+    assert "неверный PIN" in res_wrong_pin.json()["detail"]
+
+    # 3. Unauthorized badge must be rejected with 403 Forbidden
     res_bad = client.post("/api/alarms/confirm", json={
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "ДИСП-9999",
+        "dispatcher_pin": "1234",
         "notes": "Попытка несанкционированного доступа"
     })
     assert res_bad.status_code == 403

@@ -4,27 +4,39 @@
     "full_name": "Иванов Илья Сергеевич",
     "role": "Старший диспетчер ОДС №1",
     "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
-    "cert_id": "CERT-2026-ODS-482"
+    "cert_id": "CERT-2026-ODS-482",
+    "pin_hash": "a402a614fa9f7925217c1aa8bdada005157033c02b6588be7eb4728c69e5d1e3",
+    "can_confirm_false_alarm": true,
+    "can_force_dispatch": true
   },
   "ДИСП-7041": {
     "badge": "ДИСП-7041",
     "full_name": "Кузнецов Артем Дмитриевич",
     "role": "Главный инженер смены ОДС",
     "clearance_level": "Level-3 (Главный диспетчер)",
-    "cert_id": "CERT-2026-ODS-7041"
+    "cert_id": "CERT-2026-ODS-7041",
+    "pin_hash": "8beb6420a2670a1abc0f906a9953257a0921012677fefffc7e4c43a3f26cd522",
+    "can_confirm_false_alarm": true,
+    "can_force_dispatch": true
   },
   "ДИСП-1094": {
     "badge": "ДИСП-1094",
     "full_name": "Петров Сергей Владимирович",
     "role": "Инженер-диспетчер телеметрии",
     "clearance_level": "Level-1 (Оператор СМВУ)",
-    "cert_id": "CERT-2026-ODS-1094"
+    "cert_id": "CERT-2026-ODS-1094",
+    "pin_hash": "f1250af9005fb93c6bc8ea65860a4079e4f90b38d8c258af498bf8cb5e9e84df",
+    "can_confirm_false_alarm": false,
+    "can_force_dispatch": true
   },
   "ДИСП-3318": {
     "badge": "ДИСП-3318",
     "full_name": "Смирнова Елена Михайловна",
     "role": "Ведущий диспетчер ОДС",
     "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
-    "cert_id": "CERT-2026-ODS-3318"
+    "cert_id": "CERT-2026-ODS-3318",
+    "pin_hash": "4e78ccea6eff54be79b2eb0e445ae6d8ab084d1f2e4d158b9cee416fcf1e28a2",
+    "can_confirm_false_alarm": true,
+    "can_force_dispatch": true
   }
 }

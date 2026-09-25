@@ -147,8 +147,9 @@ def run_leakage_free_pipeline():
         history_test = collections.defaultdict(list)
         failures_test = set()
 
-        all_channels = set(sensors_ref.keys())
-        active_channels = set()
+        # Фиксация перечня каналов строго по статическому паспорту оборудования СМВУ (t=0)
+        # Исключает утечку информации о появлении каналов из будущих дат журнала
+        channels_list = sorted(list(sensors_ref.keys()))
 
         print(f"Чтение журнала СМВУ (до {max_rows} записей)...")
         t0 = time.time()
@@ -162,7 +163,7 @@ def run_leakage_free_pipeline():
                     continue
 
                 cid, d_str, t_str, alarm_str, val_str = row[1], row[2], row[3], row[4], row[5]
-                if cid not in all_channels:
+                if cid not in sensors_ref:
                     continue
 
                 try:
@@ -170,7 +171,6 @@ def run_leakage_free_pipeline():
                 except Exception:
                     continue
 
-                active_channels.add(cid)
                 is_alarm = alarm_str in ('t', 'true', 'True', '1')
                 s_meta = sensors_ref.get(cid, {})
                 is_fail = is_failure_value(val_str, is_alarm, s_meta.get('sensor_type', ''), s_meta.get('tag', ''))
@@ -193,10 +193,8 @@ def run_leakage_free_pipeline():
                 elif target_test_start <= dt <= target_test_end and is_fail:
                     failures_test.add(cid)
 
-        print(f"Обработано за {time.time() - t0:.1f} сек. Активных каналов: {len(active_channels)}")
+        print(f"Обработано за {time.time() - t0:.1f} сек. Реестр каналов СМВУ: {len(channels_list)}")
         print(f"Событий критической аномалии/предотказного состояния в окне 24–72ч: Train={len(failures_train)}, Val={len(failures_val)}, Test={len(failures_test)}")
-
-        channels_list = sorted(list(active_channels))
 
     # Encoder for categorical fields
     sensor_types = sorted(list(set(s.get('sensor_type', 'unknown') for s in sensors_ref.values())))

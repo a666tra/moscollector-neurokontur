@@ -13,6 +13,16 @@ from backend.app.api.settings import get_current_settings
 
 router = APIRouter()
 
+def classify_risk(prob: float, thresh: float) -> str:
+    crit_t = max(0.70, thresh)
+    if prob >= crit_t:
+        return "CRITICAL"
+    if prob >= thresh:
+        return "WARNING"
+    if prob >= 0.20:
+        return "ATTENTION"
+    return "NORMAL"
+
 @router.get("", response_model=PredictionListResponse)
 def get_predictions(
     object_id: Optional[str] = Query(None, description="Фильтр по ID объекта"),
@@ -24,18 +34,24 @@ def get_predictions(
     preds = data_service.predictions
     if object_id:
         preds = [p for p in preds if p["object_id"] == object_id]
-    if risk_level:
-        preds = [p for p in preds if p["risk_level"] == risk_level.upper()]
     if sensor_type:
         preds = [p for p in preds if sensor_type.lower() in p["sensor_type"].lower()]
 
     # Dynamic risk counting using active threshold from singleton system settings
     thresh = get_current_settings().decision_threshold
+    crit_t = max(0.70, thresh)
+    att_t = min(0.20, thresh)
 
-    critical_cnt = sum(1 for p in preds if p["failure_probability"] >= 0.70)
-    warning_cnt = sum(1 for p in preds if 0.70 > p["failure_probability"] >= thresh)
-    attention_cnt = sum(1 for p in preds if thresh > p["failure_probability"] >= 0.25)
-    normal_cnt = sum(1 for p in preds if p["failure_probability"] < 0.25)
+    # Exhaustive disjoint partition (sum == len(preds))
+    critical_cnt = sum(1 for p in preds if p["failure_probability"] >= crit_t)
+    warning_cnt = sum(1 for p in preds if crit_t > p["failure_probability"] >= thresh)
+    attention_cnt = sum(1 for p in preds if thresh > p["failure_probability"] >= att_t)
+    normal_cnt = sum(1 for p in preds if p["failure_probability"] < att_t)
+
+    # Filter by dynamically evaluated risk level
+    if risk_level:
+        target_risk = risk_level.upper()
+        preds = [p for p in preds if classify_risk(p["failure_probability"], thresh) == target_risk]
 
     sorted_preds = sorted(preds, key=lambda x: -x["failure_probability"])
     page_items = sorted_preds[offset : offset + limit]
@@ -50,11 +66,7 @@ def get_predictions(
             system_type=p.get("system_type", "Мониторинг"),
             tag=p.get("tag", ""),
             failure_probability=p["failure_probability"],
-            risk_level=(
-                "CRITICAL" if p["failure_probability"] >= 0.70
-                else ("WARNING" if p["failure_probability"] >= thresh
-                else ("ATTENTION" if p["failure_probability"] >= 0.25 else "NORMAL"))
-            ),
+            risk_level=classify_risk(p["failure_probability"], thresh),
             is_predicted_failure_24h=p["failure_probability"] >= thresh,
             recommended_action=p.get("recommended_action", ""),
             explanation_factors=p.get("explanation_factors", []),

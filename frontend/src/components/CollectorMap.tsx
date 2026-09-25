@@ -163,6 +163,7 @@ export const CollectorMap: React.FC<CollectorMapProps> = ({
           <option value="ALL">Все уровни риска ({objects.length})</option>
           <option value="CRITICAL">🔴 Критические ({objects.filter(o => o.risk_level === 'CRITICAL').length})</option>
           <option value="WARNING">🟡 Предупреждение ({objects.filter(o => o.risk_level === 'WARNING').length})</option>
+          <option value="ATTENTION">🔵 Внимание ({objects.filter(o => o.risk_level === 'ATTENTION').length})</option>
           <option value="NORMAL">🟢 В норме ({objects.filter(o => o.risk_level === 'NORMAL').length})</option>
         </select>
 
@@ -187,11 +188,15 @@ export const CollectorMap: React.FC<CollectorMapProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-[#FFB800]"></span>
-          <span>Предупреждение (&ge;45%) — В план ППР</span>
+          <span>Предупреждение (&ge;42%) — В план ППР</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#58A6FF]"></span>
+          <span>Внимание (20–42%) — Контроль ОДС</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-[#00FF66]"></span>
-          <span>Штатная работа (&lt;30%)</span>
+          <span>Штатная работа (&lt;20%)</span>
         </div>
         <div className="flex items-center gap-2 pt-1 border-t border-white/10">
           <span className="w-4 h-0.5 border-t-2 border-dashed border-[#58A6FF]"></span>

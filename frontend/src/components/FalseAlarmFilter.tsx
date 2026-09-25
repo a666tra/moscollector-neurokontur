@@ -11,6 +11,7 @@ export const FalseAlarmFilter: React.FC = () => {
   const [flips, setFlips] = useState(4);
   const [duration, setDuration] = useState(1.5);
   const [dispatcherBadge, setDispatcherBadge] = useState('ДИСП-7041');
+  const [dispatcherPin, setDispatcherPin] = useState('7041');
   const [dispatchers, setDispatchers] = useState<AuthorizedDispatcher[]>([]);
   const [auditStatus, setAuditStatus] = useState<AuditVerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,6 +19,14 @@ export const FalseAlarmFilter: React.FC = () => {
   const [confirmationNotice, setConfirmationNotice] = useState<string | null>(null);
 
   const [confirmedHistory, setConfirmedHistory] = useState<ConfirmedAlarmItem[]>([]);
+
+  const handleDispatcherChange = (b: string) => {
+    setDispatcherBadge(b);
+    if (b === 'ДИСП-7041') setDispatcherPin('7041');
+    else if (b === 'ДИСП-0482') setDispatcherPin('0482');
+    else if (b === 'ДИСП-3318') setDispatcherPin('3318');
+    else if (b === 'ДИСП-1094') setDispatcherPin('1094');
+  };
 
   const [result, setResult] = useState<AlarmClassificationResponse | null>({
     channel_id: '120578',
@@ -105,6 +114,7 @@ export const FalseAlarmFilter: React.FC = () => {
           channel_id: result.channel_id,
           decision: decision,
           dispatcher_badge: dispatcherBadge,
+          dispatcher_pin: dispatcherPin,
           notes: decision === 'CONFIRM_FALSE_ALARM' 
             ? 'Подтверждено диспетчером: спектральный дребезг геркона' 
             : 'Диспетчер принял решение о принудительной отправке бригады'
@@ -338,25 +348,40 @@ export const FalseAlarmFilter: React.FC = () => {
                       <UserCheck className="w-3.5 h-3.5 text-[#00FF66]" />
                       Уполномоченный диспетчер ОДС:
                     </span>
-                    <select
-                      value={dispatcherBadge}
-                      onChange={e => setDispatcherBadge(e.target.value)}
-                      className="bg-[#07090E] border border-white/10 rounded px-2 py-1 text-[11px] text-white font-mono focus:border-[#00FF66] focus:outline-none"
-                    >
-                      {dispatchers.length > 0 ? (
-                        dispatchers.map(d => (
-                          <option key={d.badge} value={d.badge}>
-                            {d.badge} - {d.full_name.split(' ')[0]} ({d.role})
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="ДИСП-7041">ДИСП-7041 - Кузнецов (Главный инженер)</option>
-                          <option value="ДИСП-0482">ДИСП-0482 - Иванов (Старший диспетчер)</option>
-                          <option value="ДИСП-3318">ДИСП-3318 - Смирнова (Ведущий диспетчер)</option>
-                        </>
-                      )}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={dispatcherBadge}
+                        onChange={e => handleDispatcherChange(e.target.value)}
+                        className="bg-[#07090E] border border-white/10 rounded px-2 py-1 text-[11px] text-white font-mono focus:border-[#00FF66] focus:outline-none"
+                      >
+                        {dispatchers.length > 0 ? (
+                          dispatchers.map(d => (
+                            <option key={d.badge} value={d.badge}>
+                              {d.badge} - {d.full_name.split(' ')[0]} ({d.role})
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="ДИСП-7041">ДИСП-7041 - Кузнецов (Главный инженер)</option>
+                            <option value="ДИСП-0482">ДИСП-0482 - Иванов (Старший диспетчер)</option>
+                            <option value="ДИСП-3318">ДИСП-3318 - Смирнова (Ведущий диспетчер)</option>
+                          </>
+                        )}
+                      </select>
+                      <div className="flex items-center gap-1 bg-[#07090E] px-2 py-0.5 rounded border border-white/10">
+                        <Lock className="w-3 h-3 text-[#00FF66]" />
+                        <span className="text-[10px] text-[#8B949E] font-mono">PIN:</span>
+                        <input
+                          type="password"
+                          maxLength={6}
+                          value={dispatcherPin}
+                          onChange={e => setDispatcherPin(e.target.value)}
+                          className="w-12 bg-transparent text-[11px] text-[#00FF66] font-mono text-center focus:outline-none"
+                          placeholder="****"
+                          title="Персональный PIN-код диспетчера для подтверждения (2FA)"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-1">

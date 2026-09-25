@@ -82,7 +82,8 @@ class AlarmClassificationResponse(BaseModel):
 class AlarmConfirmationRequest(BaseModel):
     channel_id: str
     decision: str  # CONFIRM_FALSE_ALARM or FORCE_DISPATCH
-    dispatcher_badge: str = Field("ДИСП-7041", pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$", description="Табельный номер диспетчера ОДС (формат ДИСП-XXXX)")
+    dispatcher_badge: str = Field(..., pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$", description="Табельный номер диспетчера ОДС (формат ДИСП-XXXX)")
+    dispatcher_pin: str = Field(..., min_length=4, max_length=6, description="Персональный 4-значный PIN-код диспетчера ОДС для подтверждения решения")
     notes: Optional[str] = None
 
 class AlarmConfirmationResponse(BaseModel):

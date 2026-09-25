@@ -61,17 +61,18 @@ class DataService:
             with open(met_path, "r", encoding="utf-8") as f:
                 self.metrics_report = json.load(f)
 
-    def get_object_risk_level(self, object_id: str) -> str:
+    def get_object_risk_level(self, object_id: str, threshold: float = 0.42) -> str:
         preds = self.predictions_by_object.get(object_id, [])
         if not preds:
             return "NORMAL"
         probs = [p["failure_probability"] for p in preds]
         max_p = max(probs)
-        if max_p >= 0.70:
+        crit_t = max(0.70, threshold)
+        if max_p >= crit_t:
             return "CRITICAL"
-        if max_p >= 0.45:
+        if max_p >= threshold:
             return "WARNING"
-        if max_p >= 0.30:
+        if max_p >= 0.20:
             return "ATTENTION"
         return "NORMAL"
 

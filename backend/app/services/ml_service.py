@@ -219,22 +219,19 @@ class MLService:
         
         latency_ms = (time.perf_counter() - t_start) * 1000
 
-        # Model-specific calibrated operating threshold
-        calibrated_threshold = self.optimal_thresholds.get(model_used, 0.8147)
-        if abs(active_settings.decision_threshold - 0.42) > 0.001:
-            threshold = active_settings.decision_threshold
-        else:
-            threshold = calibrated_threshold
-
+        # Uniform threshold strictly synchronized with system settings across entire platform
+        threshold = active_settings.decision_threshold
+        calibrated_threshold = self.optimal_thresholds.get(model_used, threshold)
         is_degradation = prob >= threshold
 
-        if prob >= 0.70:
+        crit_t = max(0.70, threshold)
+        if prob >= crit_t:
             risk = "CRITICAL"
             action = "Срочный наряд-заказ ТО на пикет. Превентивная замена сенсорного элемента."
         elif prob >= threshold:
             risk = "WARNING"
             action = "Плановый осмотр в графике ППР текущей недели."
-        elif prob >= 0.25:
+        elif prob >= 0.20:
             risk = "ATTENTION"
             action = "Повышенный контроль диспетчером ОДС. Мониторинг параметров питания."
         else:
@@ -374,10 +371,11 @@ class MLService:
         self,
         channel_id: str,
         decision: str,
-        dispatcher_badge: str = "ДИСП-7041",
+        dispatcher_badge: str,
+        dispatcher_pin: str = "",
         notes: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Human-in-the-loop decision confirmation by ODS dispatcher with RBAC & SHA-256 ledger chaining."""
+        """Human-in-the-loop decision confirmation by ODS dispatcher with 2FA (Badge + PIN), RBAC & SHA-256 ledger chaining."""
         active_settings = get_current_settings()
         now = datetime.now()
         is_suppress = decision in ("CONFIRM_FALSE_ALARM", "confirm_false")
@@ -396,6 +394,24 @@ class MLService:
             )
 
         disp = self.authorized_dispatchers[norm_badge]
+
+        # Authenticate dispatcher via PIN hash check
+        clean_pin = (dispatcher_pin or "").strip()
+        pin_hash = hashlib.sha256(clean_pin.encode('utf-8')).hexdigest()
+        stored_hash = disp.get("pin_hash")
+        if stored_hash and pin_hash != stored_hash:
+            raise ValueError(
+                f"Отказ в аутентификации: неверный PIN-код для табельного номера '{norm_badge}'. "
+                f"Операция подтверждения решения заблокирована согласно регламенту ИБ ОДС."
+            )
+
+        # Enforce RBAC permissions for suppressing false alarms
+        if is_suppress and not disp.get("can_confirm_false_alarm", True):
+            raise ValueError(
+                f"Отказ в доступе (RBAC): сотрудник с табельным номером '{norm_badge}' ({disp.get('role')}) "
+                f"не наделен полномочиями отмены аварийного выезда бригады."
+            )
+
         timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
         note_text = notes or ("Подтверждена ложная тревога диспетчером" if is_suppress else "Принудительный выезд бригады")
 
