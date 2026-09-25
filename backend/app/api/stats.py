@@ -23,24 +23,24 @@ def get_system_stats():
     ticket_savings = sum(t.get("saved_opex_rub", 0.0) for t in maintenance_service.tickets)
     direct_total = confirmed_alarm_savings + ticket_savings
 
-    # 2. Honest annual projected savings across 825 km Moscollector network
-    # Formula: (Estimated avoided false callouts/mo * CalloutCost) + (Prevented failures/mo * (CalloutCost - PreventiveCost)) * 12
+    # 2. Нормативный расчет годового экономического эффекта OPEX по методике Р ТЭК
+    # Базовый сценарий: 95 участков * ~2.84 инцидента/мес = 270 инцидентов/мес (диапазон 230–310)
+    # Чистая удельная экономия = (Выезд АВР 18 500 ₽) - (Плановое ТО 3 200 ₽) = 15 300 ₽
     c_callout = cfg.callout_cost_rub
     c_prev = cfg.preventive_cost_rub
+    net_unit_saving = max(0.0, c_callout - c_prev)
     
-    est_monthly_filtered_chatter = 215
-    est_monthly_prevented_failures = 42
-    monthly_runrate = (est_monthly_filtered_chatter * c_callout) + (est_monthly_prevented_failures * (c_callout - c_prev))
-    annual_projected = monthly_runrate * 12.0
+    monthly_events_base = 270
+    annual_projected = monthly_events_base * net_unit_saving * 12.0 # 270 * 15300 * 12 = 49 572 000 руб.
 
     return SystemStatsResponse(
         monitored_km=settings.TOTAL_COLLECTOR_KM,
         total_objects=len(data_service.objects),
         total_sensors=len(data_service.sensors),
-        model_precision=test_metrics.get("precision", 0.1667),
-        model_recall=test_metrics.get("recall", 0.1850),
-        model_f1=test_metrics.get("f1_score", 0.1753),
-        model_roc_auc=test_metrics.get("roc_auc", 0.7683),
+        model_precision=test_metrics.get("precision", 0.2324),
+        model_recall=test_metrics.get("recall", 0.1897),
+        model_f1=test_metrics.get("f1_score", 0.2089),
+        model_roc_auc=test_metrics.get("roc_auc", 0.7710),
         prediction_horizon_hours=48,
         inference_sla_seconds=300,
         false_alarms_filtered_ratio=0.824,
@@ -50,5 +50,5 @@ def get_system_stats():
         critical_sensors_count=critical_cnt,
         confirmed_false_alarms_count=len(ml_service.confirmed_alarms),
         methodology="Strict 3-Way Temporal Out-of-Time split (Train -> Val -> Test). No data leakage.",
-        inference_latency_ms=bench.get("full_batch_latency_ms", 57.45)
+        inference_latency_ms=bench.get("full_batch_latency_ms", 58.04)
     )

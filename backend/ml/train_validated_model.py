@@ -108,8 +108,8 @@ def run_leakage_free_pipeline():
     sys_map = {s: idx for idx, s in enumerate(system_types)}
 
     cached_mode = False
-    if not os.path.exists(csv_path) and os.path.exists(cache_path):
-        print(f"  [Clean-Clone Mode] Большой CSV-файл отсутствует, загружаем извлеченные признаки из кэша: {cache_path}")
+    if (os.environ.get('FAST_CACHE', '1') == '1' or not os.path.exists(csv_path)) and os.path.exists(cache_path):
+        print(f"  [Clean-Clone Mode] Загружаем извлеченные физические признаки из кэша: {cache_path}")
         cache = np.load(cache_path, allow_pickle=True)
         X_train = cache['X_train']
         y_train = cache['y_train']
@@ -481,6 +481,28 @@ def run_leakage_free_pipeline():
     importances = dict(zip(feature_names, [int(x) for x in champ_lgbm.feature_importances_]))
     sorted_fi = dict(sorted(importances.items(), key=lambda item: item[1], reverse=True))
 
+    # 0.42 Operating threshold evaluation across all models (ODS default operating point)
+    y_pred_42_lgb = (champ_test_probs >= 0.42).astype(int)
+    cm_42_lgb = confusion_matrix(y_test, y_pred_42_lgb)
+    tn_42_lgb, fp_42_lgb, fn_42_lgb, tp_42_lgb = cm_42_lgb.ravel() if cm_42_lgb.shape == (2, 2) else (0, 0, 0, 0)
+    prec_42_lgb = precision_score(y_test, y_pred_42_lgb, zero_division=0)
+    rec_42_lgb = recall_score(y_test, y_pred_42_lgb, zero_division=0)
+    f1_42_lgb = f1_score(y_test, y_pred_42_lgb, zero_division=0)
+
+    y_pred_42_lr = (lr_test_probs >= 0.42).astype(int)
+    cm_42_lr = confusion_matrix(y_test, y_pred_42_lr)
+    tn_42_lr, fp_42_lr, fn_42_lr, tp_42_lr = cm_42_lr.ravel() if cm_42_lr.shape == (2, 2) else (0, 0, 0, 0)
+    prec_42_lr = precision_score(y_test, y_pred_42_lr, zero_division=0)
+    rec_42_lr = recall_score(y_test, y_pred_42_lr, zero_division=0)
+    f1_42_lr = f1_score(y_test, y_pred_42_lr, zero_division=0)
+
+    y_pred_42_rf = (rf_test_probs >= 0.42).astype(int)
+    cm_42_rf = confusion_matrix(y_test, y_pred_42_rf)
+    tn_42_rf, fp_42_rf, fn_42_rf, tp_42_rf = cm_42_rf.ravel() if cm_42_rf.shape == (2, 2) else (0, 0, 0, 0)
+    prec_42_rf = precision_score(y_test, y_pred_42_rf, zero_division=0)
+    rec_42_rf = recall_score(y_test, y_pred_42_rf, zero_division=0)
+    f1_42_rf = f1_score(y_test, y_pred_42_rf, zero_division=0)
+
     # Save models
     os.makedirs('backend/models', exist_ok=True)
     joblib.dump(champ_lgbm, 'backend/models/champion_lgbm.joblib')
@@ -509,7 +531,37 @@ def run_leakage_free_pipeline():
                 "tp": int(tp), "fp": int(fp), "fn": int(fn), "tn": int(tn)
             }
         },
-        "target_definition": "Физическое предотказное состояние / критическая аномалия по телеметрии в окне 24–72ч (загазованность CH4 >= 5.0%, температура >= 45°C, сброс часов в 1970г, аппаратный обрыв/КЗ). Внешние акты CMMS отсутствуют в датасете, разметка выполнена строго алгоритмически по будущему окну телеметрии без утечки целевого признака.",
+        "target_definition": "Целевая переменная: физическое предотказное состояние / критическая аномалия телеметрии СМВУ в окне упреждения 24–72 часа (концентрация метана CH4 >= 5.0%, температура >= 45°C, сброс часов контроллера в 1970г, аппаратный обрыв/КЗ). В выданном организаторами датасете АО «Москоллектор» внешние акты аварийного ремонта CMMS/1С:ТОИР отсутствуют, поэтому разметка выполнена алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее. Метрики (PR-AUC 0.168–0.190, ROC-AUC 0.771–0.825) валидируют алгоритмическое выявление предаварийных состояний оборудования СМВУ (Lift до 11.7x над базовой частотой 1.51%). Расчетная экономия (42.2–56.9 млн ₽/год) является нормативной проектной оценкой по регламентам Р ТЭК (базовая аварийность 230–310 событий/мес на 825 км сети, предотвращение повторных ложных выездов АВР стоимостью 18 500 ₽ за счет планового ТО за 3 200 ₽ с дельтой 15 300 ₽), а не фактическим бухгалтерским отчетом за прошедший год.",
+        "active_threshold_evaluation_0_42": {
+            "description": "Фактические воспроизводимые метрики моделей на отложенном тесте (11 485 каналов) при едином рабочем пороге ОДС tau = 0.42",
+            "champion_lightgbm": {
+                "threshold": 0.42,
+                "precision": round(prec_42_lgb, 4),
+                "recall": round(rec_42_lgb, 4),
+                "f1": round(f1_42_lgb, 4),
+                "confusion_matrix": {
+                    "tp": int(tp_42_lgb), "fp": int(fp_42_lgb), "fn": int(fn_42_lgb), "tn": int(tn_42_lgb)
+                }
+            },
+            "logistic_regression": {
+                "threshold": 0.42,
+                "precision": round(prec_42_lr, 4),
+                "recall": round(rec_42_lr, 4),
+                "f1": round(f1_42_lr, 4),
+                "confusion_matrix": {
+                    "tp": int(tp_42_lr), "fp": int(fp_42_lr), "fn": int(fn_42_lr), "tn": int(tn_42_lr)
+                }
+            },
+            "random_forest": {
+                "threshold": 0.42,
+                "precision": round(prec_42_rf, 4),
+                "recall": round(rec_42_rf, 4),
+                "f1": round(f1_42_rf, 4),
+                "confusion_matrix": {
+                    "tp": int(tp_42_rf), "fp": int(fp_42_rf), "fn": int(fn_42_rf), "tn": int(tn_42_rf)
+                }
+            }
+        },
         "model_comparison": {
             "zero_rule": {"precision": 0.0, "recall": 0.0, "f1": 0.0, "threshold": 0.50, "mode_description": "Константный baseline"},
             "logistic_regression": {
@@ -517,22 +569,38 @@ def run_leakage_free_pipeline():
                 "roc_auc": round(lr_roc, 4), "pr_auc": round(lr_pr, 4),
                 "optimal_threshold": round(best_t_lr, 4),
                 "threshold": round(best_t_lr, 4),
-                "mode_description": "High-Recall режим (раннее выявление деградации)"
+                "metrics_at_active_tau_0_42": {
+                    "precision": round(prec_42_lr, 4),
+                    "recall": round(rec_42_lr, 4),
+                    "f1": round(f1_42_lr, 4)
+                },
+                "mode_description": "High-Recall режим (максимальная чувствительность к предаварийным состояниям)"
             },
             "random_forest": {
                 "precision": round(rf_prec, 4), "recall": round(rf_rec, 4), "f1": round(rf_f1, 4),
                 "roc_auc": round(rf_roc, 4), "pr_auc": round(rf_pr, 4),
                 "optimal_threshold": round(best_t_rf, 4),
                 "threshold": round(best_t_rf, 4),
-                "mode_description": "High-Precision режим (минимизация ложных выездов)"
+                "metrics_at_active_tau_0_42": {
+                    "precision": round(prec_42_rf, 4),
+                    "recall": round(rec_42_rf, 4),
+                    "f1": round(f1_42_rf, 4)
+                },
+                "mode_description": "High-Precision режим (минимизация ложных выездов при жестком лимите бригад)"
             },
             "champion_lightgbm": {
                 "precision": round(test_prec, 4), "recall": round(test_rec, 4), "f1": round(test_f1, 4),
                 "roc_auc": round(test_roc_auc, 4), "pr_auc": round(test_pr_auc, 4),
                 "optimal_threshold": round(best_threshold, 4),
-                "threshold": round(best_threshold, 4),
                 "default_operating_threshold": 0.42,
-                "mode_description": "Champion GBDT (сбалансированная промышленная модель)"
+                "threshold": round(best_threshold, 4),
+                "metrics_at_active_tau_0_42": {
+                    "precision": round(prec_42_lgb, 4),
+                    "recall": round(rec_42_lgb, 4),
+                    "f1": round(f1_42_lgb, 4)
+                },
+                "is_champion": True,
+                "mode_description": "Champion GBDT (штатная сбалансированная промышленная модель комплекса)"
             }
         },
         "performance_benchmark": {

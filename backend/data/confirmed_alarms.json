@@ -10,8 +10,8 @@
     "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
     "timestamp": "2026-09-25 10:15:22",
     "notes": "Дребезг контактов датчика движения при вибрации магистрали",
-    "prev_hash": "94ad8f85b4d6f635287d31dba15d296e58cdf635f9afd9c2fd533e2e46427de4",
-    "record_hash": "8dd24fe5f90ee7ce061f802bc8f791c40cf7498fe2230e588b49ab272cad0520",
+    "prev_hash": "02231d273b1159356ecf54259302c2efac7d77b830bc4fd356605f29548f85f2",
+    "record_hash": "b002443b69e93b4dfe15a9d78e9b8b5a67d271543edb214d6a68102d12b19ddf",
     "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
   },
   {
@@ -25,8 +25,8 @@
     "clearance_level": "Level-3 (Главный диспетчер)",
     "timestamp": "2026-09-25 09:45:00",
     "notes": "Аппаратный отказ датчика температуры, направлена бригада ППР",
-    "prev_hash": "df5c303f84a1a5099608efa49e8c6cd28f45d8ec618cf06a868c4d9db8b2af2d",
-    "record_hash": "94ad8f85b4d6f635287d31dba15d296e58cdf635f9afd9c2fd533e2e46427de4",
+    "prev_hash": "97dc1b23b6e11a6d342d954c9251b7e4bc8f58b1ee34de76567efbcb013a76a5",
+    "record_hash": "02231d273b1159356ecf54259302c2efac7d77b830bc4fd356605f29548f85f2",
     "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
   },
   {
@@ -40,8 +40,8 @@
     "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
     "timestamp": "2026-09-25 09:12:40",
     "notes": "Кратковременный всплеск концентрации при продувке вентиляции",
-    "prev_hash": "b2bf42ded6b3464ccc6ac398575ff56e15d006b5262ee17a6d5fc45b2ba487ad",
-    "record_hash": "df5c303f84a1a5099608efa49e8c6cd28f45d8ec618cf06a868c4d9db8b2af2d",
+    "prev_hash": "1733fed5faa16c7614ec30dbd096acda7dac37abbe3c42e3e1b3e05bc975c486",
+    "record_hash": "97dc1b23b6e11a6d342d954c9251b7e4bc8f58b1ee34de76567efbcb013a76a5",
     "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
   },
   {
@@ -56,7 +56,7 @@
     "timestamp": "2026-09-25 08:30:15",
     "notes": "Подтвержден механический дребезг концевика люка СМВУ",
     "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "record_hash": "b2bf42ded6b3464ccc6ac398575ff56e15d006b5262ee17a6d5fc45b2ba487ad",
+    "record_hash": "1733fed5faa16c7614ec30dbd096acda7dac37abbe3c42e3e1b3e05bc975c486",
     "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
   }
 ]

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-25T21:24:38.917582",
+  "timestamp": "2026-09-25T23:28:33.228107",
   "methodology": "Strict 3-Way Temporal Split (Train -> Validation -> Test). No data leakage. Target defined strictly by future physical events in horizon 24-72h.",
   "random_seed": 42,
   "prediction_horizon_hours": "24–72h",
@@ -67,10 +67,8 @@
       "precision": 0.0,
       "recall": 0.0,
       "f1": 0.0,
-      "roc_auc": 0.5,
-      "pr_auc": 0.0151,
       "threshold": 0.5,
-      "mode_description": "Константный baseline (Random / Zero-Rule)"
+      "mode_description": "Константный baseline"
     },
     "logistic_regression": {
       "precision": 0.1482,
@@ -79,6 +77,7 @@
       "roc_auc": 0.8247,
       "pr_auc": 0.1898,
       "optimal_threshold": 0.8,
+      "threshold": 0.8,
       "metrics_at_active_tau_0_42": {
         "precision": 0.0305,
         "recall": 0.7989,
@@ -93,6 +92,7 @@
       "roc_auc": 0.7335,
       "pr_auc": 0.1606,
       "optimal_threshold": 0.7695,
+      "threshold": 0.7695,
       "metrics_at_active_tau_0_42": {
         "precision": 0.0639,
         "recall": 0.2701,
@@ -108,6 +108,7 @@
       "pr_auc": 0.1679,
       "optimal_threshold": 0.845,
       "default_operating_threshold": 0.42,
+      "threshold": 0.845,
       "metrics_at_active_tau_0_42": {
         "precision": 0.0823,
         "recall": 0.3161,
@@ -119,13 +120,13 @@
   },
   "performance_benchmark": {
     "full_batch_channels_count": 11485,
-    "full_batch_latency_ms": 58.04,
-    "full_batch_p95_latency_ms": 63.93,
-    "single_sensor_latency_ms": 1.316,
-    "single_sensor_p95_latency_ms": 1.886,
-    "throughput_sensors_per_sec": 197894,
+    "full_batch_latency_ms": 62.86,
+    "full_batch_p95_latency_ms": 70.65,
+    "single_sensor_latency_ms": 1.498,
+    "single_sensor_p95_latency_ms": 2.585,
+    "throughput_sensors_per_sec": 182697,
     "tz_sla_seconds": 300.0,
-    "speedup_vs_sla": 5169.0
+    "speedup_vs_sla": 4772.0
   },
   "feature_importance": {
     "silence_hours": 2060,

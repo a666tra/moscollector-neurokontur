@@ -368,15 +368,15 @@ export const FalseAlarmFilter: React.FC = () => {
                       </select>
                       <div className="flex items-center gap-1 bg-[#07090E] px-2 py-0.5 rounded border border-white/10">
                         <Lock className="w-3 h-3 text-[#00FF66]" />
-                        <span className="text-[10px] text-[#8B949E] font-mono">PIN:</span>
+                        <span className="text-[10px] text-[#8B949E] font-mono">PIN (6 цифр):</span>
                         <input
                           type="password"
                           maxLength={6}
                           value={dispatcherPin}
                           onChange={e => setDispatcherPin(e.target.value)}
-                          className="w-12 bg-transparent text-[11px] text-[#00FF66] font-mono text-center focus:outline-none"
-                          placeholder="****"
-                          title="Персональный PIN-код диспетчера для подтверждения (2FA)"
+                          className="w-16 bg-transparent text-[11px] text-[#00FF66] font-mono text-center focus:outline-none border-b border-white/20 focus:border-[#00FF66]"
+                          placeholder="******"
+                          title="Персональный 6-значный PIN-код диспетчера для подтверждения (2FA)"
                         />
                       </div>
                     </div>

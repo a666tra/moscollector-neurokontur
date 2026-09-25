@@ -80,7 +80,7 @@ class MLService:
                     "full_name": "Кузнецов Артем Дмитриевич",
                     "role": "Главный инженер смены ОДС",
                     "clearance_level": "Level-3 (Главный диспетчер)",
-                    "pin_hash": hashlib.sha256("7041".encode('utf-8')).hexdigest(),
+                    "pin_hash": hashlib.sha256("704192".encode('utf-8')).hexdigest(),
                     "can_confirm_false_alarm": True,
                     "can_force_dispatch": True
                 },
@@ -89,26 +89,26 @@ class MLService:
                     "full_name": "Иванов Илья Сергеевич",
                     "role": "Старший диспетчер ОДС №1",
                     "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
-                    "pin_hash": hashlib.sha256("0482".encode('utf-8')).hexdigest(),
+                    "pin_hash": hashlib.sha256("048251".encode('utf-8')).hexdigest(),
                     "can_confirm_false_alarm": True,
                     "can_force_dispatch": True
                 },
                 "ДИСП-3318": {
                     "badge": "ДИСП-3318",
-                    "full_name": "Смирнова Елена Павловна",
-                    "role": "Диспетчер-стажер ОДС",
-                    "clearance_level": "Level-1 (Базовый доступ)",
-                    "pin_hash": hashlib.sha256("3318".encode('utf-8')).hexdigest(),
-                    "can_confirm_false_alarm": False,
+                    "full_name": "Смирнова Елена Михайловна",
+                    "role": "Ведущий диспетчер ОДС",
+                    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
+                    "pin_hash": hashlib.sha256("331844".encode('utf-8')).hexdigest(),
+                    "can_confirm_false_alarm": True,
                     "can_force_dispatch": True
                 },
                 "ДИСП-1094": {
                     "badge": "ДИСП-1094",
-                    "full_name": "Петров Михаил Сергеевич",
-                    "role": "Инженер КИПиА дежурной смены",
-                    "clearance_level": "Level-2 (Технический персонал)",
-                    "pin_hash": hashlib.sha256("1094".encode('utf-8')).hexdigest(),
-                    "can_confirm_false_alarm": True,
+                    "full_name": "Петров Сергей Владимирович",
+                    "role": "Инженер-диспетчер телеметрии",
+                    "clearance_level": "Level-1 (Оператор СМВУ)",
+                    "pin_hash": hashlib.sha256("109407".encode('utf-8')).hexdigest(),
+                    "can_confirm_false_alarm": False,
                     "can_force_dispatch": True
                 }
             }
@@ -215,8 +215,9 @@ class MLService:
 
         active_settings = get_current_settings()
         selected_mod = (model_name or active_settings.selected_model or "champion_lightgbm").lower()
-        prob = 0.05
-        model_used = "champion_lightgbm"
+        model_executed = False
+        prob = 0.0
+        model_used = selected_mod
 
         if "logistic" in selected_mod and self.model_lr is not None:
             try:
@@ -224,6 +225,7 @@ class MLService:
                 probs = self.model_lr.predict_proba(scaled)
                 prob = float(probs[0][1])
                 model_used = "logistic_regression"
+                model_executed = True
             except Exception as e:
                 print(f"LogisticRegression error: {e}")
         elif "forest" in selected_mod and self.model_rf is not None:
@@ -231,6 +233,7 @@ class MLService:
                 probs = self.model_rf.predict_proba(feature_vec)
                 prob = float(probs[0][1])
                 model_used = "random_forest"
+                model_executed = True
             except Exception as e:
                 print(f"RandomForest error: {e}")
         elif self.model_lgbm is not None:
@@ -238,8 +241,16 @@ class MLService:
                 probs = self.model_lgbm.predict_proba(feature_vec)
                 prob = float(probs[0][1])
                 model_used = "champion_lightgbm"
+                model_executed = True
             except Exception as e:
                 print(f"LightGBM error: {e}")
+
+        if not model_executed:
+            raise RuntimeError(
+                f"Критический отказ ML-контура: модель '{selected_mod}' не инициализирована или "
+                f"недоступна для инференса. Автоматический возврат ложно-безопасного статуса NORMAL "
+                f"заблокирован согласно требованиям ГОСТ Р 53195."
+            )
         
         latency_ms = (time.perf_counter() - t_start) * 1000
 
@@ -402,7 +413,15 @@ class MLService:
         """Human-in-the-loop decision confirmation by ODS dispatcher with 2FA (Badge + PIN), RBAC & SHA-256 ledger chaining."""
         active_settings = get_current_settings()
         now = datetime.now()
-        is_suppress = decision in ("CONFIRM_FALSE_ALARM", "confirm_false")
+
+        # Enforce strict decision enum
+        if decision not in ("CONFIRM_FALSE_ALARM", "FORCE_DISPATCH"):
+            raise ValueError(
+                f"Недопустимое решение диспетчера: '{decision}'. "
+                f"Разрешены только строго регламентированные операции: 'CONFIRM_FALSE_ALARM' или 'FORCE_DISPATCH'."
+            )
+
+        is_suppress = (decision == "CONFIRM_FALSE_ALARM")
         avoided = active_settings.callout_cost_rub if is_suppress else 0.0
 
         # Normalization and RBAC verification
@@ -429,11 +448,16 @@ class MLService:
                 f"Операция подтверждения решения заблокирована согласно регламенту ИБ ОДС."
             )
 
-        # Enforce RBAC permissions for suppressing false alarms
+        # Enforce RBAC permissions
         if is_suppress and not disp.get("can_confirm_false_alarm", True):
             raise ValueError(
                 f"Отказ в доступе (RBAC): сотрудник с табельным номером '{norm_badge}' ({disp.get('role')}) "
                 f"не наделен полномочиями отмены аварийного выезда бригады."
+            )
+        if (not is_suppress) and not disp.get("can_force_dispatch", True):
+            raise ValueError(
+                f"Отказ в доступе (RBAC): сотрудник с табельным номером '{norm_badge}' ({disp.get('role')}) "
+                f"не наделен полномочиями принудительного вызова аварийной бригады."
             )
 
         timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -445,7 +469,7 @@ class MLService:
             # Most recent record is at index 0
             prev_hash = self.confirmed_alarms[0].get("record_hash") or ("0" * 64)
 
-        hash_payload = f"{prev_hash}|{channel_id}|{decision}|{norm_badge}|{timestamp_str}|{note_text}".encode('utf-8')
+        hash_payload = f"{prev_hash}|{channel_id}|{decision}|{norm_badge}|{timestamp_str}|{avoided:.2f}|{note_text}".encode('utf-8')
         record_hash = hashlib.sha256(hash_payload).hexdigest()
 
         record = {
@@ -516,11 +540,12 @@ class MLService:
             decision = rec.get("decision", "")
             ts = rec.get("timestamp", "")
             notes = rec.get("notes", "")
+            avoided = float(rec.get("avoided_cost_rub", 0.0))
 
             badge_ok = badge in self.authorized_dispatchers
             link_ok = (idx == 0 and rec_prev == "0" * 64) or (idx > 0 and rec_prev == expected_prev)
 
-            payload = f"{rec_prev}|{channel_id}|{decision}|{badge}|{ts}|{notes}".encode('utf-8')
+            payload = f"{rec_prev}|{channel_id}|{decision}|{badge}|{ts}|{avoided:.2f}|{notes}".encode('utf-8')
             computed_hash = hashlib.sha256(payload).hexdigest()
             hash_ok = (computed_hash == rec_hash)
 

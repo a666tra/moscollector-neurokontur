@@ -184,7 +184,7 @@ def test_alarm_confirmation():
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "7041-ОДС",
-        "dispatcher_pin": "7041",
+        "dispatcher_pin": "704192",
         "notes": "Подтвержден дребезг концевика люка"
     })
     assert res.status_code == 200
@@ -237,6 +237,25 @@ def test_audit_chain_integrity():
     assert len(data["head_hash"]) == 64
     assert "ГОСТ Р 53195" in data["standard"]
 
+def test_audit_tamper_detection_on_financial_metric():
+    """Проверка криптографического контроля целостности: изменение avoided_cost_rub фиксирует подделку блока."""
+    from backend.app.services.ml_service import ml_service
+    assert len(ml_service.confirmed_alarms) > 0
+    orig_cost = ml_service.confirmed_alarms[0]["avoided_cost_rub"]
+    try:
+        # Злоумышленник пытается изменить сумму предотвращенного ущерба в реестре
+        ml_service.confirmed_alarms[0]["avoided_cost_rub"] = 999999.0
+        res = client.get("/api/alarms/audit/verify")
+        assert res.status_code == 200
+        tamper_data = res.json()
+        assert tamper_data["is_valid"] is False
+        assert tamper_data["tamper_detected"] is True
+    finally:
+        # Восстановление оригинальной суммы
+        ml_service.confirmed_alarms[0]["avoided_cost_rub"] = orig_cost
+        restore_check = ml_service.verify_audit_log_integrity()
+        assert restore_check["is_valid"] is True
+
 def test_dispatcher_rbac_security():
     # 0. Public dispatchers list must NEVER leak pin_hash
     res_list = client.get("/api/alarms/dispatchers")
@@ -246,12 +265,12 @@ def test_dispatcher_rbac_security():
         assert "badge" in d
         assert "role" in d
 
-    # 1. Authorized badge + valid PIN should succeed and chain cryptographic block
+    # 1. Authorized badge + valid 6-digit PIN should succeed and chain cryptographic block
     res_ok = client.post("/api/alarms/confirm", json={
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "ДИСП-7041",
-        "dispatcher_pin": "7041",
+        "dispatcher_pin": "704192",
         "notes": "Штатная проверка регламента КИИ"
     })
     assert res_ok.status_code == 200
@@ -261,12 +280,12 @@ def test_dispatcher_rbac_security():
     assert len(data_ok["record_hash"]) == 64
     assert len(data_ok["prev_hash"]) == 64
 
-    # 2. Invalid PIN must be rejected with 401 Unauthorized
+    # 2. Invalid 6-digit PIN must be rejected with 401 Unauthorized
     res_wrong_pin = client.post("/api/alarms/confirm", json={
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "ДИСП-7041",
-        "dispatcher_pin": "9999",
+        "dispatcher_pin": "999999",
         "notes": "Попытка с неверным PIN"
     })
     assert res_wrong_pin.status_code == 401
@@ -277,7 +296,7 @@ def test_dispatcher_rbac_security():
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "ДИСП-1094",
-        "dispatcher_pin": "1094",
+        "dispatcher_pin": "109407",
         "notes": "Попытка отмены тревоги оператором без прав на снятие аварии"
     })
     assert res_trainee.status_code == 403
@@ -288,11 +307,50 @@ def test_dispatcher_rbac_security():
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",
         "dispatcher_badge": "ДИСП-9999",
-        "dispatcher_pin": "1234",
+        "dispatcher_pin": "123456",
         "notes": "Попытка несанкционированного доступа"
     })
     assert res_bad.status_code == 403
     assert "Отказ в авторизации" in res_bad.json()["detail"]
+
+def test_prediction_reconciliation_endpoint():
+    """Проверка работы §18 ТЗ: аудиторская сверка с фактическими инцидентами SCADA."""
+    res = client.get("/api/predictions/reconciliation")
+    assert res.status_code == 200
+    data = res.json()
+    assert "ГОСТ Р 53195" in data["audit_standard"]
+    assert data["dataset_channels_total"] == 11485
+    assert data["actual_incidents_recorded"] == 174
+    assert "operational_matrix_tau_0_42" in data
+    assert data["operational_matrix_tau_0_42"]["threshold"] == 0.42
+    assert "optimal_matrix_tau_0_845" in data
+    assert data["optimal_matrix_tau_0_845"]["threshold"] == 0.845
+    assert len(data["recommendation_vs_ground_truth_policy"]) >= 3
+    assert len(data["sample_verified_cases"]) >= 4
+
+def test_model_failure_fail_closed_503():
+    """Проверка Fail-Closed безопасности: отказ ML-модели возвращает HTTP 503, а не ложный NORMAL."""
+    from backend.app.services.ml_service import ml_service
+    orig_lgb = ml_service.model_lgbm
+    orig_lr = ml_service.model_lr
+    orig_rf = ml_service.model_rf
+    try:
+        # Имитация аварийной выгрузки / сбоя ML-рантайма
+        ml_service.model_lgbm = None
+        ml_service.model_lr = None
+        ml_service.model_rf = None
+
+        res = client.post("/api/predictions/score", json={
+            "channel_id": "120578",
+            "cnt_24h": 0,
+            "cnt_7d": 10
+        })
+        assert res.status_code == 503
+        assert "Критический отказ ML-контура" in res.json()["detail"]
+    finally:
+        ml_service.model_lgbm = orig_lgb
+        ml_service.model_lr = orig_lr
+        ml_service.model_rf = orig_rf
 
 def test_real_recent_alarms_stream():
     res = client.get("/api/alarms/recent")

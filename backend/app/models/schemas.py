@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 class SensorChannel(BaseModel):
@@ -81,9 +81,11 @@ class AlarmClassificationResponse(BaseModel):
 
 class AlarmConfirmationRequest(BaseModel):
     channel_id: str
-    decision: str  # CONFIRM_FALSE_ALARM or FORCE_DISPATCH
+    decision: Literal["CONFIRM_FALSE_ALARM", "FORCE_DISPATCH"] = Field(
+        ..., description="Решение диспетчера: CONFIRM_FALSE_ALARM (отмена вызова) или FORCE_DISPATCH (принудительный выезд)"
+    )
     dispatcher_badge: str = Field(..., pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$", description="Табельный номер диспетчера ОДС (формат ДИСП-XXXX)")
-    dispatcher_pin: str = Field(..., min_length=4, max_length=6, description="Персональный 4-значный PIN-код диспетчера ОДС для подтверждения решения")
+    dispatcher_pin: str = Field(..., pattern=r"^\d{6}$", description="Персональный 6-значный PIN-код диспетчера ОДС для подтверждения решения")
     notes: Optional[str] = None
 
 class AlarmConfirmationResponse(BaseModel):
