@@ -238,6 +238,14 @@ def test_audit_chain_integrity():
     assert "ГОСТ Р 53195" in data["standard"]
 
 def test_dispatcher_rbac_security():
+    # 0. Public dispatchers list must NEVER leak pin_hash
+    res_list = client.get("/api/alarms/dispatchers")
+    assert res_list.status_code == 200
+    for d in res_list.json():
+        assert "pin_hash" not in d, "Security vulnerability: pin_hash leaked over public API!"
+        assert "badge" in d
+        assert "role" in d
+
     # 1. Authorized badge + valid PIN should succeed and chain cryptographic block
     res_ok = client.post("/api/alarms/confirm", json={
         "channel_id": "120578",
@@ -264,7 +272,18 @@ def test_dispatcher_rbac_security():
     assert res_wrong_pin.status_code == 401
     assert "неверный PIN" in res_wrong_pin.json()["detail"]
 
-    # 3. Unauthorized badge must be rejected with 403 Forbidden
+    # 3. Level-1 Operator role (ДИСП-1094) without can_confirm_false_alarm must be rejected with 403
+    res_trainee = client.post("/api/alarms/confirm", json={
+        "channel_id": "120578",
+        "decision": "CONFIRM_FALSE_ALARM",
+        "dispatcher_badge": "ДИСП-1094",
+        "dispatcher_pin": "1094",
+        "notes": "Попытка отмены тревоги оператором без прав на снятие аварии"
+    })
+    assert res_trainee.status_code == 403
+    assert "RBAC" in res_trainee.json()["detail"]
+
+    # 4. Unauthorized badge must be rejected with 403 Forbidden
     res_bad = client.post("/api/alarms/confirm", json={
         "channel_id": "120578",
         "decision": "CONFIRM_FALSE_ALARM",

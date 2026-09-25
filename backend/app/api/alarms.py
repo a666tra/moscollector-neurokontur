@@ -58,8 +58,11 @@ def verify_audit_chain():
 
 @router.get("/dispatchers", response_model=List[Dict[str, Any]])
 def get_authorized_dispatchers():
-    """Реестр уполномоченного персонала ОДС с правами подтверждения тревог"""
-    return list(ml_service.authorized_dispatchers.values())
+    """Реестр уполномоченного персонала ОДС с правами подтверждения тревог (без раскрытия хешей PIN)"""
+    return [
+        {k: v for k, v in d.items() if k != "pin_hash"}
+        for d in ml_service.authorized_dispatchers.values()
+    ]
 
 @router.get("/recent", response_model=List[AlarmEvent])
 def get_recent_alarms():

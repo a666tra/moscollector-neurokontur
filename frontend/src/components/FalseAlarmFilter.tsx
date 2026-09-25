@@ -11,7 +11,7 @@ export const FalseAlarmFilter: React.FC = () => {
   const [flips, setFlips] = useState(4);
   const [duration, setDuration] = useState(1.5);
   const [dispatcherBadge, setDispatcherBadge] = useState('ДИСП-7041');
-  const [dispatcherPin, setDispatcherPin] = useState('7041');
+  const [dispatcherPin, setDispatcherPin] = useState('');
   const [dispatchers, setDispatchers] = useState<AuthorizedDispatcher[]>([]);
   const [auditStatus, setAuditStatus] = useState<AuditVerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,10 +22,8 @@ export const FalseAlarmFilter: React.FC = () => {
 
   const handleDispatcherChange = (b: string) => {
     setDispatcherBadge(b);
-    if (b === 'ДИСП-7041') setDispatcherPin('7041');
-    else if (b === 'ДИСП-0482') setDispatcherPin('0482');
-    else if (b === 'ДИСП-3318') setDispatcherPin('3318');
-    else if (b === 'ДИСП-1094') setDispatcherPin('1094');
+    setDispatcherPin(''); // Обязательный ручной ввод PIN-кода каждым диспетчером (защита от несанкционированного действия)
+    setConfirmationNotice(null);
   };
 
   const [result, setResult] = useState<AlarmClassificationResponse | null>({

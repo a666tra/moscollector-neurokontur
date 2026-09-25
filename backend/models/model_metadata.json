@@ -1,13 +1,13 @@
 {
   "optimal_thresholds": {
-    "champion_lightgbm": 0.8147,
+    "champion_lightgbm": 0.845,
     "logistic_regression": 0.8,
-    "random_forest": 0.7797
+    "random_forest": 0.7695
   },
   "default_ui_thresholds": {
     "champion_lightgbm": 0.42,
     "logistic_regression": 0.8,
-    "random_forest": 0.7797
+    "random_forest": 0.7695
   },
   "feature_names": [
     "cnt_24h",

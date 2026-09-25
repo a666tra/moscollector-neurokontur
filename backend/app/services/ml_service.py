@@ -79,13 +79,37 @@ class MLService:
                     "badge": "ДИСП-7041",
                     "full_name": "Кузнецов Артем Дмитриевич",
                     "role": "Главный инженер смены ОДС",
-                    "clearance_level": "Level-3 (Главный диспетчер)"
+                    "clearance_level": "Level-3 (Главный диспетчер)",
+                    "pin_hash": hashlib.sha256("7041".encode('utf-8')).hexdigest(),
+                    "can_confirm_false_alarm": True,
+                    "can_force_dispatch": True
                 },
                 "ДИСП-0482": {
                     "badge": "ДИСП-0482",
                     "full_name": "Иванов Илья Сергеевич",
                     "role": "Старший диспетчер ОДС №1",
-                    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)"
+                    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
+                    "pin_hash": hashlib.sha256("0482".encode('utf-8')).hexdigest(),
+                    "can_confirm_false_alarm": True,
+                    "can_force_dispatch": True
+                },
+                "ДИСП-3318": {
+                    "badge": "ДИСП-3318",
+                    "full_name": "Смирнова Елена Павловна",
+                    "role": "Диспетчер-стажер ОДС",
+                    "clearance_level": "Level-1 (Базовый доступ)",
+                    "pin_hash": hashlib.sha256("3318".encode('utf-8')).hexdigest(),
+                    "can_confirm_false_alarm": False,
+                    "can_force_dispatch": True
+                },
+                "ДИСП-1094": {
+                    "badge": "ДИСП-1094",
+                    "full_name": "Петров Михаил Сергеевич",
+                    "role": "Инженер КИПиА дежурной смены",
+                    "clearance_level": "Level-2 (Технический персонал)",
+                    "pin_hash": hashlib.sha256("1094".encode('utf-8')).hexdigest(),
+                    "can_confirm_false_alarm": True,
+                    "can_force_dispatch": True
                 }
             }
 
@@ -395,11 +419,11 @@ class MLService:
 
         disp = self.authorized_dispatchers[norm_badge]
 
-        # Authenticate dispatcher via PIN hash check
+        # Authenticate dispatcher via PIN hash check (Fail-Closed security)
         clean_pin = (dispatcher_pin or "").strip()
         pin_hash = hashlib.sha256(clean_pin.encode('utf-8')).hexdigest()
         stored_hash = disp.get("pin_hash")
-        if stored_hash and pin_hash != stored_hash:
+        if not stored_hash or pin_hash != stored_hash:
             raise ValueError(
                 f"Отказ в аутентификации: неверный PIN-код для табельного номера '{norm_badge}'. "
                 f"Операция подтверждения решения заблокирована согласно регламенту ИБ ОДС."
