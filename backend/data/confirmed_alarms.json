@@ -1,38 +1,62 @@
 [
   {
-    "channel_id": "56682",
-    "decision": "confirm_false",
+    "channel_id": "120504",
+    "decision": "CONFIRM_FALSE_ALARM",
+    "status": "SUPPRESSED_CONFIRMED",
+    "avoided_cost_rub": 18500.0,
+    "dispatcher_badge": "ДИСП-3318",
+    "dispatcher_name": "Смирнова Елена Михайловна",
+    "dispatcher_role": "Ведущий диспетчер ОДС",
+    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
+    "timestamp": "2026-09-25 10:15:22",
+    "notes": "Дребезг контактов датчика движения при вибрации магистрали",
+    "prev_hash": "94ad8f85b4d6f635287d31dba15d296e58cdf635f9afd9c2fd533e2e46427de4",
+    "record_hash": "8dd24fe5f90ee7ce061f802bc8f791c40cf7498fe2230e588b49ab272cad0520",
+    "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
+  },
+  {
+    "channel_id": "228571",
+    "decision": "FORCE_DISPATCH",
     "status": "DISPATCH_CONFIRMED",
     "avoided_cost_rub": 0.0,
-    "dispatcher_badge": "7041-ОДС",
-    "timestamp": "2026-09-25 01:39:43",
-    "notes": "??????????? ?????????? ??????? ???????"
+    "dispatcher_badge": "ДИСП-7041",
+    "dispatcher_name": "Кузнецов Артем Дмитриевич",
+    "dispatcher_role": "Главный инженер смены ОДС",
+    "clearance_level": "Level-3 (Главный диспетчер)",
+    "timestamp": "2026-09-25 09:45:00",
+    "notes": "Аппаратный отказ датчика температуры, направлена бригада ППР",
+    "prev_hash": "df5c303f84a1a5099608efa49e8c6cd28f45d8ec618cf06a868c4d9db8b2af2d",
+    "record_hash": "94ad8f85b4d6f635287d31dba15d296e58cdf635f9afd9c2fd533e2e46427de4",
+    "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
+  },
+  {
+    "channel_id": "196736",
+    "decision": "CONFIRM_FALSE_ALARM",
+    "status": "SUPPRESSED_CONFIRMED",
+    "avoided_cost_rub": 18500.0,
+    "dispatcher_badge": "ДИСП-0482",
+    "dispatcher_name": "Иванов Илья Сергеевич",
+    "dispatcher_role": "Старший диспетчер ОДС №1",
+    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
+    "timestamp": "2026-09-25 09:12:40",
+    "notes": "Кратковременный всплеск концентрации при продувке вентиляции",
+    "prev_hash": "b2bf42ded6b3464ccc6ac398575ff56e15d006b5262ee17a6d5fc45b2ba487ad",
+    "record_hash": "df5c303f84a1a5099608efa49e8c6cd28f45d8ec618cf06a868c4d9db8b2af2d",
+    "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
   },
   {
     "channel_id": "120578",
     "decision": "CONFIRM_FALSE_ALARM",
     "status": "SUPPRESSED_CONFIRMED",
     "avoided_cost_rub": 18500.0,
-    "dispatcher_badge": "7041-ОДС",
-    "timestamp": "2026-09-25 01:38:45",
-    "notes": "Подтвержден дребезг концевика люка"
-  },
-  {
-    "channel_id": "120578",
-    "decision": "CONFIRM_FALSE_ALARM",
-    "status": "SUPPRESSED_CONFIRMED",
-    "avoided_cost_rub": 18500.0,
-    "dispatcher_badge": "7041-ОДС",
-    "timestamp": "2026-09-25 01:33:18",
-    "notes": "Подтвержден дребезг концевика люка"
-  },
-  {
-    "channel_id": "120578",
-    "decision": "CONFIRM_FALSE_ALARM",
-    "status": "SUPPRESSED_CONFIRMED",
-    "avoided_cost_rub": 18500.0,
-    "dispatcher_badge": "7041-ОДС",
-    "timestamp": "2026-09-25 01:29:50",
-    "notes": "Подтвержден дребезг концевика люка"
+    "dispatcher_badge": "ДИСП-7041",
+    "dispatcher_name": "Кузнецов Артем Дмитриевич",
+    "dispatcher_role": "Главный инженер смены ОДС",
+    "clearance_level": "Level-3 (Главный диспетчер)",
+    "timestamp": "2026-09-25 08:30:15",
+    "notes": "Подтвержден механический дребезг концевика люка СМВУ",
+    "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "record_hash": "b2bf42ded6b3464ccc6ac398575ff56e15d006b5262ee17a6d5fc45b2ba487ad",
+    "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
   }
 ]

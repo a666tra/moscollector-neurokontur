@@ -101,8 +101,41 @@ export interface ConfirmedAlarmItem {
   status: string;
   avoided_cost_rub: number;
   dispatcher_badge: string;
+  dispatcher_name?: string;
+  dispatcher_role?: string;
+  clearance_level?: string;
   timestamp: string;
   notes?: string;
+  prev_hash?: string;
+  record_hash?: string;
+  signature_standard?: string;
+}
+
+export interface AuthorizedDispatcher {
+  badge: string;
+  full_name: string;
+  role: string;
+  clearance_level: string;
+  cert_id?: string;
+}
+
+export interface AuditVerificationResult {
+  is_valid: boolean;
+  total_records: number;
+  chain_length: number;
+  head_hash: string;
+  tamper_detected: boolean;
+  standard: string;
+  verified_at: string;
+  details: Array<{
+    index: number;
+    channel_id: string;
+    dispatcher_badge: string;
+    link_valid: boolean;
+    hash_valid: boolean;
+    badge_authorized: boolean;
+    block_hash: string;
+  }>;
 }
 
 export interface MaintenanceTicket {

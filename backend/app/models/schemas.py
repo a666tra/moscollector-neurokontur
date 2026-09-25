@@ -60,6 +60,8 @@ class AlarmEvent(BaseModel):
     raw_value: str
     sensor_type: Optional[str] = None
     object_name: Optional[str] = None
+    tag: Optional[str] = None
+    provenance: Optional[str] = "Архивный телеметрический поток СМВУ (Москоллектор)"
 
 class AlarmClassificationRequest(BaseModel):
     channel_id: str
@@ -80,7 +82,7 @@ class AlarmClassificationResponse(BaseModel):
 class AlarmConfirmationRequest(BaseModel):
     channel_id: str
     decision: str  # CONFIRM_FALSE_ALARM or FORCE_DISPATCH
-    dispatcher_badge: str = "7041-ОДС"
+    dispatcher_badge: str = Field("ДИСП-7041", pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$", description="Табельный номер диспетчера ОДС (формат ДИСП-XXXX)")
     notes: Optional[str] = None
 
 class AlarmConfirmationResponse(BaseModel):
@@ -89,8 +91,24 @@ class AlarmConfirmationResponse(BaseModel):
     status: str
     avoided_cost_rub: float
     dispatcher_badge: str
+    dispatcher_name: Optional[str] = None
+    dispatcher_role: Optional[str] = None
+    clearance_level: Optional[str] = None
     timestamp: str
     message: str
+    prev_hash: Optional[str] = None
+    record_hash: Optional[str] = None
+    signature_standard: Optional[str] = "ГОСТ Р 53195-2014 / SHA-256 Ledger"
+
+class AuditVerificationResponse(BaseModel):
+    is_valid: bool
+    total_records: int
+    chain_length: int
+    head_hash: str
+    tamper_detected: bool
+    standard: str
+    verified_at: str
+    details: List[Dict[str, Any]] = []
 
 class RealtimeScoreRequest(BaseModel):
     channel_id: str

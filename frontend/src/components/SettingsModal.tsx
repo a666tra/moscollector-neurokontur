@@ -206,8 +206,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               className="w-full accent-[#00FF66] cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-[#8B949E]">
-              <span>0.10 (Максимальная полнота / высокий Recall)</span>
-              <span>0.90 (Строгая точность / высокий Precision)</span>
+              <span>0.10 (Высокий Recall)</span>
+              <span>0.90 (Высокий Precision)</span>
+            </div>
+            <div className="pt-2 flex items-center gap-2">
+              <span className="text-[10px] text-[#8B949E]">Оптимальные пороги валидации:</span>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, decision_threshold: 0.8147 })}
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-[#00FF66] border border-white/10"
+              >
+                LGBM: 0.81
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, decision_threshold: 0.8000 })}
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-[#58A6FF] border border-white/10"
+              >
+                LR: 0.80
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, decision_threshold: 0.7797 })}
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-[#FFB800] border border-white/10"
+              >
+                RF: 0.78
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, decision_threshold: 0.42 })}
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-white border border-white/10"
+              >
+                Базовый: 0.42
+              </button>
             </div>
           </div>
 

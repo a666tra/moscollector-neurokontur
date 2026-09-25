@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-25T11:15:07.955231",
+  "timestamp": "2026-09-25T11:55:15.438001",
   "methodology": "Strict 3-Way Temporal Split (Train -> Validation -> Test). No data leakage. Target defined strictly by future physical events in horizon 24-72h.",
   "random_seed": 42,
   "prediction_horizon_hours": "24–72h",
@@ -11,51 +11,67 @@
   },
   "test_metrics": {
     "precision": 0.1667,
-    "recall": 0.185,
-    "f1_score": 0.1753,
-    "roc_auc": 0.7683,
-    "pr_auc": 0.1768,
+    "recall": 0.1839,
+    "f1_score": 0.1749,
+    "roc_auc": 0.7653,
+    "pr_auc": 0.1759,
     "confusion_matrix": {
       "tp": 32,
       "fp": 160,
-      "fn": 141,
-      "tn": 10379
+      "fn": 142,
+      "tn": 10378
     }
   },
+  "target_definition": "Физическое предотказное состояние / критическая аномалия по телеметрии в окне 24–72ч (загазованность CH4 >= 5.0%, температура >= 45°C, сброс часов в 1970г, аппаратный обрыв/КЗ). Внешние акты CMMS отсутствуют в датасете, разметка выполнена строго алгоритмически по будущему окну телеметрии без утечки целевого признака.",
   "model_comparison": {
     "zero_rule": {
       "precision": 0.0,
       "recall": 0.0,
-      "f1": 0.0
+      "f1": 0.0,
+      "threshold": 0.5,
+      "mode_description": "Константный baseline"
     },
     "logistic_regression": {
       "precision": 0.1669,
-      "recall": 0.6821,
-      "f1": 0.2682,
-      "roc_auc": 0.8361
+      "recall": 0.6782,
+      "f1": 0.2679,
+      "roc_auc": 0.8313,
+      "pr_auc": 0.1925,
+      "optimal_threshold": 0.8,
+      "threshold": 0.8,
+      "mode_description": "High-Recall режим (раннее выявление деградации)"
     },
     "random_forest": {
       "precision": 0.5098,
-      "recall": 0.1503,
-      "f1": 0.2321,
-      "roc_auc": 0.7049
+      "recall": 0.1494,
+      "f1": 0.2311,
+      "roc_auc": 0.702,
+      "pr_auc": 0.1569,
+      "optimal_threshold": 0.7797,
+      "threshold": 0.7797,
+      "mode_description": "High-Precision режим (минимизация ложных выездов)"
     },
     "champion_lightgbm": {
       "precision": 0.1667,
-      "recall": 0.185,
-      "f1": 0.1753,
-      "roc_auc": 0.7683
+      "recall": 0.1839,
+      "f1": 0.1749,
+      "roc_auc": 0.7653,
+      "pr_auc": 0.1759,
+      "optimal_threshold": 0.8147,
+      "threshold": 0.8147,
+      "default_operating_threshold": 0.42,
+      "mode_description": "Champion GBDT (сбалансированная промышленная модель)"
     }
   },
   "performance_benchmark": {
     "full_batch_channels_count": 10712,
-    "full_batch_latency_ms": 68.36,
-    "full_batch_p95_latency_ms": 104.62,
-    "single_sensor_latency_ms": 2.148,
-    "single_sensor_p95_latency_ms": 3.96,
-    "throughput_sensors_per_sec": 156709,
+    "full_batch_latency_ms": 81.25,
+    "full_batch_p95_latency_ms": 107.82,
+    "single_sensor_latency_ms": 2.378,
+    "single_sensor_p95_latency_ms": 4.443,
+    "throughput_sensors_per_sec": 131837,
     "tz_sla_seconds": 300.0,
-    "speedup_vs_sla": 4389.0
+    "speedup_vs_sla": 3692.0
   },
   "feature_importance": {
     "silence_hours": 2214,
@@ -86,23 +102,22 @@
     "val_channels": 10712,
     "val_failures": 105,
     "test_channels": 10712,
-    "test_failures": 173
+    "test_failures": 174
   },
   "http_load_benchmark": {
-    "benchmark_timestamp": "2026-09-25 11:18:20",
+    "benchmark_timestamp": "2026-09-25 12:00:50",
     "test_type": "Live HTTP Socket Network Benchmark (TCP loopback)",
     "target_url": "http://127.0.0.1:8000",
     "total_requests": 500,
     "concurrency_workers": 20,
     "success_rate_pct": 100.0,
-    "total_time_seconds": 4.938,
-    "throughput_rps": 101.3,
-    "latency_mean_ms": 194.36,
-    "latency_p50_ms": 181.94,
-    "latency_p90_ms": 263.22,
-    "latency_p95_ms": 321.31,
-    "latency_p99_ms": 384.19,
+    "total_time_seconds": 4.492,
+    "throughput_rps": 111.3,
+    "latency_mean_ms": 176.76,
+    "latency_p50_ms": 171.76,
+    "latency_p90_ms": 231.69,
+    "latency_p95_ms": 252.44,
     "tz_sla_target_ms": 300000.0,
-    "compliance_sla": "100% compliant (< 300s, mean latency < 100ms)"
+    "compliance_sla": "100% compliant (SLA <= 300.0s, network mean 176.76ms, P50 171.76ms, P95 252.44ms)"
   }
 }

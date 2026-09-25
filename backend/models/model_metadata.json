@@ -1,4 +1,37 @@
 {
+  "optimal_thresholds": {
+    "champion_lightgbm": 0.8147,
+    "logistic_regression": 0.8,
+    "random_forest": 0.7797
+  },
+  "default_ui_thresholds": {
+    "champion_lightgbm": 0.42,
+    "logistic_regression": 0.8,
+    "random_forest": 0.7797
+  },
+  "feature_names": [
+    "cnt_24h",
+    "cnt_7d",
+    "alarms_24h",
+    "alarms_7d",
+    "alarm_ratio",
+    "acc_events",
+    "acc_alarms",
+    "chatter_cnt",
+    "chatter_ratio",
+    "battery_glitches",
+    "date_corruptions",
+    "unique_states",
+    "silence_hours",
+    "num_mean",
+    "num_std",
+    "num_max",
+    "sensor_type_code",
+    "system_type_code",
+    "gas_spikes",
+    "temp_spikes",
+    "obj_level"
+  ],
   "stype_map": {
     "9-секционный люк": 0,
     "Газовый датчик": 1,
@@ -27,29 +60,5 @@
     "Охранная подсистема": 3,
     "Пожарная охрана": 4,
     "Температурная подсистема": 5
-  },
-  "feature_names": [
-    "cnt_24h",
-    "cnt_7d",
-    "alarms_24h",
-    "alarms_7d",
-    "alarm_ratio",
-    "acc_events",
-    "acc_alarms",
-    "chatter_cnt",
-    "chatter_ratio",
-    "battery_glitches",
-    "date_corruptions",
-    "unique_states",
-    "silence_hours",
-    "num_mean",
-    "num_std",
-    "num_max",
-    "sensor_type_code",
-    "system_type_code",
-    "gas_spikes",
-    "temp_spikes",
-    "obj_level"
-  ],
-  "threshold": 0.8147
+  }
 }

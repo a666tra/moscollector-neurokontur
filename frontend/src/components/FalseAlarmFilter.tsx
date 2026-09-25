@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { AlarmClassificationResponse, ConfirmedAlarmItem } from '../types';
+import { AlarmClassificationResponse, ConfirmedAlarmItem, AuthorizedDispatcher, AuditVerificationResult } from '../types';
 import { 
   ShieldAlert, CheckCircle, AlertTriangle, Cpu, DollarSign, Activity, 
-  UserCheck, Shield, Send, CheckCircle2, History 
+  UserCheck, Shield, Send, CheckCircle2, History, Lock, FileCheck 
 } from 'lucide-react';
 
 export const FalseAlarmFilter: React.FC = () => {
@@ -10,7 +10,9 @@ export const FalseAlarmFilter: React.FC = () => {
   const [val, setVal] = useState('Замкнут');
   const [flips, setFlips] = useState(4);
   const [duration, setDuration] = useState(1.5);
-  const [dispatcherBadge, setDispatcherBadge] = useState('7041-ОДС');
+  const [dispatcherBadge, setDispatcherBadge] = useState('ДИСП-7041');
+  const [dispatchers, setDispatchers] = useState<AuthorizedDispatcher[]>([]);
+  const [auditStatus, setAuditStatus] = useState<AuditVerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmationNotice, setConfirmationNotice] = useState<string | null>(null);
@@ -39,8 +41,34 @@ export const FalseAlarmFilter: React.FC = () => {
     }
   };
 
+  const fetchDispatchers = async () => {
+    try {
+      const res = await fetch('/api/alarms/dispatchers');
+      if (res.ok) {
+        const data = await res.json();
+        setDispatchers(data);
+      }
+    } catch (e) {
+      console.error('Failed to load dispatchers', e);
+    }
+  };
+
+  const verifyAuditLedger = async () => {
+    try {
+      const res = await fetch('/api/alarms/audit/verify');
+      if (res.ok) {
+        const data = await res.json();
+        setAuditStatus(data);
+      }
+    } catch (e) {
+      console.error('Failed to verify audit ledger', e);
+    }
+  };
+
   useEffect(() => {
     fetchConfirmedHistory();
+    fetchDispatchers();
+    verifyAuditLedger();
   }, []);
 
   const handleClassify = async () => {
@@ -87,6 +115,10 @@ export const FalseAlarmFilter: React.FC = () => {
         setConfirmationNotice(data.message);
         setTimeout(() => setConfirmationNotice(null), 4000);
         fetchConfirmedHistory();
+        verifyAuditLedger();
+      } else {
+        const err = await res.json();
+        alert(err.detail || 'Ошибка авторизации диспетчера');
       }
     } catch (e) {
       console.error('Confirmation error', e);
@@ -167,16 +199,30 @@ export const FalseAlarmFilter: React.FC = () => {
         </div>
       </div>
 
-      {/* Safety Compliance Alert */}
-      <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 p-3 rounded text-xs font-mono flex items-center justify-between text-[#8B949E]">
-        <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-[#FFB800]" />
-          <span>
-            <strong className="text-white">Регламент ОДС и 149-ФЗ:</strong> Система блокирует ложный выезд ТОЛЬКО после личного подтверждения дежурного диспетчера. Автоматическая отмена без человека исключена.
-          </span>
+      {/* Safety Compliance Alert & SHA-256 Ledger Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 p-3 rounded text-xs font-mono flex items-center justify-between text-[#8B949E]">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#FFB800]" />
+            <span>
+              <strong className="text-white">Регламент ОДС и 149-ФЗ:</strong> Отмена выезда ТОЛЬКО после личной верификации диспетчером с уровнем доступа Level-2+.
+            </span>
+          </div>
+          <div className="text-[#00FF66] font-semibold whitespace-nowrap pl-2">
+            +{cumulativeConfirmedSaved.toLocaleString('ru-RU')} ₽
+          </div>
         </div>
-        <div className="text-[#00FF66] font-semibold whitespace-nowrap">
-          Подтверждено экономии: {cumulativeConfirmedSaved.toLocaleString('ru-RU')} ₽
+
+        <div className="bg-[#00FF66]/5 border border-[#00FF66]/20 p-3 rounded text-xs font-mono flex items-center justify-between text-[#8B949E]">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-[#00FF66]" />
+            <span>
+              <strong className="text-white">Журнал аудита:</strong> ГОСТ Р 53195-2014 (SHA-256 Block Chaining)
+            </span>
+          </div>
+          <div className="text-[#58A6FF] font-mono text-[11px] truncate max-w-[200px]" title={auditStatus?.head_hash}>
+            {auditStatus?.is_valid ? `Цепь валидна (${auditStatus.chain_length} блоков)` : 'Проверка...'}
+          </div>
         </div>
       </div>
 
@@ -287,18 +333,30 @@ export const FalseAlarmFilter: React.FC = () => {
 
                 {/* Human in the loop action block */}
                 <div className="bg-[#12161F] p-3.5 rounded border border-[#00FF66]/30 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-xs text-white font-mono flex items-center gap-1.5">
                       <UserCheck className="w-3.5 h-3.5 text-[#00FF66]" />
-                      Решение диспетчера ОДС:
+                      Уполномоченный диспетчер ОДС:
                     </span>
-                    <input 
-                      type="text" 
+                    <select
                       value={dispatcherBadge}
                       onChange={e => setDispatcherBadge(e.target.value)}
-                      placeholder="Шифр диспетчера"
-                      className="w-28 bg-[#07090E] border border-white/10 rounded px-2 py-0.5 text-[11px] text-white font-mono text-center"
-                    />
+                      className="bg-[#07090E] border border-white/10 rounded px-2 py-1 text-[11px] text-white font-mono focus:border-[#00FF66] focus:outline-none"
+                    >
+                      {dispatchers.length > 0 ? (
+                        dispatchers.map(d => (
+                          <option key={d.badge} value={d.badge}>
+                            {d.badge} - {d.full_name.split(' ')[0]} ({d.role})
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="ДИСП-7041">ДИСП-7041 - Кузнецов (Главный инженер)</option>
+                          <option value="ДИСП-0482">ДИСП-0482 - Иванов (Старший диспетчер)</option>
+                          <option value="ДИСП-3318">ДИСП-3318 - Смирнова (Ведущий диспетчер)</option>
+                        </>
+                      )}
+                    </select>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-1">
@@ -308,7 +366,7 @@ export const FalseAlarmFilter: React.FC = () => {
                       className="py-2 bg-[#00FF66] hover:bg-[#00FF66]/90 text-black font-semibold text-xs rounded font-mono cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(0,255,102,0.2)]"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Подтвердить ложную тревогу (+18 500 ₽)</span>
+                      <span>Подтвердить ложную (+18 500 ₽)</span>
                     </button>
 
                     <button
@@ -317,7 +375,7 @@ export const FalseAlarmFilter: React.FC = () => {
                       className="py-2 bg-[#FF3B30]/20 hover:bg-[#FF3B30]/30 border border-[#FF3B30]/40 text-[#FF3B30] font-semibold text-xs rounded font-mono cursor-pointer transition-all flex items-center justify-center gap-1.5"
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>Принудительно направить бригаду</span>
+                      <span>Принудительный выезд бригады</span>
                     </button>
                   </div>
                 </div>
@@ -345,6 +403,68 @@ export const FalseAlarmFilter: React.FC = () => {
             <span>• Протокол соответствия: Р ТЭК п. 2.7 (Регистрация переходных сигналов СМВУ)</span>
             <span>Решений за сессию: {confirmedHistory.length}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Cryptographic SHA-256 Audit Log Table */}
+      <div className="eng-panel p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <FileCheck className="w-4 h-4 text-[#00FF66]" />
+            <h3 className="font-semibold text-sm text-white">
+              Криптографический реестр аудита решений (ГОСТ Р 53195-2014)
+            </h3>
+            <span className="eng-badge badge-normal font-mono text-[10px]">
+              Неизменяемый реестр SHA-256
+            </span>
+          </div>
+          <button
+            onClick={verifyAuditLedger}
+            className="text-xs font-mono text-[#58A6FF] hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>Верифицировать хеш-цепь</span>
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left font-mono text-xs">
+            <thead>
+              <tr className="border-b border-white/10 text-[#8B949E] text-[11px]">
+                <th className="pb-2">Время</th>
+                <th className="pb-2">Канал</th>
+                <th className="pb-2">Решение</th>
+                <th className="pb-2">Диспетчер</th>
+                <th className="pb-2">Экономия</th>
+                <th className="pb-2">SHA-256 Block Hash</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {confirmedHistory.slice(0, 5).map((rec, i) => (
+                <tr key={i} className="hover:bg-white/[0.02]">
+                  <td className="py-2.5 text-white">{rec.timestamp}</td>
+                  <td className="py-2.5 text-[#58A6FF] font-bold">#{rec.channel_id}</td>
+                  <td className="py-2.5">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] ${
+                      rec.decision.includes('FALSE') 
+                        ? 'bg-[#00FF66]/15 text-[#00FF66] border border-[#00FF66]/30' 
+                        : 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/30'
+                    }`}>
+                      {rec.decision.includes('FALSE') ? 'Ложная тревога' : 'Принудительный выезд'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-white">
+                    {rec.dispatcher_badge} {rec.dispatcher_name ? `(${rec.dispatcher_name.split(' ')[0]})` : ''}
+                  </td>
+                  <td className="py-2.5 text-[#00FF66]">
+                    +{rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
+                  </td>
+                  <td className="py-2.5 text-[#8B949E] text-[11px] font-mono">
+                    {rec.record_hash ? `${rec.record_hash.substring(0, 16)}...` : 'genesis'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

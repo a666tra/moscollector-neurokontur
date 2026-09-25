@@ -223,3 +223,49 @@ def test_multimodel_scoring():
         assert data["channel_id"] == "120578"
         assert 0.0 <= data["failure_probability"] <= 1.0
         assert data["model_used"] == model
+
+def test_audit_chain_integrity():
+    res = client.get("/api/alarms/audit/verify")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_valid"] is True
+    assert data["tamper_detected"] is False
+    assert data["total_records"] >= 4
+    assert len(data["head_hash"]) == 64
+    assert "ГОСТ Р 53195" in data["standard"]
+
+def test_dispatcher_rbac_security():
+    # 1. Authorized badge should succeed and chain cryptographic block
+    res_ok = client.post("/api/alarms/confirm", json={
+        "channel_id": "120578",
+        "decision": "CONFIRM_FALSE_ALARM",
+        "dispatcher_badge": "ДИСП-7041",
+        "notes": "Штатная проверка регламента КИИ"
+    })
+    assert res_ok.status_code == 200
+    data_ok = res_ok.json()
+    assert data_ok["dispatcher_badge"] == "ДИСП-7041"
+    assert "Кузнецов" in data_ok.get("dispatcher_name", "")
+    assert len(data_ok["record_hash"]) == 64
+    assert len(data_ok["prev_hash"]) == 64
+
+    # 2. Unauthorized badge must be rejected with 403 Forbidden
+    res_bad = client.post("/api/alarms/confirm", json={
+        "channel_id": "120578",
+        "decision": "CONFIRM_FALSE_ALARM",
+        "dispatcher_badge": "ДИСП-9999",
+        "notes": "Попытка несанкционированного доступа"
+    })
+    assert res_bad.status_code == 403
+    assert "Отказ в авторизации" in res_bad.json()["detail"]
+
+def test_real_recent_alarms_stream():
+    res = client.get("/api/alarms/recent")
+    assert res.status_code == 200
+    events = res.json()
+    assert len(events) > 0
+    first = events[0]
+    assert "event_id" in first
+    assert "channel_id" in first
+    assert "raw_value" in first
+    assert "СМВУ" in first.get("provenance", "")

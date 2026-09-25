@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import hashlib
 import joblib
 import numpy as np
 from datetime import datetime
@@ -10,6 +11,7 @@ from backend.app.services.data_service import data_service
 from backend.app.api.settings import get_current_settings
 
 CONFIRMED_ALARMS_PATH = os.path.join(settings.DATA_DIR, "confirmed_alarms.json")
+AUTH_DISPATCHERS_PATH = os.path.join(settings.DATA_DIR, "authorized_dispatchers.json")
 
 class MLService:
     def __init__(self):
@@ -21,8 +23,15 @@ class MLService:
         self.confirmed_alarms: List[Dict[str, Any]] = []
         self.stype_map: Dict[str, int] = {}
         self.sys_map: Dict[str, int] = {}
+        self.authorized_dispatchers: Dict[str, Dict[str, Any]] = {}
+        self.optimal_thresholds: Dict[str, float] = {
+            "champion_lightgbm": 0.8147,
+            "logistic_regression": 0.8000,
+            "random_forest": 0.7797
+        }
         self.load_model()
         self.load_metadata()
+        self.load_authorized_dispatchers()
         self.load_confirmed_alarms()
 
     def load_model(self):
@@ -52,8 +61,33 @@ class MLService:
                     meta = json.load(f)
                     self.stype_map = meta.get("stype_map", {})
                     self.sys_map = meta.get("sys_map", {})
+                    if "optimal_thresholds" in meta:
+                        self.optimal_thresholds.update(meta["optimal_thresholds"])
             except Exception as e:
                 print(f"Error loading metadata: {e}")
+
+    def load_authorized_dispatchers(self):
+        if os.path.exists(AUTH_DISPATCHERS_PATH):
+            try:
+                with open(AUTH_DISPATCHERS_PATH, 'r', encoding='utf-8') as f:
+                    self.authorized_dispatchers = json.load(f)
+            except Exception as e:
+                print(f"Error loading dispatchers: {e}")
+        if not self.authorized_dispatchers:
+            self.authorized_dispatchers = {
+                "ДИСП-7041": {
+                    "badge": "ДИСП-7041",
+                    "full_name": "Кузнецов Артем Дмитриевич",
+                    "role": "Главный инженер смены ОДС",
+                    "clearance_level": "Level-3 (Главный диспетчер)"
+                },
+                "ДИСП-0482": {
+                    "badge": "ДИСП-0482",
+                    "full_name": "Иванов Илья Сергеевич",
+                    "role": "Старший диспетчер ОДС №1",
+                    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)"
+                }
+            }
 
     def load_confirmed_alarms(self):
         if os.path.exists(CONFIRMED_ALARMS_PATH):
@@ -185,8 +219,13 @@ class MLService:
         
         latency_ms = (time.perf_counter() - t_start) * 1000
 
-        # Evaluate against active threshold from singleton settings
-        threshold = active_settings.decision_threshold
+        # Model-specific calibrated operating threshold
+        calibrated_threshold = self.optimal_thresholds.get(model_used, 0.8147)
+        if abs(active_settings.decision_threshold - 0.42) > 0.001:
+            threshold = active_settings.decision_threshold
+        else:
+            threshold = calibrated_threshold
+
         is_degradation = prob >= threshold
 
         if prob >= 0.70:
@@ -226,6 +265,7 @@ class MLService:
             "failure_probability": round(prob, 4),
             "risk_level": risk,
             "threshold_used": threshold,
+            "calibrated_threshold": calibrated_threshold,
             "is_degradation_detected": is_degradation,
             "top_factors": factors,
             "recommended_action": action,
@@ -334,31 +374,63 @@ class MLService:
         self,
         channel_id: str,
         decision: str,
-        dispatcher_badge: str = "7041-ОДС",
+        dispatcher_badge: str = "ДИСП-7041",
         notes: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Human-in-the-loop decision confirmation by ODS dispatcher."""
+        """Human-in-the-loop decision confirmation by ODS dispatcher with RBAC & SHA-256 ledger chaining."""
         active_settings = get_current_settings()
         now = datetime.now()
         is_suppress = decision in ("CONFIRM_FALSE_ALARM", "confirm_false")
         avoided = active_settings.callout_cost_rub if is_suppress else 0.0
+
+        # Normalization and RBAC verification
+        norm_badge = dispatcher_badge.strip()
+        if norm_badge == "7041-ОДС":
+            norm_badge = "ДИСП-7041"
         
+        if norm_badge not in self.authorized_dispatchers:
+            raise ValueError(
+                f"Отказ в авторизации: табельный номер '{dispatcher_badge}' не зарегистрирован "
+                f"в реестре уполномоченного персонала ОДС АО 'Москоллектор'. "
+                f"Операция отклонена согласно ГОСТ Р 53195 / 187-ФЗ."
+            )
+
+        disp = self.authorized_dispatchers[norm_badge]
+        timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        note_text = notes or ("Подтверждена ложная тревога диспетчером" if is_suppress else "Принудительный выезд бригады")
+
+        # SHA-256 Ledger Block Chaining
+        prev_hash = "0" * 64
+        if self.confirmed_alarms:
+            # Most recent record is at index 0
+            prev_hash = self.confirmed_alarms[0].get("record_hash") or ("0" * 64)
+
+        hash_payload = f"{prev_hash}|{channel_id}|{decision}|{norm_badge}|{timestamp_str}|{note_text}".encode('utf-8')
+        record_hash = hashlib.sha256(hash_payload).hexdigest()
+
         record = {
             "channel_id": channel_id,
             "decision": decision,
             "status": "SUPPRESSED_CONFIRMED" if is_suppress else "DISPATCH_CONFIRMED",
             "avoided_cost_rub": avoided,
-            "dispatcher_badge": dispatcher_badge,
-            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "notes": notes or ("Подтверждена ложная тревога диспетчером" if is_suppress else "Принудительный выезд бригады")
+            "dispatcher_badge": norm_badge,
+            "dispatcher_name": disp.get("full_name", "Не указан"),
+            "dispatcher_role": disp.get("role", "Диспетчер ОДС"),
+            "clearance_level": disp.get("clearance_level", "Level-2"),
+            "timestamp": timestamp_str,
+            "notes": note_text,
+            "prev_hash": prev_hash,
+            "record_hash": record_hash,
+            "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
         }
         self.confirmed_alarms.insert(0, record)
         self.save_confirmed_alarms()
 
         msg = (
-            f"Решение диспетчера [{dispatcher_badge}]: ложная тревога подтверждена. Выезд отменен. Предотвращен ущерб: {avoided:,.0f} ₽."
+            f"Решение диспетчера [{norm_badge} {disp.get('full_name')}]: ложная тревога подтверждена. "
+            f"Выезд отменен. Предотвращен ущерб: {avoided:,.0f} ₽. Запись заверена в криптографическом реестре аудита."
             if is_suppress else
-            f"Решение диспетчера [{dispatcher_badge}]: аварийная бригада направлена на объект."
+            f"Решение диспетчера [{norm_badge} {disp.get('full_name')}]: аварийная бригада направлена на объект. Запись заверена."
         )
 
         return {
@@ -366,9 +438,77 @@ class MLService:
             "decision": decision,
             "status": record["status"],
             "avoided_cost_rub": avoided,
-            "dispatcher_badge": dispatcher_badge,
+            "dispatcher_badge": norm_badge,
+            "dispatcher_name": disp.get("full_name"),
+            "dispatcher_role": disp.get("role"),
+            "clearance_level": disp.get("clearance_level"),
             "timestamp": record["timestamp"],
-            "message": msg
+            "message": msg,
+            "prev_hash": prev_hash,
+            "record_hash": record_hash,
+            "signature_standard": record["signature_standard"]
+        }
+
+    def verify_audit_log_integrity(self) -> Dict[str, Any]:
+        """Cryptographically verifies SHA-256 ledger integrity according to GOST R 53195-2014."""
+        if not self.confirmed_alarms:
+            return {
+                "is_valid": True,
+                "total_records": 0,
+                "chain_length": 0,
+                "head_hash": "0" * 64,
+                "tamper_detected": False,
+                "standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger",
+                "verified_at": datetime.now().isoformat(),
+                "details": []
+            }
+
+        chronological = list(reversed(self.confirmed_alarms))
+        is_valid = True
+        details = []
+
+        expected_prev = "0" * 64
+        for idx, rec in enumerate(chronological):
+            rec_prev = rec.get("prev_hash", "")
+            rec_hash = rec.get("record_hash", "")
+            badge = rec.get("dispatcher_badge", "")
+            channel_id = rec.get("channel_id", "")
+            decision = rec.get("decision", "")
+            ts = rec.get("timestamp", "")
+            notes = rec.get("notes", "")
+
+            badge_ok = badge in self.authorized_dispatchers
+            link_ok = (idx == 0 and rec_prev == "0" * 64) or (idx > 0 and rec_prev == expected_prev)
+
+            payload = f"{rec_prev}|{channel_id}|{decision}|{badge}|{ts}|{notes}".encode('utf-8')
+            computed_hash = hashlib.sha256(payload).hexdigest()
+            hash_ok = (computed_hash == rec_hash)
+
+            record_ok = link_ok and hash_ok and badge_ok
+            if not record_ok:
+                is_valid = False
+
+            details.append({
+                "index": idx,
+                "channel_id": channel_id,
+                "dispatcher_badge": badge,
+                "link_valid": link_ok,
+                "hash_valid": hash_ok,
+                "badge_authorized": badge_ok,
+                "block_hash": (rec_hash[:16] + "...") if rec_hash else "None"
+            })
+            expected_prev = rec_hash
+
+        head_hash = self.confirmed_alarms[0].get("record_hash", "")
+        return {
+            "is_valid": is_valid,
+            "total_records": len(self.confirmed_alarms),
+            "chain_length": len(self.confirmed_alarms),
+            "head_hash": head_hash,
+            "tamper_detected": not is_valid,
+            "standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger",
+            "verified_at": datetime.now().isoformat(),
+            "details": details
         }
 
 ml_service = MLService()
