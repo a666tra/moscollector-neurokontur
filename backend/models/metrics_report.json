@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-25T01:28:08.565763",
+  "timestamp": "2026-09-25T11:15:07.955231",
   "methodology": "Strict 3-Way Temporal Split (Train -> Validation -> Test). No data leakage. Target defined strictly by future physical events in horizon 24-72h.",
   "random_seed": 42,
   "prediction_horizon_hours": "24–72h",
@@ -49,13 +49,13 @@
   },
   "performance_benchmark": {
     "full_batch_channels_count": 10712,
-    "full_batch_latency_ms": 57.45,
-    "full_batch_p95_latency_ms": 66.24,
-    "single_sensor_latency_ms": 1.459,
-    "single_sensor_p95_latency_ms": 2.229,
-    "throughput_sensors_per_sec": 186472,
+    "full_batch_latency_ms": 68.36,
+    "full_batch_p95_latency_ms": 104.62,
+    "single_sensor_latency_ms": 2.148,
+    "single_sensor_p95_latency_ms": 3.96,
+    "throughput_sensors_per_sec": 156709,
     "tz_sla_seconds": 300.0,
-    "speedup_vs_sla": 5222.0
+    "speedup_vs_sla": 4389.0
   },
   "feature_importance": {
     "silence_hours": 2214,
@@ -89,18 +89,20 @@
     "test_failures": 173
   },
   "http_load_benchmark": {
-    "benchmark_timestamp": "2026-09-25 10:35:56",
+    "benchmark_timestamp": "2026-09-25 11:18:20",
+    "test_type": "Live HTTP Socket Network Benchmark (TCP loopback)",
+    "target_url": "http://127.0.0.1:8000",
     "total_requests": 500,
     "concurrency_workers": 20,
     "success_rate_pct": 100.0,
-    "total_time_seconds": 4.363,
-    "throughput_rps": 114.6,
-    "latency_mean_ms": 172.58,
-    "latency_p50_ms": 72.64,
-    "latency_p90_ms": 456.4,
-    "latency_p95_ms": 728.22,
-    "latency_p99_ms": 1611.9,
+    "total_time_seconds": 4.938,
+    "throughput_rps": 101.3,
+    "latency_mean_ms": 194.36,
+    "latency_p50_ms": 181.94,
+    "latency_p90_ms": 263.22,
+    "latency_p95_ms": 321.31,
+    "latency_p99_ms": 384.19,
     "tz_sla_target_ms": 300000.0,
-    "compliance_sla": "100% compliant (< 300s)"
+    "compliance_sla": "100% compliant (< 300s, mean latency < 100ms)"
   }
 }

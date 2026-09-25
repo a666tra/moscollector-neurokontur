@@ -108,6 +108,8 @@ class RealtimeScoreRequest(BaseModel):
     std_val: Optional[float] = 0.0
     num_max: Optional[float] = 0.0
     last_value: Optional[str] = "Норма"
+    unique_states: Optional[int] = None
+    model_name: Optional[str] = "champion_lightgbm"
 
 class RealtimeScoreResponse(BaseModel):
     channel_id: str
@@ -121,6 +123,7 @@ class RealtimeScoreResponse(BaseModel):
     top_factors: List[str]
     recommended_action: str
     inference_latency_ms: float
+    model_used: Optional[str] = "champion_lightgbm"
 
 class MaintenanceTicket(BaseModel):
     ticket_id: str

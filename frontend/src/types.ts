@@ -7,6 +7,7 @@ export interface SystemSettings {
   preventive_cost_rub: number;
   require_dispatcher_confirmation: boolean;
   auto_suppress_chatter: boolean;
+  selected_model?: string;
 }
 
 export interface SystemStats {

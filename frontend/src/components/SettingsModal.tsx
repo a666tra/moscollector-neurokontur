@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sliders, Shield, Save, RotateCcw, X, Check, AlertCircle } from 'lucide-react';
+import { Sliders, Shield, Save, RotateCcw, X, Check, AlertCircle, Cpu } from 'lucide-react';
 import { SystemSettings } from '../types';
 
 interface SettingsModalProps {
@@ -17,7 +17,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     callout_cost_rub: 18500,
     preventive_cost_rub: 3200,
     require_dispatcher_confirmation: true,
-    auto_suppress_chatter: false
+    auto_suppress_chatter: false,
+    selected_model: 'champion_lightgbm'
   });
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -26,7 +27,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     if (isOpen) {
       fetch('/api/settings')
         .then(res => res.json())
-        .then(data => setSettings(data))
+        .then(data => setSettings(prev => ({ ...prev, ...data })))
         .catch(e => console.error('Failed to load settings', e));
     }
   }, [isOpen]);
@@ -60,7 +61,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       callout_cost_rub: 18500,
       preventive_cost_rub: 3200,
       require_dispatcher_confirmation: true,
-      auto_suppress_chatter: false
+      auto_suppress_chatter: false,
+      selected_model: 'champion_lightgbm'
     });
   };
 
@@ -87,6 +89,100 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
         {/* Content */}
         <div className="space-y-5 max-h-[65vh] overflow-y-auto pr-2">
+          {/* 0. Model Architecture Selection */}
+          <div className="space-y-3 bg-[#07090E] p-4 rounded border border-white/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <Cpu className="w-4 h-4 text-[#00FF66]" />
+                <span>Архитектура ML-модели (Multi-Model):</span>
+              </div>
+              <span className="eng-badge badge-normal font-mono text-[10px]">
+                {settings.selected_model === 'logistic_regression' ? 'High-Recall (68.2%)' :
+                 settings.selected_model === 'random_forest' ? 'High-Precision (51.0%)' : 'Champion (LightGBM)'}
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <label 
+                className={`flex items-start gap-3 p-2.5 rounded border cursor-pointer transition-all ${
+                  settings.selected_model === 'champion_lightgbm' || !settings.selected_model
+                    ? 'bg-[#00FF66]/10 border-[#00FF66]/40 text-white'
+                    : 'bg-white/5 border-white/10 text-[#8B949E] hover:border-white/20'
+                }`}
+              >
+                <input 
+                  type="radio" 
+                  name="selected_model"
+                  value="champion_lightgbm"
+                  checked={settings.selected_model === 'champion_lightgbm' || !settings.selected_model}
+                  onChange={() => setSettings({ ...settings, selected_model: 'champion_lightgbm' })}
+                  className="mt-1 accent-[#00FF66]"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-xs">LightGBM Classifier (Champion)</span>
+                    <span className="text-[#00FF66] text-[10px] font-mono">ROC-AUC 0.77 • 1.5 мс</span>
+                  </div>
+                  <p className="text-[10px] text-[#8B949E] mt-0.5">
+                    Сбалансированный градиентный бустинг по 20 инженерным факторам. Базовая модель промышленной эксплуатации.
+                  </p>
+                </div>
+              </label>
+
+              <label 
+                className={`flex items-start gap-3 p-2.5 rounded border cursor-pointer transition-all ${
+                  settings.selected_model === 'logistic_regression'
+                    ? 'bg-[#58A6FF]/10 border-[#58A6FF]/40 text-white'
+                    : 'bg-white/5 border-white/10 text-[#8B949E] hover:border-white/20'
+                }`}
+              >
+                <input 
+                  type="radio" 
+                  name="selected_model"
+                  value="logistic_regression"
+                  checked={settings.selected_model === 'logistic_regression'}
+                  onChange={() => setSettings({ ...settings, selected_model: 'logistic_regression' })}
+                  className="mt-1 accent-[#58A6FF]"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-xs">Logistic Regression (Balanced L2)</span>
+                    <span className="text-[#58A6FF] text-[10px] font-mono">Recall 68.2% • ROC-AUC 0.84</span>
+                  </div>
+                  <p className="text-[10px] text-[#8B949E] mt-0.5">
+                    Режим максимальной полноты (High-Recall). Выявляет 68.2% деградаций, эффективен в период сезонных нагрузок.
+                  </p>
+                </div>
+              </label>
+
+              <label 
+                className={`flex items-start gap-3 p-2.5 rounded border cursor-pointer transition-all ${
+                  settings.selected_model === 'random_forest'
+                    ? 'bg-[#FFB800]/10 border-[#FFB800]/40 text-white'
+                    : 'bg-white/5 border-white/10 text-[#8B949E] hover:border-white/20'
+                }`}
+              >
+                <input 
+                  type="radio" 
+                  name="selected_model"
+                  value="random_forest"
+                  checked={settings.selected_model === 'random_forest'}
+                  onChange={() => setSettings({ ...settings, selected_model: 'random_forest' })}
+                  className="mt-1 accent-[#FFB800]"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-xs">Random Forest (100 деревьев)</span>
+                    <span className="text-[#FFB800] text-[10px] font-mono">Precision 51.0% • 10.3x Lift</span>
+                  </div>
+                  <p className="text-[10px] text-[#8B949E] mt-0.5">
+                    Режим высокой точности (High-Precision). Достигает точности 51.0%, минимизируя ложные выезды ремонтных бригад.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* 1. ML Threshold */}
           <div className="space-y-2 bg-[#07090E] p-4 rounded border border-white/5">
             <div className="flex justify-between items-center">

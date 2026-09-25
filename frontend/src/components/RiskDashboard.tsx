@@ -27,6 +27,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
   const [testChatter, setTestChatter] = useState(5);
   const [testBattery, setTestBattery] = useState(1);
   const [testGasSpikes, setTestGasSpikes] = useState(0);
+  const [sandboxModel, setSandboxModel] = useState('champion_lightgbm');
   const [scoringLoading, setScoringLoading] = useState(false);
   const [liveResult, setLiveResult] = useState<RealtimeScoreResult | null>(null);
 
@@ -44,7 +45,8 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
           silence_hours: testSilence,
           battery_glitches: testBattery,
           gas_spikes: testGasSpikes,
-          last_value: testGasSpikes > 0 ? "1.85" : "Норма"
+          last_value: testGasSpikes > 0 ? "1.85" : "Норма",
+          model_name: sandboxModel
         })
       });
       if (res.ok) {
@@ -125,7 +127,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
               <label className="text-[11px] text-[#8B949E] block mb-1">ID канала датчика:</label>
               <input
@@ -134,6 +136,19 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
                 onChange={e => setTestChannelId(e.target.value)}
                 className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
               />
+            </div>
+
+            <div>
+              <label className="text-[11px] text-[#8B949E] block mb-1">Модель инференса:</label>
+              <select
+                value={sandboxModel}
+                onChange={e => setSandboxModel(e.target.value)}
+                className="w-full bg-[#07090E] border border-[#00FF66]/30 text-[#00FF66] rounded px-2 py-1.5 text-xs font-mono"
+              >
+                <option value="champion_lightgbm">LightGBM (Champion)</option>
+                <option value="logistic_regression">LogReg (High-Recall)</option>
+                <option value="random_forest">RandomForest (Precision)</option>
+              </select>
             </div>
 
             <div>

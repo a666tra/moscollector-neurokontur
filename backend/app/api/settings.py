@@ -18,6 +18,7 @@ class SystemSettingsSchema(BaseModel):
     preventive_cost_rub: float = Field(3200.0, ge=500.0, description="Стоимость планового ТО/ППР (руб)")
     require_dispatcher_confirmation: bool = Field(True, description="Требовать личное решение диспетчера для отмены выезда (ГОСТ Р 53195)")
     auto_suppress_chatter: bool = Field(False, description="Автоматическая блокировка (запрещено по технике безопасности ОДС)")
+    selected_model: str = Field("champion_lightgbm", description="Активная модель: champion_lightgbm, logistic_regression, random_forest")
 
 def load_settings_from_disk() -> Dict[str, Any]:
     if os.path.exists(CONFIG_PATH):

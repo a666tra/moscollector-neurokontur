@@ -410,6 +410,8 @@ def run_leakage_free_pipeline():
     os.makedirs('backend/models', exist_ok=True)
     joblib.dump(champ_lgbm, 'backend/models/champion_lgbm.joblib')
     joblib.dump(scaler, 'backend/models/feature_scaler.joblib')
+    joblib.dump(lr_model, 'backend/models/logistic_regression.joblib')
+    joblib.dump(rf_model, 'backend/models/random_forest.joblib')
 
     metrics_report = {
         "timestamp": datetime.now().isoformat(),

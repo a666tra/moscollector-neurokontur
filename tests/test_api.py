@@ -195,3 +195,31 @@ def test_benchmark_endpoint():
     data = res.json()
     assert data["status"] == "verified"
     assert "benchmark" in data
+
+def test_predictions_metrics():
+    res = client.get("/api/predictions/metrics")
+    assert res.status_code == 200
+    data = res.json()
+    assert "model_comparison" in data
+    assert "champion_lightgbm" in data["model_comparison"]
+    assert "logistic_regression" in data["model_comparison"]
+    assert "random_forest" in data["model_comparison"]
+    assert "http_load_benchmark" in data
+    assert data["http_load_benchmark"]["success_rate_pct"] == 100.0
+
+def test_multimodel_scoring():
+    for model in ["champion_lightgbm", "logistic_regression", "random_forest"]:
+        res = client.post("/api/predictions/score", json={
+            "channel_id": "120578",
+            "cnt_24h": 5,
+            "cnt_7d": 40,
+            "chatter_cnt": 3,
+            "silence_hours": 10.0,
+            "battery_glitches": 1,
+            "model_name": model
+        })
+        assert res.status_code == 200
+        data = res.json()
+        assert data["channel_id"] == "120578"
+        assert 0.0 <= data["failure_probability"] <= 1.0
+        assert data["model_used"] == model

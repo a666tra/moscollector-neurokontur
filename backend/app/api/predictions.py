@@ -73,6 +73,15 @@ def get_predictions(
         items=items
     )
 
+@router.get("/metrics")
+def get_model_metrics():
+    """Возвращает полный верифицированный отчет ML-метрик и валидации всех моделей"""
+    rep_path = os.path.join(settings.MODELS_DIR, "metrics_report.json")
+    if not os.path.exists(rep_path):
+        raise HTTPException(status_code=404, detail="Отчет метрик metrics_report.json не найден")
+    with open(rep_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
 @router.get("/benchmark")
 def get_model_benchmark():
     """Возвращает результаты официального стресс-теста производительности инференса модели"""
@@ -107,7 +116,9 @@ def score_sensor_live(req: RealtimeScoreRequest):
         mean_val=req.mean_val if req.mean_val is not None else 0.0,
         std_val=req.std_val if req.std_val is not None else 0.0,
         num_max=req.num_max if req.num_max is not None else 0.0,
-        last_value=req.last_value if req.last_value is not None else "Норма"
+        last_value=req.last_value if req.last_value is not None else "Норма",
+        unique_states=req.unique_states,
+        model_name=req.model_name
     )
     return RealtimeScoreResponse(**res)
 
