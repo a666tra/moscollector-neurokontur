@@ -63,7 +63,7 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
             </button>
 
             <div className="text-xs text-[#8B949E] font-mono flex items-center gap-2 pl-2">
-              <span className="text-white font-medium">Горизонт прогноза:</span> ≥ 24 часа • Инференс: &lt; 2 сек
+              <span className="text-white font-medium">Горизонт прогноза:</span> 24–72 часа • <span className="text-white font-medium">Скоринг сети:</span> 57 мс (SLA &lt; 300с)
             </div>
           </div>
         </div>
@@ -81,12 +81,12 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
           </div>
 
           <div className="eng-panel p-5">
-            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Точность модели (Precision)</div>
+            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Качество ML (Lift PR-AUC)</div>
             <div className="text-2xl sm:text-3xl font-bold text-[#00FF66] font-mono">
-              {stats ? (stats.model_precision * 100).toFixed(1) : '99.4'}%
+              11.0x
             </div>
             <div className="text-xs text-[#8B949E] mt-2 font-mono">
-              ТЗ требует &gt; 70.0% (Recall: 90.0%)
+              PR-AUC 0.177 vs 0.016 baseline • ROC 0.77
             </div>
           </div>
 
@@ -103,7 +103,7 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
           <div className="eng-panel p-5">
             <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Экономия OPEX / год</div>
             <div className="text-2xl sm:text-3xl font-bold text-[#FFB800] font-mono">
-              48.6 <span className="text-sm font-normal text-[#8B949E]">млн ₽</span>
+              42.6 <span className="text-sm font-normal text-[#8B949E]">млн ₽</span>
             </div>
             <div className="text-xs text-[#00FF66] mt-2 font-mono flex items-center gap-1">
               <TrendingUp className="w-3 h-3" /> Сокращение холостых выездов

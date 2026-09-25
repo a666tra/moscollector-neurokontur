@@ -48,6 +48,7 @@ class PredictionListResponse(BaseModel):
     warning_count: int
     attention_count: int
     normal_count: int
+    active_threshold: Optional[float] = 0.42
     items: List[PredictionItem]
 
 class AlarmEvent(BaseModel):
@@ -102,6 +103,10 @@ class RealtimeScoreRequest(BaseModel):
     battery_glitches: Optional[int] = 0
     date_corruptions: Optional[int] = 0
     gas_spikes: Optional[int] = 0
+    temp_spikes: Optional[int] = 0
+    mean_val: Optional[float] = 0.0
+    std_val: Optional[float] = 0.0
+    num_max: Optional[float] = 0.0
     last_value: Optional[str] = "Норма"
 
 class RealtimeScoreResponse(BaseModel):

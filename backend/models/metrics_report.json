@@ -87,5 +87,20 @@
     "val_failures": 105,
     "test_channels": 10712,
     "test_failures": 173
+  },
+  "http_load_benchmark": {
+    "benchmark_timestamp": "2026-09-25 10:35:56",
+    "total_requests": 500,
+    "concurrency_workers": 20,
+    "success_rate_pct": 100.0,
+    "total_time_seconds": 4.363,
+    "throughput_rps": 114.6,
+    "latency_mean_ms": 172.58,
+    "latency_p50_ms": 72.64,
+    "latency_p90_ms": 456.4,
+    "latency_p95_ms": 728.22,
+    "latency_p99_ms": 1611.9,
+    "tz_sla_target_ms": 300000.0,
+    "compliance_sla": "100% compliant (< 300s)"
   }
 }

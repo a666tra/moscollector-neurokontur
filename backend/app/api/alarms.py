@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from typing import List, Dict, Any
+from datetime import datetime
 from backend.app.models.schemas import (
     AlarmClassificationRequest, AlarmClassificationResponse, AlarmEvent,
     AlarmConfirmationRequest, AlarmConfirmationResponse
@@ -39,56 +40,56 @@ def get_confirmed_alarm_log():
 
 @router.get("/recent", response_model=List[AlarmEvent])
 def get_recent_alarms():
-    events = [
-        AlarmEvent(
-            event_id="EVT-2026-8941",
-            channel_id="120578",
-            date_str="2026-08-01",
-            time_str="03:09:27",
-            is_alarm=False,
-            raw_value="0.01",
-            sensor_type="КД АВ",
-            object_name="ДУ объект Альфа (ПК28)"
-        ),
-        AlarmEvent(
-            event_id="EVT-2026-8942",
-            channel_id="120504",
-            date_str="2026-08-01",
-            time_str="03:19:55",
-            is_alarm=True,
-            raw_value="Обнаружено движение",
-            sensor_type="Датчик движения",
-            object_name="объект Фита (ПК86)"
-        ),
-        AlarmEvent(
-            event_id="EVT-2026-8943",
-            channel_id="120466",
-            date_str="2026-08-01",
-            time_str="09:11:40",
-            is_alarm=True,
-            raw_value="0.08",
-            sensor_type="Газовый датчик",
-            object_name="объект Бета (ПК12)"
-        ),
-        AlarmEvent(
-            event_id="EVT-2026-8944",
-            channel_id="120298",
-            date_str="2026-08-01",
-            time_str="10:45:12",
-            is_alarm=True,
-            raw_value="Неисправен",
-            sensor_type="Датчик температуры",
-            object_name="Шкаф ОПС объект Бета (ПК44)"
-        ),
-        AlarmEvent(
-            event_id="EVT-2026-8945",
-            channel_id="196736",
-            date_str="2026-08-01",
-            time_str="11:02:04",
-            is_alarm=False,
-            raw_value="0.02",
-            sensor_type="Газовый датчик",
-            object_name="ДУ объект Гамма (ПК68)"
-        )
-    ]
+    """Динамический поток технологических событий СМВУ, сформированный из активных каналов сети"""
+    events = []
+    # Pick active sample channels from data_service predictions
+    sample_preds = data_service.predictions[:15] if data_service.predictions else []
+    now = datetime.now()
+    
+    for i, p in enumerate(sample_preds):
+        cid = p.get("channel_id", f"120{i:03d}")
+        s_info = data_service.sensors.get(cid, {})
+        oid = p.get("object_id", "")
+        obj = data_service.objects.get(oid, {})
+        coords = data_service.object_coords.get(oid, {})
+        picket = coords.get("picket", f"ПК{10 + i * 5}")
+
+        is_alarm = p.get("failure_probability", 0.0) >= 0.50
+        val = "5.20" if "газ" in p.get("sensor_type", "").lower() and is_alarm else ("Сработал" if is_alarm else "Норма")
+
+        events.append(AlarmEvent(
+            event_id=f"EVT-2026-{8940 + i}",
+            channel_id=cid,
+            date_str=now.strftime("%Y-%m-%d"),
+            time_str=f"{8 + (i // 4):02d}:{(i * 7) % 60:02d}:{(i * 13) % 60:02d}",
+            is_alarm=is_alarm,
+            raw_value=val,
+            sensor_type=p.get("sensor_type", s_info.get("sensor_type", "СМВУ")),
+            object_name=f"{obj.get('name', 'Коллекторный узел')} ({picket})"
+        ))
+    
+    if not events:
+        # Fallback if cache is empty
+        events = [
+            AlarmEvent(
+                event_id="EVT-2026-8941",
+                channel_id="120578",
+                date_str="2026-09-25",
+                time_str="08:14:27",
+                is_alarm=False,
+                raw_value="Норма",
+                sensor_type="КД АВ",
+                object_name="ДУ Садовое-Центр (ПК28)"
+            ),
+            AlarmEvent(
+                event_id="EVT-2026-8942",
+                channel_id="120504",
+                date_str="2026-09-25",
+                time_str="08:22:55",
+                is_alarm=True,
+                raw_value="Сработал",
+                sensor_type="Датчик движения",
+                object_name="Коллектор Фита (ПК86)"
+            )
+        ]
     return events

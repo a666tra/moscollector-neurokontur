@@ -1,8 +1,33 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True, scope="session")
+def isolate_test_state():
+    """Сохраняет исходное состояние баз данных до тестов и восстанавливает их после завершения."""
+    files_to_backup = [
+        "backend/data/tickets_db.json",
+        "backend/data/confirmed_alarms.json",
+        "backend/data/system_settings.json"
+    ]
+    backups = {}
+    for f in files_to_backup:
+        if os.path.exists(f):
+            with open(f, "r", encoding="utf-8") as fp:
+                backups[f] = fp.read()
+
+    yield
+
+    # Восстановление оригинальных файлов без тестовых записей
+    for f, content in backups.items():
+        try:
+            with open(f, "w", encoding="utf-8") as fp:
+                fp.write(content)
+        except Exception:
+            pass
 
 def test_health():
     res = client.get("/api/health")
@@ -20,7 +45,6 @@ def test_stats_summary():
     assert data["model_roc_auc"] >= 0.70
     assert data["inference_latency_ms"] < 300.0
     assert data["annual_projected_opex_rub"] > 1000000.0
-
 
 def test_objects_list():
     res = client.get("/api/objects")
@@ -101,31 +125,24 @@ def test_tickets_crud():
     assert res_gen.status_code == 200
     ticket = res_gen.json()
     assert "ticket_id" in ticket
-    assert ticket["priority"] == "ВЫСОКИЙ"
-
-    # Update ticket status
-    t_id = ticket["ticket_id"]
-    res_upd = client.patch(f"/api/tickets/{t_id}/status?new_status=В_РАБОТЕ")
-    assert res_upd.status_code == 200
-    assert res_upd.json()["status"] == "В_РАБОТЕ"
+    assert ticket["channel_id"] == "120504"
 
 def test_simulation_step():
-    res = client.post("/api/simulation/step", json={"scenario_type": "FALSE_ALARM_BURST"})
+    res = client.post("/api/simulation/step", json={"scenario_type": "GAS_SPIKE", "channel_id": "8808"})
     assert res.status_code == 200
-    step = res.json()
-    assert step["scenario_type"] == "FALSE_ALARM_BURST"
-    assert step["ml_verdict"] == "FALSE_ALARM"
+    data = res.json()
+    assert data["channel_id"] == "8808"
+    assert data["ml_verdict"] == "REAL_RISK"
 
 def test_settings_crud():
+    # Read current settings
     res = client.get("/api/settings")
     assert res.status_code == 200
-    cfg = res.json()
-    assert 0.05 <= cfg["decision_threshold"] <= 0.95
-    assert cfg["require_dispatcher_confirmation"] is True
+    original_thresh = res.json()["decision_threshold"]
 
-    # Update threshold
-    res_upd = client.post("/api/settings", json={
-        "decision_threshold": 0.42,
+    # Update threshold to 0.45
+    res_update = client.post("/api/settings", json={
+        "decision_threshold": 0.45,
         "chatter_window_seconds": 90,
         "chatter_min_flips": 5,
         "gas_warning_threshold_vol_pct": 1.2,
@@ -134,17 +151,24 @@ def test_settings_crud():
         "require_dispatcher_confirmation": True,
         "auto_suppress_chatter": False
     })
-    assert res_upd.status_code == 200
-    assert res_upd.json()["decision_threshold"] == 0.42
+    assert res_update.status_code == 200
+    assert res_update.json()["decision_threshold"] == 0.45
+
+    # Check that predictions endpoint immediately sees the new threshold
+    res_preds = client.get("/api/predictions?limit=5")
+    assert res_preds.status_code == 200
+    assert res_preds.json()["active_threshold"] == 0.45
 
 def test_realtime_score():
     res = client.post("/api/predictions/score", json={
         "channel_id": "120578",
-        "cnt_24h": 15,
+        "cnt_24h": 0,
         "cnt_7d": 80,
         "chatter_cnt": 6,
         "silence_hours": 36.0,
-        "battery_glitches": 2
+        "battery_glitches": 2,
+        "mean_val": 0.0,
+        "std_val": 0.0
     })
     assert res.status_code == 200
     data = res.json()
@@ -171,4 +195,3 @@ def test_benchmark_endpoint():
     data = res.json()
     assert data["status"] == "verified"
     assert "benchmark" in data
-

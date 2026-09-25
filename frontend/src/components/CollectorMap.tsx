@@ -37,10 +37,10 @@ export const CollectorMap: React.FC<CollectorMapProps> = ({
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // CartoDB Dark Matter tiles (optimal for dark engineering dashboard)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // Standard OpenStreetMap tiles (styled with dark CSS filter in index.css)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd'
+      attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
     const markersGroup = L.layerGroup().addTo(map);

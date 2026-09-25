@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from backend.app.core.config import settings
 from backend.app.services.data_service import data_service
-from backend.app.api.settings import current_system_settings
+from backend.app.api.settings import get_current_settings
 
 CONFIRMED_ALARMS_PATH = os.path.join(settings.DATA_DIR, "confirmed_alarms.json")
 
@@ -15,7 +15,10 @@ class MLService:
     def __init__(self):
         self.model = None
         self.confirmed_alarms: List[Dict[str, Any]] = []
+        self.stype_map: Dict[str, int] = {}
+        self.sys_map: Dict[str, int] = {}
         self.load_model()
+        self.load_metadata()
         self.load_confirmed_alarms()
 
     def load_model(self):
@@ -25,6 +28,17 @@ class MLService:
                 self.model = joblib.load(model_path)
             except Exception as e:
                 print(f"Error loading model: {e}")
+
+    def load_metadata(self):
+        meta_path = os.path.join(settings.MODELS_DIR, "model_metadata.json")
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, 'r', encoding='utf-8') as f:
+                    meta = json.load(f)
+                    self.stype_map = meta.get("stype_map", {})
+                    self.sys_map = meta.get("sys_map", {})
+            except Exception as e:
+                print(f"Error loading metadata: {e}")
 
     def load_confirmed_alarms(self):
         if os.path.exists(CONFIRMED_ALARMS_PATH):
@@ -57,6 +71,10 @@ class MLService:
         battery_glitches: int = 0,
         date_corruptions: int = 0,
         gas_spikes: int = 0,
+        temp_spikes: int = 0,
+        mean_val: float = 0.0,
+        std_val: float = 0.0,
+        num_max: float = 0.0,
         last_value: str = "Норма"
     ) -> Dict[str, Any]:
         """Real-time dynamic inference using LightGBM champion model with exact latency measurement."""
@@ -76,33 +94,35 @@ class MLService:
         acc_alarms = alarms_24h / (alarms_7d / 7.0 + 0.1)
         chatter_ratio = chatter_cnt / max(1, cnt_7d)
         
-        stype = s_info.get("sensor_type", "").lower()
-        stype_code = 1 if "газ" in stype else (2 if "кд" in stype or "ав" in stype else 0)
-        sys_code = 1 if "опс" in s_info.get("system_type", "").lower() else 0
+        stype_str = s_info.get("sensor_type", "")
+        sys_str = s_info.get("system_type", "")
+        stype_code = self.stype_map.get(stype_str, 0)
+        sys_code = self.sys_map.get(sys_str, 0)
+        obj_level = int(obj.get("hierarchy_level", 3))
 
-        # 21-dim feature vector matching training schema
+        # 21-dim feature vector matching training schema precisely
         feature_vec = np.array([[
-            cnt_24h,
-            cnt_7d,
-            alarms_24h,
-            alarms_7d,
-            alarm_ratio,
-            acc_events,
-            acc_alarms,
-            chatter_cnt,
-            chatter_ratio,
-            battery_glitches,
-            date_corruptions,
-            max(2, chatter_cnt + 1), # unique_states
-            silence_hours,
-            0.0, # num_mean
-            0.0, # num_std
-            0.0, # num_max
-            stype_code,
-            sys_code,
-            gas_spikes,
-            0, # temp_spikes
-            int(obj.get("hierarchy_level", 3))
+            float(cnt_24h),
+            float(cnt_7d),
+            float(alarms_24h),
+            float(alarms_7d),
+            float(alarm_ratio),
+            float(acc_events),
+            float(acc_alarms),
+            float(chatter_cnt),
+            float(chatter_ratio),
+            float(battery_glitches),
+            float(date_corruptions),
+            float(max(2, chatter_cnt + 1)), # unique_states
+            float(silence_hours),
+            float(mean_val),
+            float(std_val),
+            float(num_max if num_max > 0 else mean_val),
+            float(stype_code),
+            float(sys_code),
+            float(gas_spikes),
+            float(temp_spikes),
+            float(obj_level)
         ]], dtype=np.float32)
 
         prob = 0.05
@@ -115,8 +135,9 @@ class MLService:
         
         latency_ms = (time.perf_counter() - t_start) * 1000
 
-        # Evaluate against active threshold
-        threshold = current_system_settings.decision_threshold
+        # Evaluate against active threshold from singleton settings
+        active_settings = get_current_settings()
+        threshold = active_settings.decision_threshold
         is_degradation = prob >= threshold
 
         if prob >= 0.70:
@@ -140,11 +161,13 @@ class MLService:
         if battery_glitches > 0:
             factors.append("Просадка вторичного питания")
         if date_corruptions > 0:
-            factors.append("Сброс часов контроллера (1970г)")
+            factors.append("Сброс RTC контроллера (Unix Epoch 1970)")
         if gas_spikes > 0:
-            factors.append(f"Всплески концентрации метана ({gas_spikes} раз)")
+            factors.append("Всплеск концентрации метана (> 1.0%)")
+        if temp_spikes > 0:
+            factors.append("Температурная аномалия (> 35°C)")
         if not factors:
-            factors = ["Штатные технологические колебания"]
+            factors.append("Штатные параметры телеметрии")
 
         return {
             "channel_id": channel_id,
@@ -153,7 +176,7 @@ class MLService:
             "picket": picket,
             "failure_probability": round(prob, 4),
             "risk_level": risk,
-            "threshold_used": round(threshold, 4),
+            "threshold_used": threshold,
             "is_degradation_detected": is_degradation,
             "top_factors": factors,
             "recommended_action": action,
@@ -166,17 +189,20 @@ class MLService:
         current_value: str,
         recent_events_count_1h: int = 1,
         recent_flips_count_1h: int = 0,
-        duration_minutes: float = 2.0
+        duration_minutes: float = 0.0
     ) -> Dict[str, Any]:
-        """Classify incoming alarm with Human-in-the-Loop safety confirmation."""
+        """Classify alarm into FALSE_ALARM, REAL_RISK, SENSOR_DEGRADATION, NORMAL."""
+        active_settings = get_current_settings()
         s_info = data_service.sensors.get(channel_id, {})
         stype = s_info.get("sensor_type", "").lower()
+
+        # Channel risk score from precomputed predictions
         pred = data_service.predictions_by_channel.get(channel_id, {})
         base_fail_prob = pred.get("failure_probability", 0.05)
 
-        # 1. Fire / Gas Risk check (Hazardous)
+        # 1. Real Danger Check (gas spikes, extreme temperature)
         try:
-            val_num = float(current_value)
+            val_num = float(current_value.replace(",", "."))
             if "газ" in stype:
                 if val_num >= 5.0:
                     return {
@@ -188,7 +214,7 @@ class MLService:
                         "recommended_action": "НЕМЕДЛЕННАЯ ЭВАКУАЦИЯ И ВЫЕЗД АВАРИЙНОЙ ГАЗОВОЙ СЛУЖБЫ ОДС",
                         "avoided_callout_cost_rub": 0.0
                     }
-                elif val_num >= current_system_settings.gas_warning_threshold_vol_pct:
+                elif val_num >= active_settings.gas_warning_threshold_vol_pct:
                     return {
                         "channel_id": channel_id,
                         "verdict": "REAL_RISK",
@@ -212,7 +238,7 @@ class MLService:
             pass
 
         # 2. Contact Chatter / False Alarm Check
-        chatter_threshold = current_system_settings.chatter_min_flips
+        chatter_threshold = active_settings.chatter_min_flips
         if recent_flips_count_1h >= chatter_threshold or (duration_minutes <= 2.5 and recent_events_count_1h >= 3):
             confidence = 0.85 + min(0.12, recent_flips_count_1h * 0.02)
             return {
@@ -228,11 +254,11 @@ class MLService:
                     "Рекомендация ИИ: Подавление ложной тревоги. ТРЕБУЕТСЯ ПОДТВЕРЖДЕНИЕ ДИСПЕТЧЕРА ОДС "
                     "в соответствии с регламентом безопасности перед отменой выезда бригады."
                 ),
-                "avoided_callout_cost_rub": current_system_settings.callout_cost_rub
+                "avoided_callout_cost_rub": active_settings.callout_cost_rub
             }
 
         # 3. Sensor Degradation vs Real Failure
-        if base_fail_prob >= current_system_settings.decision_threshold or "неисправ" in current_value.lower() or "отключ" in current_value.lower():
+        if base_fail_prob >= active_settings.decision_threshold or "неисправ" in current_value.lower() or "отключ" in current_value.lower():
             return {
                 "channel_id": channel_id,
                 "verdict": "SENSOR_DEGRADATION",
@@ -240,7 +266,7 @@ class MLService:
                 "confidence": round(max(0.75, base_fail_prob), 3),
                 "diagnosis": f"Аппаратный сбой канала: деградация сенсорного узла ({current_value}). Вероятность отказа: {int(base_fail_prob*100)}%.",
                 "recommended_action": "Автоматическое создание наряд-заказа на превентивную замену датчика (ППР) до аварии.",
-                "avoided_callout_cost_rub": current_system_settings.callout_cost_rub - current_system_settings.preventive_cost_rub
+                "avoided_callout_cost_rub": active_settings.callout_cost_rub - active_settings.preventive_cost_rub
             }
 
         # 4. Normal / Transient Event
@@ -262,9 +288,10 @@ class MLService:
         notes: Optional[str] = None
     ) -> Dict[str, Any]:
         """Human-in-the-loop decision confirmation by ODS dispatcher."""
+        active_settings = get_current_settings()
         now = datetime.now()
-        is_suppress = decision == "CONFIRM_FALSE_ALARM"
-        avoided = current_system_settings.callout_cost_rub if is_suppress else 0.0
+        is_suppress = decision in ("CONFIRM_FALSE_ALARM", "confirm_false")
+        avoided = active_settings.callout_cost_rub if is_suppress else 0.0
         
         record = {
             "channel_id": channel_id,
@@ -279,7 +306,7 @@ class MLService:
         self.save_confirmed_alarms()
 
         msg = (
-            f"Решение диспетчера [{dispatcher_badge}] зафиксировано: выезд отменен, сохранено {avoided:,.0f} руб."
+            f"Решение диспетчера [{dispatcher_badge}]: ложная тревога подтверждена. Выезд отменен. Предотвращен ущерб: {avoided:,.0f} ₽."
             if is_suppress else
             f"Решение диспетчера [{dispatcher_badge}]: аварийная бригада направлена на объект."
         )

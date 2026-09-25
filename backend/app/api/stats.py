@@ -4,7 +4,7 @@ from backend.app.models.schemas import SystemStatsResponse
 from backend.app.services.data_service import data_service
 from backend.app.services.ml_service import ml_service
 from backend.app.services.maintenance_service import maintenance_service
-from backend.app.api.settings import current_system_settings
+from backend.app.api.settings import get_current_settings
 
 router = APIRouter()
 
@@ -14,7 +14,8 @@ def get_system_stats():
     test_metrics = rep.get("test_metrics", {})
     bench = rep.get("performance_benchmark", {})
     
-    thresh = current_system_settings.decision_threshold
+    cfg = get_current_settings()
+    thresh = cfg.decision_threshold
     critical_cnt = sum(1 for p in data_service.predictions if p["failure_probability"] >= 0.70)
     
     # 1. Direct saved OPEX from confirmed dispatcher actions and created tickets
@@ -24,8 +25,8 @@ def get_system_stats():
 
     # 2. Honest annual projected savings across 825 km Moscollector network
     # Formula: (Estimated avoided false callouts/mo * CalloutCost) + (Prevented failures/mo * (CalloutCost - PreventiveCost)) * 12
-    c_callout = current_system_settings.callout_cost_rub
-    c_prev = current_system_settings.preventive_cost_rub
+    c_callout = cfg.callout_cost_rub
+    c_prev = cfg.preventive_cost_rub
     
     est_monthly_filtered_chatter = 215
     est_monthly_prevented_failures = 42

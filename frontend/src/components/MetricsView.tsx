@@ -139,20 +139,20 @@ export const MetricsView: React.FC = () => {
               <tr className="hover:bg-white/5">
                 <td className="p-3 text-white">3. Random Forest (100 деревьев)</td>
                 <td className="p-3 text-[#8B949E]">0.7049</td>
-                <td className="p-3 text-white">0.1580 (9.8x)</td>
+                <td className="p-3 text-white">0.1654 (10.3x)</td>
                 <td className="p-3 text-[#8B949E]">15.0%</td>
                 <td className="p-3 text-[#00FF66] font-semibold">51.0%</td>
                 <td className="p-3 text-white">0.2321</td>
-                <td className="p-3"><span className="eng-badge badge-warning">Ансамбль</span></td>
+                <td className="p-3"><span className="eng-badge badge-warning">High-Precision</span></td>
               </tr>
               <tr className="bg-[#00FF66]/5 border-l-2 border-[#00FF66]">
                 <td className="p-3 text-[#00FF66] font-bold">4. Champion LightGBM Classifier</td>
                 <td className="p-3 text-[#00FF66] font-bold">0.7683</td>
                 <td className="p-3 text-[#00FF66] font-bold">0.1768 (11.0x Lift)</td>
-                <td className="p-3 text-white font-semibold">Настраиваемый (18.5%–75%)</td>
-                <td className="p-3 text-white font-semibold">Настраиваемый (16.7%–65%)</td>
-                <td className="p-3 text-[#00FF66] font-bold">Оптимум tau</td>
-                <td className="p-3"><span className="eng-badge badge-normal">В ПРОДАКШЕНЕ</span></td>
+                <td className="p-3 text-[#00FF66] font-semibold">18.5% (до 75% при tau=0.35)</td>
+                <td className="p-3 text-[#00FF66] font-semibold">16.7% (до 55% при tau=0.85)</td>
+                <td className="p-3 text-[#00FF66] font-bold">0.1753</td>
+                <td className="p-3"><span className="eng-badge badge-normal">В ПРОДАКШЕНЕ (SLA 57мс)</span></td>
               </tr>
             </tbody>
           </table>
