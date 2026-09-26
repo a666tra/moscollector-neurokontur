@@ -219,7 +219,12 @@ class MLService:
         prob = 0.0
         model_used = selected_mod
 
-        if "logistic" in selected_mod and self.model_lr is not None:
+        if "logistic" in selected_mod:
+            if self.model_lr is None:
+                raise RuntimeError(
+                    f"Критический отказ ML-контура: затребованная модель 'logistic_regression' не инициализирована "
+                    f"или файл весов отсутствует. Автоматическая подмена другой моделью заблокирована (ГОСТ Р 53195)."
+                )
             try:
                 scaled = self.scaler.transform(feature_vec) if self.scaler is not None else feature_vec
                 probs = self.model_lr.predict_proba(scaled)
@@ -227,29 +232,43 @@ class MLService:
                 model_used = "logistic_regression"
                 model_executed = True
             except Exception as e:
-                print(f"LogisticRegression error: {e}")
-        elif "forest" in selected_mod and self.model_rf is not None:
+                raise RuntimeError(f"Критический сбой инференса модели 'logistic_regression': {e}")
+        elif "forest" in selected_mod:
+            if self.model_rf is None:
+                raise RuntimeError(
+                    f"Критический отказ ML-контура: затребованная модель 'random_forest' не инициализирована "
+                    f"или файл весов отсутствует. Автоматическая подмена другой моделью заблокирована (ГОСТ Р 53195)."
+                )
             try:
                 probs = self.model_rf.predict_proba(feature_vec)
                 prob = float(probs[0][1])
                 model_used = "random_forest"
                 model_executed = True
             except Exception as e:
-                print(f"RandomForest error: {e}")
-        elif self.model_lgbm is not None:
+                raise RuntimeError(f"Критический сбой инференса модели 'random_forest': {e}")
+        elif "lightgbm" in selected_mod or "champion" in selected_mod or not selected_mod:
+            if self.model_lgbm is None:
+                raise RuntimeError(
+                    f"Критический отказ ML-контура: базовая модель 'champion_lightgbm' не инициализирована "
+                    f"или файл весов отсутствует. Автоматический возврат ложного статуса NORMAL заблокирован."
+                )
             try:
                 probs = self.model_lgbm.predict_proba(feature_vec)
                 prob = float(probs[0][1])
                 model_used = "champion_lightgbm"
                 model_executed = True
             except Exception as e:
-                print(f"LightGBM error: {e}")
+                raise RuntimeError(f"Критический сбой инференса модели 'champion_lightgbm': {e}")
+        else:
+            raise RuntimeError(
+                f"Неизвестная модель ML-контура: '{selected_mod}'. "
+                f"Допустимые идентификаторы: 'champion_lightgbm', 'logistic_regression', 'random_forest'."
+            )
 
         if not model_executed:
             raise RuntimeError(
-                f"Критический отказ ML-контура: модель '{selected_mod}' не инициализирована или "
-                f"недоступна для инференса. Автоматический возврат ложно-безопасного статуса NORMAL "
-                f"заблокирован согласно требованиям ГОСТ Р 53195."
+                f"Критический отказ ML-контура: модель '{selected_mod}' не смогла завершить расчёт вероятности. "
+                f"Автоматический возврат ложно-безопасного статуса NORMAL заблокирован согласно требованиям ГОСТ Р 53195."
             )
         
         latency_ms = (time.perf_counter() - t_start) * 1000
@@ -459,6 +478,15 @@ class MLService:
                 f"Отказ в доступе (RBAC): сотрудник с табельным номером '{norm_badge}' ({disp.get('role')}) "
                 f"не наделен полномочиями принудительного вызова аварийной бригады."
             )
+
+        # Fail-closed integrity audit: check that prior ledger records were not corrupted/tampered with
+        if self.confirmed_alarms:
+            audit_check = self.verify_audit_log_integrity()
+            if audit_check.get("tamper_detected", False):
+                raise RuntimeError(
+                    "Отказ в проведении операции: обнаружена компрометация целостности криптографического "
+                    "реестра аудита (ГОСТ Р 53195-2014). Запись новых решений заблокирована до устранения несоответствия."
+                )
 
         timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
         note_text = notes or ("Подтверждена ложная тревога диспетчером" if is_suppress else "Принудительный выезд бригады")

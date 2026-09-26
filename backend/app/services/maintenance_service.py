@@ -94,7 +94,14 @@ class MaintenanceService:
             return [t for t in self.tickets if t["status"] == status]
         return self.tickets
 
-    def create_ticket(self, channel_id: str, priority: str = "ВЫСОКИЙ", notes: Optional[str] = None) -> Dict[str, Any]:
+    def create_ticket(
+        self,
+        channel_id: str,
+        priority: str = "ВЫСОКИЙ",
+        notes: Optional[str] = None,
+        dispatcher_badge: str = "ДИСП-7041",
+        dispatcher_name: str = "Кузнецов Артем Дмитриевич"
+    ) -> Dict[str, Any]:
         pred = data_service.predictions_by_channel.get(channel_id, {})
         s_info = data_service.sensors.get(channel_id, {})
         oid = s_info.get("object_id", "")
@@ -125,7 +132,10 @@ class MaintenanceService:
             "assigned_team": "Оперативная бригада ОДС Москоллектор",
             "status": "ЧЕРНОВИК",
             "estimated_cost_rub": settings.PREVENTIVE_MAINTENANCE_COST_RUB,
-            "saved_opex_rub": saved
+            "saved_opex_rub": saved,
+            "created_by": dispatcher_badge,
+            "created_by_name": dispatcher_name,
+            "authorization_standard": "ГОСТ Р 53195-2014 / Р ТЭК"
         }
         self.tickets.insert(0, ticket)
         self._save_to_disk()

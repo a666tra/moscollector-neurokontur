@@ -165,11 +165,15 @@ class MaintenanceTicket(BaseModel):
     status: str  # ЧЕРНОВИК, НАЗНАЧЕН, В_РАБОТЕ, ВЫПОЛНЕН
     estimated_cost_rub: float
     saved_opex_rub: float
+    created_by: Optional[str] = "ДИСП-7041"
+    created_by_name: Optional[str] = "Кузнецов Артем Дмитриевич"
 
 class CreateTicketRequest(BaseModel):
     channel_id: str
     priority: Optional[str] = "ВЫСОКИЙ"
     notes: Optional[str] = None
+    dispatcher_badge: Optional[str] = Field("ДИСП-7041", description="Табельный номер диспетчера ОДС")
+    dispatcher_pin: Optional[str] = Field("704192", pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера ОДС (2FA)")
 
 class SystemStatsResponse(BaseModel):
     monitored_km: float

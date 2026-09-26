@@ -362,3 +362,98 @@ def test_real_recent_alarms_stream():
     assert "channel_id" in first
     assert "raw_value" in first
     assert "СМВУ" in first.get("provenance", "")
+
+def test_model_specific_fail_closed_without_fallback():
+    """Проверка строгого отсутствия неявной подмены моделей (No silent fallback)."""
+    from backend.app.services.ml_service import ml_service
+    orig_lr = ml_service.model_lr
+    orig_rf = ml_service.model_rf
+    try:
+        # 1. Отказ Logistic Regression -> должен падать с 503, а не подменять LightGBM
+        ml_service.model_lr = None
+        res_lr = client.post("/api/predictions/score", json={
+            "channel_id": "120578",
+            "cnt_24h": 2,
+            "cnt_7d": 15,
+            "model_name": "logistic_regression"
+        })
+        assert res_lr.status_code == 503
+        assert "logistic_regression" in res_lr.json()["detail"]
+
+        # 2. Отказ Random Forest -> должен падать с 503, а не подменять LightGBM
+        ml_service.model_rf = None
+        res_rf = client.post("/api/predictions/score", json={
+            "channel_id": "120578",
+            "cnt_24h": 2,
+            "cnt_7d": 15,
+            "model_name": "random_forest"
+        })
+        assert res_rf.status_code == 503
+        assert "random_forest" in res_rf.json()["detail"]
+    finally:
+        ml_service.model_lr = orig_lr
+        ml_service.model_rf = orig_rf
+
+def test_settings_rbac_level3_security():
+    """Проверка защиты настроек по ГОСТ Р 53195: доступ только Level-3 (Главный инженер ОДС) с 2FA PIN."""
+    base_settings = {
+        "decision_threshold": 0.42,
+        "chatter_window_seconds": 90,
+        "chatter_min_flips": 5,
+        "gas_warning_threshold_vol_pct": 1.2,
+        "callout_cost_rub": 18500.0,
+        "preventive_cost_rub": 3200.0,
+        "require_dispatcher_confirmation": True,
+        "auto_suppress_chatter": False,
+        "selected_model": "champion_lightgbm"
+    }
+
+    # 1. Неверный PIN -> 401 Unauthorized
+    res_bad_pin = client.post("/api/settings", json={
+        **base_settings,
+        "dispatcher_badge": "ДИСП-7041",
+        "dispatcher_pin": "000000"
+    })
+    assert res_bad_pin.status_code == 401
+
+    # 2. Диспетчер Level-1 (ДИСП-1094) -> 403 Forbidden (Недостаточный уровень прав)
+    res_l1 = client.post("/api/settings", json={
+        **base_settings,
+        "dispatcher_badge": "ДИСП-1094",
+        "dispatcher_pin": "109407"
+    })
+    assert res_l1.status_code == 403
+    assert "Level-3" in res_l1.json()["detail"]
+
+    # 3. Главный инженер Level-3 (ДИСП-7041) с валидным PIN 704192 -> 200 OK
+    res_ok = client.post("/api/settings", json={
+        **base_settings,
+        "dispatcher_badge": "ДИСП-7041",
+        "dispatcher_pin": "704192"
+    })
+    assert res_ok.status_code == 200
+    assert res_ok.json()["decision_threshold"] == 0.42
+
+def test_tickets_dispatcher_audit():
+    """Проверка создания наряд-заказов с фиксацией табельного номера и 2FA."""
+    # 1. Неверный PIN -> 401
+    res_bad = client.post("/api/tickets/generate", json={
+        "channel_id": "113980",
+        "notes": "Попытка без авторизации",
+        "dispatcher_badge": "ДИСП-7041",
+        "dispatcher_pin": "000000"
+    })
+    assert res_bad.status_code == 401
+
+    # 2. Успешная генерация с фиксацией ответственного
+    res_ok = client.post("/api/tickets/generate", json={
+        "channel_id": "113980",
+        "notes": "Предупредительная ревизия блока питания",
+        "dispatcher_badge": "ДИСП-7041",
+        "dispatcher_pin": "704192"
+    })
+    assert res_ok.status_code == 200
+    ticket = res_ok.json()
+    assert ticket["channel_id"] == "113980"
+    assert "ДИСП-7041" in ticket["created_by"]
+

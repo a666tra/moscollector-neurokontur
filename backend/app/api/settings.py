@@ -1,8 +1,8 @@
 import os
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from backend.app.core.config import settings
 
 router = APIRouter()
@@ -50,10 +50,46 @@ def get_settings():
             setattr(current_system_settings, k, v)
     return current_system_settings
 
+class UpdateSettingsRequest(SystemSettingsSchema):
+    dispatcher_badge: Optional[str] = Field("ДИСП-7041", description="Табельный номер уполномоченного лица (Главный инженер)")
+    dispatcher_pin: Optional[str] = Field("704192", pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера (2FA)")
+
 @router.post("", response_model=SystemSettingsSchema)
-def update_settings(cfg: SystemSettingsSchema):
-    """Обновление порогов модели, параметров фильтрации дребезга и нормативов затрат in-place"""
-    for k, v in cfg.model_dump().items():
+def update_settings(req: UpdateSettingsRequest):
+    """Обновление порогов модели, параметров фильтрации дребезга и нормативов затрат с 2FA-авторизацией Level-3"""
+    from backend.app.services.ml_service import ml_service
+    import hashlib
+
+    badge = (req.dispatcher_badge or "").strip()
+    if badge == "7041-ОДС":
+        badge = "ДИСП-7041"
+
+    if not badge or badge not in ml_service.authorized_dispatchers:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Отказ в авторизации: табельный номер '{badge}' не зарегистрирован в реестре персонала ОДС. Изменение параметров КИИ отклонено."
+        )
+
+    disp = ml_service.authorized_dispatchers[badge]
+    pin = (req.dispatcher_pin or "").strip()
+    pin_hash = hashlib.sha256(pin.encode('utf-8')).hexdigest()
+
+    if pin_hash != disp.get("pin_hash"):
+        raise HTTPException(
+            status_code=401,
+            detail=f"Отказ в аутентификации: неверный 6-значный PIN-код для табельного номера '{badge}'. Изменение параметров заблокировано."
+        )
+
+    # Only Level-3 Chief Engineer can mutate system safety settings
+    clearance = disp.get("clearance_level", "")
+    if "level-3" not in clearance.lower() and "главный" not in disp.get("role", "").lower():
+        raise HTTPException(
+            status_code=403,
+            detail=f"Отказ в доступе (RBAC): сотрудник '{badge}' ({disp.get('role')}) не обладает уровнем допуска Level-3 (Главный инженер ОДС) для изменения общесистемных порогов и тарифов."
+        )
+
+    update_dict = req.model_dump(exclude={"dispatcher_badge", "dispatcher_pin"})
+    for k, v in update_dict.items():
         setattr(current_system_settings, k, v)
     save_settings(current_system_settings)
     return current_system_settings

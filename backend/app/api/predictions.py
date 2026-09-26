@@ -140,6 +140,14 @@ def score_sensor_live(req: RealtimeScoreRequest):
 @router.get("/reconciliation")
 def get_prediction_reconciliation():
     """Аудиторская сверка прогнозов с фактическими инцидентами телеметрии SCADA по §18 ТЗ."""
+    recon_path = os.path.join(settings.BASE_DIR, "data", "reconciliation_ground_truth.json")
+    if os.path.exists(recon_path):
+        try:
+            with open(recon_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading reconciliation ground truth: {e}")
+
     rep_path = os.path.join(settings.MODELS_DIR, "metrics_report.json")
     rep_data = {}
     if os.path.exists(rep_path):
@@ -154,7 +162,7 @@ def get_prediction_reconciliation():
     
     return {
         "audit_standard": "ГОСТ Р 53195-2014 / §18.3 ТЗ Департамента ЖКХ г. Москвы",
-        "methodology": "Сравнение предиктивных оценок с фактическими физическими инцидентами в телеметрии SCADA/СМВУ в горизонте упреждения 24–72 часа на отложенной выборке (без утечки данных)",
+        "methodology": "Сравнение предиктивных оценок ML-моделей за 24–72 часа с фактическими физическими инцидентами в телеметрии SCADA/СМВУ в отложенном временном окне (Held-out Test: 22–28 января 2026, 11 485 каналов). В выданном открытом датасете внешние акты ремонтов CMMS/1С:ТОИР отсутствуют, поэтому разметка целевых физических отказов выполнена строго алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее.",
         "dataset_channels_total": 11485,
         "actual_incidents_recorded": 174,
         "operational_matrix_tau_0_42": {
@@ -182,68 +190,7 @@ def get_prediction_reconciliation():
             "pr_auc": test_metrics.get("pr_auc", 0.1679),
             "lift_vs_baseline": 15.39,
             "operating_mode": "Режим жесткого таргетирования выездов (High-Precision)"
-        },
-        "recommendation_vs_ground_truth_policy": [
-            {
-                "ai_verdict": "SENSOR_DEGRADATION",
-                "ai_action": "Автоматическое формирование наряд-заказа на плановое ТО/ППР (3 200 ₽)",
-                "baseline_scada_reaction": "Аварийный выезд АВР по факту отказа датчика (18 500 ₽)",
-                "reconciliation_outcome": "Экономия 15 300 ₽ на инцидент за счет упреждающего обслуживания",
-                "safety_impact": "Исключение ослепления диспетчера при реальной аварии на коллекторе"
-            },
-            {
-                "ai_verdict": "FALSE_ALARM",
-                "ai_action": "Подавление тревоги дребезга геркона люка с подтверждением 2FA диспетчера",
-                "baseline_scada_reaction": "Ложный срочный выезд аварийной бригады (18 500 ₽)",
-                "reconciliation_outcome": "Экономия 18 500 ₽, высвобождение бригады для реальных инцидентов",
-                "safety_impact": "Снижение ложной нагрузки на диспетчеров ОДС на 78%"
-            },
-            {
-                "ai_verdict": "REAL_RISK",
-                "ai_action": "Экстренный наряд ОДС, автоматический пуск вентиляции шахты",
-                "baseline_scada_reaction": "Срабатывание порога загазованности/температуры постфактум",
-                "reconciliation_outcome": "Упреждение аварии на 24–72 часа",
-                "safety_impact": "Предотвращение взрыва метана или термического разрушения коммуникаций"
-            }
-        ],
-        "sample_verified_cases": [
-            {
-                "channel_id": "120504",
-                "sensor_name": "Концевик люка шахты СМВУ",
-                "object_name": "Коллектор 'Краснопресненский'",
-                "predicted_prob": 0.89,
-                "predicted_verdict": "FALSE_ALARM",
-                "actual_scada_event": "Серия микроимпульсов дребезга без вскрытия (42 события/час)",
-                "reconciliation_status": "CONFIRMED_FALSE_ALARM_SAVED_18500_RUB"
-            },
-            {
-                "channel_id": "228571",
-                "sensor_name": "Датчик температуры ТС-1",
-                "object_name": "Коллектор 'Новоданиловский'",
-                "predicted_prob": 0.78,
-                "predicted_verdict": "SENSOR_DEGRADATION",
-                "actual_scada_event": "Аппаратный обрыв термосопротивления через 36ч после деградации",
-                "reconciliation_status": "PREVENTED_BY_PPR_SAVED_15300_RUB"
-            },
-            {
-                "channel_id": "196736",
-                "sensor_name": "Оптический датчик метана CH4",
-                "object_name": "Коллектор 'Ленинградский'",
-                "predicted_prob": 0.64,
-                "predicted_verdict": "SENSOR_DEGRADATION",
-                "actual_scada_event": "Запыление оптического окна, уход нулевой линии на 0.8%",
-                "reconciliation_status": "PREVENTIVE_MAINTENANCE_SCHEDULED"
-            },
-            {
-                "channel_id": "120578",
-                "sensor_name": "Герконовый датчик люка СМВУ",
-                "object_name": "Коллектор 'Автозаводский'",
-                "predicted_prob": 0.91,
-                "predicted_verdict": "FALSE_ALARM",
-                "actual_scada_event": "Вибрационный дребезг от дорожного движения по ТТК",
-                "reconciliation_status": "CONFIRMED_FALSE_ALARM_SAVED_18500_RUB"
-            }
-        ]
+        }
     }
 
 @router.get("/{channel_id}", response_model=PredictionItem)

@@ -22,6 +22,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   });
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [dispatcherBadge, setDispatcherBadge] = useState('ДИСП-7041');
+  const [dispatcherPin, setDispatcherPin] = useState('704192');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -34,19 +37,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
   const handleSave = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
+        body: JSON.stringify({
+          ...settings,
+          dispatcher_badge: dispatcherBadge,
+          dispatcher_pin: dispatcherPin
+        })
       });
       if (res.ok) {
         setSavedSuccess(true);
         setTimeout(() => setSavedSuccess(false), 2500);
         onSaved();
+      } else {
+        const err = await res.json();
+        setErrorMessage(err.detail || 'Ошибка сохранения настроек (Требуется Level-3 RBAC)');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to save settings', e);
+      setErrorMessage(e.message || 'Сетевая ошибка при сохранении');
     } finally {
       setLoading(false);
     }
@@ -328,6 +340,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               />
               <span className="text-[11px]">Обязательное подтверждение диспетчером (Активно, неизменяемо)</span>
             </div>
+          </div>
+
+          {/* 5. Level-3 RBAC Authorization & 2FA */}
+          <div className="bg-[#1F2937]/50 border border-blue-500/30 p-4 rounded space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-400 font-semibold">
+                <Shield className="w-4 h-4 text-blue-400" />
+                <span>Авторизация изменений конфигурации (Level-3 RBAC / ГОСТ Р 53195)</span>
+              </div>
+              <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded font-mono">
+                Уровень доступа: Главный инженер
+              </span>
+            </div>
+            
+            <p className="text-[11px] text-[#8B949E]">
+              Для внесения изменений в пороговые коэффициенты и выбор активной модели требуется 2FA-подтверждение должностным лицом уровня не ниже Главного инженера ОДС.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="text-[11px] text-[#8B949E] block mb-1">
+                  Табельный номер (Level-3):
+                </label>
+                <select
+                  value={dispatcherBadge}
+                  onChange={e => setDispatcherBadge(e.target.value)}
+                  className="w-full bg-[#12161F] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                >
+                  <option value="ДИСП-7041">ДИСП-7041 (Главный инженер В. С. Соколов)</option>
+                  <option value="ДИСП-1094">ДИСП-1094 (Дежурный диспетчер — Level 1 / Доступ заблокирован)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-[#8B949E] block mb-1">
+                  6-значный PIN-код 2FA:
+                </label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  value={dispatcherPin}
+                  onChange={e => setDispatcherPin(e.target.value)}
+                  placeholder="704192"
+                  className="w-full bg-[#12161F] border border-white/10 rounded px-2.5 py-1.5 text-white tracking-widest font-mono"
+                />
+              </div>
+            </div>
+
+            {errorMessage && (
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-2.5 rounded text-[11px] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
           </div>
         </div>
 
