@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build React Frontend
 # ==========================================
-FROM node:20-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 
 WORKDIR /frontend
 
@@ -19,8 +19,9 @@ FROM python:3.10-slim AS runner
 WORKDIR /app
 
 # Install curl for Docker healthcheck and essential tools
+# libgomp1 is the OpenMP runtime LightGBM needs; curl is for the health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+    curl libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
