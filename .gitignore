@@ -52,3 +52,6 @@ presentation_dump*.txt
 /Ответы на вопросы*.txt
 # Root duplicates of docs/
 /Пояснительная_записка_*
+
+# AI workflow notes (plans, handoffs)
+/_ai/

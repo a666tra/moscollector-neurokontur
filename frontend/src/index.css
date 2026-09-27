@@ -15,11 +15,8 @@
   --text-muted: #8B949E;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* No global margin/padding reset here: Tailwind v4 preflight already resets them, and an
+   unlayered `* { padding: 0 }` would override every p-*/m-* utility (they live in @layer utilities). */
 
 body {
   background-color: var(--bg-primary);
