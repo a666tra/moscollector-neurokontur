@@ -44,3 +44,11 @@ presentation/audit_renders/
 *.bak
 presentation_dump*.txt
 .codex-deck-edit/
+
+# Organizer-provided materials (not part of the solution)
+/Презентация/
+/ТЗ/
+/Инструкция для участника.txt
+/Ответы на вопросы*.txt
+# Root duplicates of docs/
+/Пояснительная_записка_*

@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
 EXCLUDE_DIRS = {
+    'tools',
     '.git',
     '.pytest_cache',
     '__pycache__',
