@@ -1,22 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #07090E;
-  --bg-surface: #0D1117;
-  --bg-card: #12161F;
-  --bg-hover: #1A202C;
+  --bg-primary: #0B0E14;
+  --bg-surface: #121620;
+  --bg-surface-2: #181D29;
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(255, 255, 255, 0.18);
-  --accent-green: #00FF66;
-  --accent-amber: #FFB800;
-  --accent-red: #FF3B30;
-  --accent-cyan: #58A6FF;
-  --text-main: #E6EDF3;
-  --text-muted: #8B949E;
+  --border-active: rgba(255, 255, 255, 0.16);
+
+  --text-main: #E7EAF0;
+  --text-muted: #9AA3B2;
+  --text-weak: #6B7385;
+
+  --brand: #7C4DFF;
+  --brand-hover: #9170FF;
+
+  --risk-critical: #F0453A;
+  --risk-warning: #F5A524;
+  --risk-observation: #4C9BFF;
+  --risk-normal: #2FBF71;
 }
 
-/* No global margin/padding reset here: Tailwind v4 preflight already resets them, and an
-   unlayered `* { padding: 0 }` would override every p-*/m-* utility (they live in @layer utilities). */
+/* Tailwind v4 preflight resets margin and padding. */
 
 body {
   background-color: var(--bg-primary);
@@ -37,64 +41,66 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #07090E;
+  background: #0B0E14;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.24);
 }
 
 /* Engineering components */
 .eng-panel {
-  background-color: #0D1117;
+  background-color: #121620;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 12px;
 }
 
 .eng-panel:hover {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .eng-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.725rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
   font-weight: 500;
-  padding: 2px 6px;
-  border-radius: 2px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .badge-normal {
-  background: rgba(0, 255, 102, 0.1);
-  color: #00FF66;
-  border: 1px solid rgba(0, 255, 102, 0.25);
+  background: rgba(47, 191, 113, 0.12);
+  color: #2FBF71;
+  border: 1px solid rgba(47, 191, 113, 0.25);
 }
 
 .badge-warning {
-  background: rgba(255, 184, 0, 0.1);
-  color: #FFB800;
-  border: 1px solid rgba(255, 184, 0, 0.25);
+  background: rgba(245, 165, 36, 0.12);
+  color: #F5A524;
+  border: 1px solid rgba(245, 165, 36, 0.25);
 }
 
 .badge-critical {
-  background: rgba(255, 59, 48, 0.1);
-  color: #FF3B30;
-  border: 1px solid rgba(255, 59, 48, 0.25);
+  background: rgba(240, 69, 58, 0.12);
+  color: #F0453A;
+  border: 1px solid rgba(240, 69, 58, 0.25);
 }
 
 .badge-cyan {
-  background: rgba(88, 166, 255, 0.1);
-  color: #58A6FF;
-  border: 1px solid rgba(88, 166, 255, 0.25);
+  background: rgba(76, 155, 255, 0.12);
+  color: #4C9BFF;
+  border: 1px solid rgba(76, 155, 255, 0.25);
 }
 
 /* Leaflet Map overrides for dark mode */
 .leaflet-container {
-  background: #07090E !important;
+  background: #0B0E14 !important;
   font-family: 'Inter', sans-serif !important;
   background-image: 
     linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
@@ -107,13 +113,13 @@ body {
 }
 
 .leaflet-popup-content-wrapper {
-  background: #0D1117 !important;
-  color: #E6EDF3 !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8) !important;
+  background: #121620 !important;
+  color: #E7EAF0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
 }
 
 .leaflet-popup-tip {
-  background: #0D1117 !important;
+  background: #121620 !important;
 }

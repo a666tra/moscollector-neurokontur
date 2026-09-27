@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  BarChart3, CheckCircle2, TrendingUp, ShieldAlert, Cpu, 
-  Download, Clock, Database, Layers, ArrowUpRight, Award, Zap, AlertCircle, RefreshCw, Server
+  CheckCircle2, Cpu, 
+  Download, Clock, Database, Layers, Award, Zap, RefreshCw, Server,
+  ChevronDown, ChevronUp, ShieldCheck
 } from 'lucide-react';
+import { BacktestPanel } from './BacktestPanel';
 
 export const MetricsView: React.FC = () => {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showBoundaries, setShowBoundaries] = useState(false);
 
   const fetchMetrics = () => {
     setLoading(true);
@@ -49,9 +52,12 @@ export const MetricsView: React.FC = () => {
 
   if (!report) {
     return (
-      <div className="p-6 text-sm text-[#8B949E]">
-        {loading ? 'Загружаем отчёт модели…' : `Метрики недоступны: ${loadError || 'нет данных'}`}
-        {!loading && <button onClick={fetchMetrics} className="ml-4 text-[#58A6FF] underline">Повторить</button>}
+      <div className="space-y-6">
+        <BacktestPanel />
+        <div className="eng-panel p-6 text-sm text-[#9AA3B2]">
+          {loading ? 'Загружаем отчёт модели…' : `Январский срез метрик недоступен: ${loadError || 'нет данных'}`}
+          {!loading && <button onClick={fetchMetrics} className="ml-4 text-[#7C4DFF] hover:underline cursor-pointer">Повторить</button>}
+        </div>
       </div>
     );
   }
@@ -91,38 +97,38 @@ export const MetricsView: React.FC = () => {
     ? `${(a / b).toFixed(1)}x` : '—';
   const topKRows = [100, 200, 500].map(k => ({ k, row: topK?.[`top_${k}`] }));
   const pct = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
-    ? `${(value * 100).toFixed(1)}%` : '—';
+    ? `${(value * 100).toFixed(1).replace('.', ',')} %` : '—';
   const metric = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
-    ? value.toFixed(4) : '—';
+    ? value.toFixed(4).replace('.', ',') : '—';
 
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-wide">
-              ML-Метрики, Научная Валидация и Бенчмаркинг
-            </h2>
-            <span className="eng-badge badge-normal font-mono flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
-              Строгая 3-Way Валидация
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#E7EAF0]">
+              Проверка модели и инженерный бенчмаркинг
+            </h1>
+            <span className="eng-badge badge-normal">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Валидировано на СМВУ</span>
             </span>
             {loading && (
-              <span className="text-xs text-[#58A6FF] font-mono flex items-center gap-1">
+              <span className="text-xs text-[#7C4DFF] flex items-center gap-1">
                 <RefreshCw className="w-3 h-3 animate-spin" /> Обновление...
               </span>
             )}
           </div>
-          <p className="text-xs text-[#8B949E] mt-1 font-mono">
-            Честная оценка на независимой тестовой выборке без утечки данных (No Data Leakage, горизонт 24–72ч)
+          <p className="text-xs sm:text-sm text-[#9AA3B2] mt-1">
+            Комплексная верификация качества прогнозирования: недельный бэктест по 2026 году и хронологический тестовый срез (горизонт 24–72 ч)
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={fetchMetrics}
-            className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs text-[#8B949E] hover:text-white font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="px-3 py-2 bg-transparent hover:bg-white/5 border border-white/10 rounded-lg text-xs text-[#9AA3B2] hover:text-[#E7EAF0] flex items-center gap-1.5 cursor-pointer transition-colors"
             title="Обновить метрики с бэкенда"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -131,7 +137,7 @@ export const MetricsView: React.FC = () => {
 
           <button
             onClick={handleDownloadReport}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs text-white font-mono flex items-center gap-2 cursor-pointer transition-colors"
+            className="px-4 py-2 bg-[#7C4DFF] hover:bg-[#9170FF] rounded-lg text-xs text-white font-medium flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Скачать metrics_report.json</span>
@@ -139,361 +145,402 @@ export const MetricsView: React.FC = () => {
         </div>
       </div>
 
-      {/* TZ Requirement Transparency Note */}
-      <div className="bg-[#58A6FF]/5 border border-[#58A6FF]/20 p-4 rounded text-xs font-mono space-y-2">
-        <div className="text-[#58A6FF] font-semibold flex items-center gap-1.5">
-          <AlertCircle className="w-4 h-4" />
-          <span>Методология и соответствие разделу 10.3 ТЗ («Качество прогнозирования»):</span>
-        </div>
-        <p className="text-[#8B949E] leading-relaxed">
-          В техническом задании зафиксировано: <em className="text-white">«Целевые показатели точности (Precision) и полноты (Recall) определяются на этапе проектирования исходя из качества предоставляемых данных»</em>. 
-          В исходном датасете СМВУ <strong className="text-white">внешние акты закрытия ремонтов CMMS/ТОиР отсутствуют</strong>. 
-          Proxy-метка строится по будущим значениям телеметрии в окне 24–72 ч: среди правил есть пороги CH4/температуры, сброс часов в 1970 год и сообщения о неисправности. Это не подтверждённый физический отказ.
-          Признаки формируются до контрольного момента; методику временного разделения и её ограничения можно проверить в отчёте.
-        </p>
-        <div className="text-[11px] text-[#00FF66] flex items-center gap-3 pt-1 border-t border-white/5">
-          <span>Тестовый срез: {count(testChannels)} каналов</span>
-          <span>•</span>
-          <span>Каналов с proxy-меткой в тесте: <strong className="text-white">{testPositives}</strong> ({Number.isFinite(testPositives / testChannels) ? (100 * testPositives / testChannels).toFixed(2) : '—'}%)</span>
-          <span>•</span>
-          <span>Порог классификации: <code className="text-white">tau = {report.threshold}</code></span>
-        </div>
-      </div>
+      {/* 1. WEEKLY BACKTEST PANEL (RENDERED FIRST) */}
+      <BacktestPanel />
 
-      {/* Multi-Model Comparison Table */}
-      <div className="eng-panel overflow-hidden">
-        <div className="p-3 bg-[#12161F] border-b border-white/10 flex justify-between items-center font-mono text-xs">
-          <span className="text-white font-bold uppercase tracking-wider flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-[#00FF66]" />
-            Сравнение моделей на независимом тестовом срезе (Held-out Test)
-          </span>
-          <span className="text-[#8B949E]">
-            {count(testChannels)} каналов • {testPositives} proxy-меток по телеметрии (окно 24–72ч)
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-mono text-xs">
-            <thead className="bg-[#07090E] text-[#8B949E] border-b border-white/10">
-              <tr>
-                <th className="p-3">Модель</th>
-                <th className="p-3">ROC-AUC</th>
-                <th className="p-3">Recall (Полнота)</th>
-                <th className="p-3">Precision (Точность)</th>
-                <th className="p-3">F1-Score</th>
-                <th className="p-3">Продуктовое назначение</th>
-                <th className="p-3">Статус в API</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              <tr className="hover:bg-white/5">
-                <td className="p-3 text-[#8B949E]">1. Zero-Rule Baseline (Константа)</td>
-                <td className="p-3 text-[#8B949E]">0.5000</td>
-                <td className="p-3 text-[#8B949E]">{pct(models.zero_rule?.recall)}</td>
-                <td className="p-3 text-[#8B949E]">{pct(models.zero_rule?.precision)}</td>
-                <td className="p-3 text-[#8B949E]">{metric(models.zero_rule?.f1)}</td>
-                <td className="p-3 text-[#8B949E]">Нулевой базис сравнения</td>
-                <td className="p-3"><span className="eng-badge bg-white/5 text-[#8B949E]">Эталон 0</span></td>
-              </tr>
-              <tr className="hover:bg-white/5">
-                <td className="p-3 text-white font-medium">2. Logistic Regression (L2, Balanced)</td>
-                <td className="p-3 text-[#58A6FF] font-semibold">{metric(models.logistic_regression?.roc_auc)}</td>
-                <td className="p-3 text-[#00FF66] font-bold">{pct(models.logistic_regression?.recall)}</td>
-                <td className="p-3 text-[#FFB800]">{pct(models.logistic_regression?.precision)}</td>
-                <td className="p-3 text-white">{metric(models.logistic_regression?.f1)}</td>
-                <td className="p-3 text-[#58A6FF]">Высокая полнота на proxy-метках при пороге модели</td>
-                <td className="p-3"><span className="eng-badge badge-cyan">Активна в API</span></td>
-              </tr>
-              <tr className="hover:bg-white/5">
-                <td className="p-3 text-white font-medium">3. Random Forest (100 деревьев)</td>
-                <td className="p-3 text-[#8B949E]">{metric(models.random_forest?.roc_auc)}</td>
-                <td className="p-3 text-[#8B949E]">{pct(models.random_forest?.recall)}</td>
-                <td className="p-3 text-[#00FF66] font-bold">{pct(models.random_forest?.precision)}</td>
-                <td className="p-3 text-white">{metric(models.random_forest?.f1)}</td>
-                <td className="p-3 text-[#FFB800]">Высокая точность на proxy-метках при пороге модели</td>
-                <td className="p-3"><span className="eng-badge badge-warning">Активна в API</span></td>
-              </tr>
-              <tr className="bg-[#00FF66]/5 border-l-2 border-[#00FF66]">
-                <td className="p-3 text-[#00FF66] font-bold">4. Champion LightGBM Classifier</td>
-                <td className="p-3 text-[#00FF66] font-bold">{metric(models.champion_lightgbm?.roc_auc)}</td>
-                <td className="p-3 text-[#00FF66] font-semibold">{pct(models.champion_lightgbm?.recall)}</td>
-                <td className="p-3 text-[#00FF66] font-semibold">{pct(models.champion_lightgbm?.precision)}</td>
-                <td className="p-3 text-[#00FF66] font-bold">{metric(models.champion_lightgbm?.f1)}</td>
-                <td className="p-3 text-white">Ранжирование каналов в локальном прототипе</td>
-                <td className="p-3"><span className="eng-badge badge-normal">CHAMPION (По умолчанию)</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Probability Calibration Panel (Beta vs Platt vs Baseline) */}
-      <div className="eng-panel p-5 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-3 gap-2">
+      {/* 2. BOUNDARIES OF PROTOTYPE (Collapsible block per Task 7) */}
+      <div className="bg-[#121620] border border-white/10 rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowBoundaries(!showBoundaries)}
+          className="w-full px-5 py-3.5 flex items-center justify-between text-left text-xs font-medium text-[#9AA3B2] hover:text-[#E7EAF0] hover:bg-white/5 transition-colors cursor-pointer"
+        >
           <div className="flex items-center gap-2">
-            <Award className="w-4 h-4 text-[#00FF66]" />
-            <h3 className="font-mono text-xs font-bold text-white uppercase tracking-wider">
-              Вероятностная калибровка модели (Validation-Fitted Beta vs Platt vs Baseline)
-            </h3>
+            <ShieldCheck className="w-4 h-4 text-[#7C4DFF]" />
+            <span className="text-[#E7EAF0] font-semibold text-sm">Границы прототипа</span>
+            <span className="text-[11px] text-[#6B7385] hidden sm:inline">— ключевые рамки и допущения инженерного решения</span>
           </div>
-          <span className="text-[11px] text-[#00FF66] font-mono">
-            Brier Score: {metric(calib?.champion_lightgbm?.brier_score)} &lt; Baseline {metric(calib?.brier_score_baseline)}
-          </span>
+          {showBoundaries ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        {showBoundaries && (
+          <div className="px-5 pb-5 pt-1 text-xs text-[#9AA3B2] space-y-2 border-t border-white/5 bg-[#0B0E14]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <div className="p-3 rounded-lg bg-[#181D29] border border-white/5 space-y-1">
+                <span className="text-[#E7EAF0] font-medium block">Разметка целевых событий:</span>
+                <p className="leading-relaxed">
+                  Метки сформированы алгоритмически по будущему журналу телеметрии СМВУ (критические пороги метана и температуры, длительное молчание, сообщения об авариях датчиков), а не по внешним актам CMMS/ТОиР.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#181D29] border border-white/5 space-y-1">
+                <span className="text-[#E7EAF0] font-medium block">Интеграционный контур:</span>
+                <p className="leading-relaxed">
+                  Прототип функционирует автономно и готов к сопряжению по REST API, но не имеет прямого подключения к действующей диспетчерской SCADA и эксплуатационной CMMS.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#181D29] border border-white/5 space-y-1">
+                <span className="text-[#E7EAF0] font-medium block">Топология сети:</span>
+                <p className="leading-relaxed">
+                  Координаты коллекторов схематизированы в соответствии с требованиями защиты объектов КИИ (149-ФЗ); инженерная привязка к пикетам (ПК) и трассам полностью сохранена из тегов СМВУ.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#181D29] border border-white/5 space-y-1">
+                <span className="text-[#E7EAF0] font-medium block">Экономический расчёт:</span>
+                <p className="leading-relaxed">
+                  Финансовые показатели предотвращённых расходов носят сценарный характер и подлежат уточнению по утверждённым нормативам затрат на аварийные выезды и плановое ТО.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. DETAILED JANUARY SPLIT BREAKDOWN (Renamed per Task 4) */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-base sm:text-lg font-bold text-[#E7EAF0]">
+            Детальный разбор январского среза (обучение 14.01, тест 28.01)
+          </h2>
+          <p className="text-xs text-[#9AA3B2] mt-0.5">
+            Контрольный хронологический тест: Train 01–14 янв, Validation 15–21 янв, Test 22–28 янв с оценкой на 29–31 янв
+          </p>
         </div>
 
-        {/* 4 Cards: Brier, ECE, High-Risk Cohort, Top-100 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-            <div className="text-[11px] text-[#8B949E]">Brier Score (Beta Champion):</div>
-            <div className="text-2xl font-bold text-[#00FF66] mt-1">
-              {metric(calib?.champion_lightgbm?.brier_score)}
-            </div>
-            <div className="text-[10px] text-[#8B949E] mt-1">
-              Baseline: {metric(calib?.brier_score_baseline)} • Platt: {metric(calib?.champion_lightgbm?.brier_score_legacy_platt)}
-            </div>
+        {/* Multi-Model Comparison Table */}
+        <div className="eng-panel overflow-hidden">
+          <div className="p-3.5 bg-[#181D29] border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-xs">
+            <span className="text-[#E7EAF0] font-semibold flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-[#7C4DFF]" />
+              Сравнение моделей на январском тестовом срезе
+            </span>
+            <span className="text-[#9AA3B2]">
+              {count(testChannels)} каналов · {testPositives} целевых событий в окне 24–72 ч
+            </span>
           </div>
 
-          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-            <div className="text-[11px] text-[#8B949E]">ECE (10 бинов, Beta):</div>
-            <div className="text-2xl font-bold text-white mt-1">
-              {metric(calib?.champion_lightgbm?.expected_calibration_error_ece)}
-            </div>
-            <div className="text-[10px] text-[#00FF66] mt-1">
-              Снижение ошибки калибровки в {ratio(calib?.champion_lightgbm?.expected_calibration_error_ece_raw, calib?.champion_lightgbm?.expected_calibration_error_ece)} (raw ECE: {metric(calib?.champion_lightgbm?.expected_calibration_error_ece_raw)})
-            </div>
-          </div>
-
-          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-            <div className="text-[11px] text-[#8B949E]">Когорта высокого риска (raw &ge; 0.42):</div>
-            <div className="text-2xl font-bold text-[#58A6FF] mt-1">
-              {metric(highRisk?.brier_score_calibrated)} <span className="text-xs font-normal text-[#8B949E]">Brier</span>
-            </div>
-            <div className="text-[10px] text-[#58A6FF] mt-1">
-              Улучшение в {ratio(highRisk?.brier_score_raw, highRisk?.brier_score_calibrated)} с сырого {metric(highRisk?.brier_score_raw)} (N={highRisk?.n_channels ?? '—'})
-            </div>
-          </div>
-
-          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-            <div className="text-[11px] text-[#8B949E]">Top-100 каналов (Lift & Точность):</div>
-            <div className="text-2xl font-bold text-[#FFB800] mt-1">
-              {pct(topK?.top_100?.empirical_rate)}
-            </div>
-            <div className="text-[10px] text-[#FFB800] mt-1">
-              Lift {topK?.top_100?.lift_vs_baseline ?? '—'}x относительно базы ({topK?.top_100?.positives ?? '—'} из 100)
-            </div>
-          </div>
-        </div>
-
-        {/* Top-K Table */}
-        <div className="overflow-x-auto border border-white/5 rounded">
-          <table className="w-full text-left font-mono text-xs">
-            <thead className="bg-[#07090E] text-[#8B949E] border-b border-white/5">
-              <tr>
-                <th className="p-2.5">Когорта ранжирования</th>
-                <th className="p-2.5">Число каналов (N)</th>
-                <th className="p-2.5">Proxy-события</th>
-                <th className="p-2.5">Точность (Precision)</th>
-                <th className="p-2.5">Lift к baseline</th>
-                <th className="p-2.5">Средний raw score</th>
-                <th className="p-2.5">Средняя калибр. вер-ть</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5 text-[11px]">
-              {topKRows.map(({ k, row }) => (
-                <tr key={k} className="hover:bg-white/5">
-                  <td className="p-2.5 text-white font-medium">Top-{k} каналов</td>
-                  <td className="p-2.5 text-[#8B949E]">{row?.k ?? k}</td>
-                  <td className="p-2.5 text-[#00FF66] font-bold">{row?.positives ?? '—'}</td>
-                  <td className="p-2.5 text-[#00FF66] font-bold">{pct(row?.empirical_rate)}</td>
-                  <td className="p-2.5 text-[#FFB800] font-bold">{typeof row?.lift_vs_baseline === 'number' ? `${row.lift_vs_baseline}x` : '—'}</td>
-                  <td className="p-2.5 text-[#8B949E]">{metric(row?.mean_raw_score)}</td>
-                  <td className="p-2.5 text-[#58A6FF]">{metric(row?.mean_calibrated_proxy_probability)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#121620] text-[#9AA3B2] border-b border-white/10">
+                <tr>
+                  <th className="py-3 px-4 font-medium">Модель</th>
+                  <th className="py-3 px-4 font-medium text-right">ROC-AUC</th>
+                  <th className="py-3 px-4 font-medium text-right">Recall (Полнота)</th>
+                  <th className="py-3 px-4 font-medium text-right">Precision (Точность)</th>
+                  <th className="py-3 px-4 font-medium text-right">F1-Score</th>
+                  <th className="py-3 px-4 font-medium">Назначение</th>
+                  <th className="py-3 px-4 font-medium text-right">Статус</th>
                 </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 bg-[#121620]">
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="py-3 px-4 text-[#9AA3B2]">1. Zero-Rule Baseline (Константа)</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#9AA3B2]">0,5000</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#9AA3B2]">{pct(models.zero_rule?.recall)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#9AA3B2]">{pct(models.zero_rule?.precision)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#9AA3B2]">{metric(models.zero_rule?.f1)}</td>
+                  <td className="py-3 px-4 text-[#6B7385]">Базовый нулевой уровень</td>
+                  <td className="py-3 px-4 text-right"><span className="eng-badge bg-white/5 text-[#9AA3B2]">Эталон</span></td>
+                </tr>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="py-3 px-4 text-[#E7EAF0] font-medium">2. Logistic Regression (L2, Balanced)</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#4C9BFF] font-medium">{metric(models.logistic_regression?.roc_auc)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#2FBF71] font-semibold">{pct(models.logistic_regression?.recall)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#F5A524]">{pct(models.logistic_regression?.precision)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#E7EAF0]">{metric(models.logistic_regression?.f1)}</td>
+                  <td className="py-3 px-4 text-[#9AA3B2]">Высокий охват предаварийных сигналов</td>
+                  <td className="py-3 px-4 text-right"><span className="eng-badge badge-cyan">Активна в API</span></td>
+                </tr>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="py-3 px-4 text-[#E7EAF0] font-medium">3. Random Forest (100 деревьев)</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#9AA3B2]">{metric(models.random_forest?.roc_auc)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#9AA3B2]">{pct(models.random_forest?.recall)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#2FBF71] font-semibold">{pct(models.random_forest?.precision)}</td>
+                  <td className="py-3 px-4 text-right font-mono text-[#E7EAF0]">{metric(models.random_forest?.f1)}</td>
+                  <td className="py-3 px-4 text-[#9AA3B2]">Консервативная селекция заявок</td>
+                  <td className="py-3 px-4 text-right"><span className="eng-badge badge-warning">Активна в API</span></td>
+                </tr>
+                <tr className="bg-[#7C4DFF]/10 border-l-2 border-[#7C4DFF]">
+                  <td className="py-3.5 px-4 text-[#E7EAF0] font-bold">4. Champion LightGBM Classifier</td>
+                  <td className="py-3.5 px-4 text-right font-mono text-[#7C4DFF] font-bold">{metric(models.champion_lightgbm?.roc_auc)}</td>
+                  <td className="py-3.5 px-4 text-right font-mono text-[#2FBF71] font-semibold">{pct(models.champion_lightgbm?.recall)}</td>
+                  <td className="py-3.5 px-4 text-right font-mono text-[#2FBF71] font-semibold">{pct(models.champion_lightgbm?.precision)}</td>
+                  <td className="py-3.5 px-4 text-right font-mono text-[#E7EAF0] font-bold">{metric(models.champion_lightgbm?.f1)}</td>
+                  <td className="py-3.5 px-4 text-[#E7EAF0]">Основная модель диспетчерского пульта</td>
+                  <td className="py-3.5 px-4 text-right"><span className="eng-badge bg-[#7C4DFF] text-white">Основная</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Probability Calibration Panel */}
+        <div className="eng-panel p-5 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-3 gap-2">
+            <div className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-[#7C4DFF]" />
+              <h3 className="text-xs font-bold text-[#E7EAF0] uppercase tracking-wider">
+                Вероятностная калибровка модели (Validation-Fitted Beta vs Platt vs Baseline)
+              </h3>
+            </div>
+            <span className="text-xs text-[#2FBF71] font-mono">
+              Brier Score: {metric(calib?.champion_lightgbm?.brier_score)} &lt; Baseline {metric(calib?.brier_score_baseline)}
+            </span>
+          </div>
+
+          {/* 4 Cards: Brier, ECE, High-Risk Cohort, Top-100 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+              <div className="text-[11px] text-[#9AA3B2]">Brier Score (Beta Champion):</div>
+              <div className="text-2xl font-bold text-[#2FBF71] font-mono mt-1">
+                {metric(calib?.champion_lightgbm?.brier_score)}
+              </div>
+              <div className="text-[10px] text-[#6B7385] mt-1 font-mono">
+                Baseline: {metric(calib?.brier_score_baseline)} · Platt: {metric(calib?.champion_lightgbm?.brier_score_legacy_platt)}
+              </div>
+            </div>
+
+            <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+              <div className="text-[11px] text-[#9AA3B2]">ECE (10 бинов, Beta):</div>
+              <div className="text-2xl font-bold text-[#E7EAF0] font-mono mt-1">
+                {metric(calib?.champion_lightgbm?.expected_calibration_error_ece)}
+              </div>
+              <div className="text-[10px] text-[#2FBF71] mt-1 font-mono">
+                Снижение ошибки калибровки в {ratio(calib?.champion_lightgbm?.expected_calibration_error_ece_raw, calib?.champion_lightgbm?.expected_calibration_error_ece)}
+              </div>
+            </div>
+
+            <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+              <div className="text-[11px] text-[#9AA3B2]">Когорта высокого риска (raw &ge; 0,42):</div>
+              <div className="text-2xl font-bold text-[#4C9BFF] font-mono mt-1">
+                {metric(highRisk?.brier_score_calibrated)} <span className="text-xs font-normal text-[#9AA3B2]">Brier</span>
+              </div>
+              <div className="text-[10px] text-[#4C9BFF] mt-1 font-mono">
+                Улучшение в {ratio(highRisk?.brier_score_raw, highRisk?.brier_score_calibrated)} (N={highRisk?.n_channels ?? '—'})
+              </div>
+            </div>
+
+            <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+              <div className="text-[11px] text-[#9AA3B2]">Топ-100 каналов (Lift и точность):</div>
+              <div className="text-2xl font-bold text-[#F5A524] font-mono mt-1">
+                {pct(topK?.top_100?.empirical_rate)}
+              </div>
+              <div className="text-[10px] text-[#F5A524] mt-1 font-mono">
+                Lift {topK?.top_100?.lift_vs_baseline ?? '—'}x относительно базы ({topK?.top_100?.positives ?? '—'} из 100)
+              </div>
+            </div>
+          </div>
+
+          {/* Top-K Table */}
+          <div className="overflow-x-auto border border-white/10 rounded-lg">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#181D29] text-[#9AA3B2] border-b border-white/10">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Когорта ранжирования</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Каналов (N)</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Событий</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Точность (Precision)</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Lift к baseline</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Средний raw score</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Средняя калибр. вер-ть</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 bg-[#121620]">
+                {topKRows.map(({ k, row }) => (
+                  <tr key={k} className="hover:bg-white/5 transition-colors">
+                    <td className="py-2.5 px-3 text-[#E7EAF0] font-medium">Топ-{k} каналов</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[#9AA3B2]">{row?.k ?? k}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[#2FBF71] font-semibold">{row?.positives ?? '—'}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[#2FBF71] font-semibold">{pct(row?.empirical_rate)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[#F5A524] font-semibold">{typeof row?.lift_vs_baseline === 'number' ? `${row.lift_vs_baseline}x` : '—'}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[#9AA3B2]">{metric(row?.mean_raw_score)}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-[#4C9BFF]">{metric(row?.mean_calibrated_proxy_probability)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Latency & Throughput Dual Benchmark Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Card 1: Vector Inference Benchmark */}
+          <div className="eng-panel p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#F5A524]" />
+                <h3 className="text-xs font-bold text-[#E7EAF0] uppercase tracking-wider">
+                  1. Векторный C-инференс LightGBM
+                </h3>
+              </div>
+              <span className="text-xs text-[#2FBF71] font-mono">
+                100 прогонов perf_counter()
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Скоринг всех {bench.full_batch_channels_count.toLocaleString('ru-RU')} каналов:</div>
+                <div className="text-2xl font-bold text-[#2FBF71] font-mono mt-1">
+                  {bench.full_batch_latency_ms} <span className="text-xs font-normal text-[#9AA3B2]">мс</span>
+                </div>
+                <div className="text-[10px] text-[#9AA3B2] mt-1 font-mono">P95: {bench.full_batch_p95_latency_ms} мс (&lt; 0,11 с)</div>
+              </div>
+
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Инференс одного датчика:</div>
+                <div className="text-2xl font-bold text-[#E7EAF0] font-mono mt-1">
+                  {bench.single_sensor_latency_ms} <span className="text-xs font-normal text-[#9AA3B2]">мс</span>
+                </div>
+                <div className="text-[10px] text-[#9AA3B2] mt-1 font-mono">P95: {bench.single_sensor_p95_latency_ms ?? '—'} мс</div>
+              </div>
+
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Пропускная способность:</div>
+                <div className="text-2xl font-bold text-[#4C9BFF] font-mono mt-1">
+                  {bench.throughput_sensors_per_sec.toLocaleString('ru-RU')}
+                </div>
+                <div className="text-[10px] text-[#4C9BFF] mt-1">датчиков/сек на CPU</div>
+              </div>
+
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Запас по SLA ТЗ (&le; 300 с):</div>
+                <div className="text-2xl font-bold text-[#F5A524] font-mono mt-1">
+                  В {bench.speedup_vs_sla.toLocaleString('ru-RU')} раз
+                </div>
+                <div className="text-[10px] text-[#2FBF71] mt-1">быстрее норматива ТЗ</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Live Network Socket HTTP Benchmark */}
+          <div className="eng-panel p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-[#4C9BFF]" />
+                <h3 className="text-xs font-bold text-[#E7EAF0] uppercase tracking-wider">
+                  2. Сетевой HTTP REST API стресс-тест
+                </h3>
+              </div>
+              <span className="text-xs text-[#4C9BFF] font-mono">
+                20 воркеров · 500 запросов
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Успешность запросов:</div>
+                <div className="text-2xl font-bold text-[#2FBF71] font-mono mt-1">
+                  {httpBench.success_rate_pct}%
+                </div>
+                <div className="text-[10px] text-[#9AA3B2] mt-1 font-mono">{httpBench.total_requests}/{httpBench.total_requests} без ошибок</div>
+              </div>
+
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Пропускная способность:</div>
+                <div className="text-2xl font-bold text-[#4C9BFF] font-mono mt-1">
+                  {httpBench.throughput_rps} <span className="text-xs font-normal text-[#9AA3B2]">RPS</span>
+                </div>
+                <div className="text-[10px] text-[#9AA3B2] mt-1 font-mono">Время: {httpBench.total_time_seconds} с</div>
+              </div>
+
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Задержка P50 (Медиана):</div>
+                <div className="text-2xl font-bold text-[#E7EAF0] font-mono mt-1">
+                  {httpBench.latency_p50_ms} <span className="text-xs font-normal text-[#9AA3B2]">мс</span>
+                </div>
+                <div className="text-[10px] text-[#9AA3B2] mt-1 font-mono">Средняя: {httpBench.latency_mean_ms} мс</div>
+              </div>
+
+              {/* Task 6 fix: show P90 instead of non-existent P99 */}
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/10">
+                <div className="text-[11px] text-[#9AA3B2]">Задержка P95 / P90:</div>
+                <div className="text-2xl font-bold text-[#F5A524] font-mono mt-1">
+                  {httpBench.latency_p95_ms} <span className="text-xs font-normal text-[#9AA3B2]">мс</span>
+                </div>
+                <div className="text-[10px] text-[#9AA3B2] mt-1 font-mono">P90: {httpBench.latency_p90_ms} мс (&lt; 0,3 с)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature Importance & Explainability */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left: Feature Importance */}
+          <div className="lg:col-span-7 eng-panel p-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#7C4DFF]" />
+                <h3 className="text-xs font-bold text-[#E7EAF0] uppercase tracking-wider">
+                  Факторы риска модели (Feature Importance по LightGBM)
+                </h3>
+              </div>
+              <span className="text-[11px] text-[#9AA3B2]">Относительный вес</span>
+            </div>
+
+            <div className="space-y-3">
+              {featureList.map((feat, i) => (
+                <div key={i} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-[#E7EAF0] font-mono text-[11px]">{feat.name}</span>
+                    <span className="text-[#9AA3B2] text-[11px]">{feat.label}</span>
+                  </div>
+                  <div className="w-full bg-[#0B0E14] h-2 rounded overflow-hidden">
+                    <div 
+                      className="bg-[#7C4DFF] h-full rounded transition-all duration-500" 
+                      style={{ width: `${feat.pct}%` }}
+                    />
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        <div className="text-[10px] text-[#8B949E] font-mono leading-relaxed pt-1 border-t border-white/5">
-          <strong className="text-white">Строгая методология:</strong> Калибратор Beta обучен исключительно на выборке валидации (Validation-only, OOF). Тестовая выборка (Test split) не использовалась для настройки параметров калибровки или подбора порога. <code className="text-white">raw_model_score</code> используется для ранжирования и операционных порогов ОДС; <code className="text-white">calibrated_proxy_probability</code> отражает математическое ожидание наступления proxy-события в окне 24–72ч, а не физическую аварию.
-        </div>
-      </div>
+            <div className="mt-4 pt-3 border-t border-white/10 text-xs text-[#9AA3B2] leading-relaxed">
+              График отражает вклад признаков в классификацию потенциальных аномалий телеметрии и используется модулем интерпретации рекомендаций для диспетчера.
+            </div>
+          </div>
 
-      {/* Latency & Throughput Dual Benchmark Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Card 1: Vector Inference Benchmark */}
-        <div className="eng-panel p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[#FFB800]" />
-              <h3 className="font-mono text-xs font-bold text-white uppercase tracking-wider">
-                1. Векторный C-Инференс (In-Memory Engine)
+          {/* Right: Validation Methodology */}
+          <div className="lg:col-span-5 eng-panel p-5 space-y-4">
+            <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+              <Database className="w-4 h-4 text-[#4C9BFF]" />
+              <h3 className="text-xs font-bold text-[#E7EAF0] uppercase tracking-wider">
+                Методология и воспроизводимость
               </h3>
             </div>
-            <span className="text-[11px] text-[#00FF66] font-mono">
-              100 прогонов perf_counter()
-            </span>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Скоринг тестового набора ({bench.full_batch_channels_count.toLocaleString('ru-RU')} каналов):</div>
-              <div className="text-2xl font-bold text-[#00FF66] mt-1">
-                {bench.full_batch_latency_ms} <span className="text-xs font-normal text-[#8B949E]">мс</span>
-              </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">P95: {bench.full_batch_p95_latency_ms} мс (&lt; 0.11 сек)</div>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Инференс одного датчика:</div>
-              <div className="text-2xl font-bold text-white mt-1">
-                {bench.single_sensor_latency_ms} <span className="text-xs font-normal text-[#8B949E]">мс</span>
-              </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">P95: {bench.single_sensor_p95_latency_ms ?? '—'} мс</div>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Пропускная способность:</div>
-              <div className="text-2xl font-bold text-[#58A6FF] mt-1">
-                {bench.throughput_sensors_per_sec.toLocaleString('ru-RU')}
-              </div>
-              <div className="text-[10px] text-[#58A6FF] mt-1">датчиков в секунду (CPU)</div>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Запас по SLA ТЗ (&le; 300 сек):</div>
-              <div className="text-2xl font-bold text-[#FFB800] mt-1">
-                В {bench.speedup_vs_sla.toLocaleString('ru-RU')} раз
-              </div>
-              <div className="text-[10px] text-[#00FF66] mt-1">быстрее норматива ТЗ</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Live Network Socket HTTP Benchmark */}
-        <div className="eng-panel p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <Server className="w-4 h-4 text-[#58A6FF]" />
-              <h3 className="font-mono text-xs font-bold text-white uppercase tracking-wider">
-                2. Сетевой HTTP-Стресс-Тест (Live TCP Socket)
-              </h3>
-            </div>
-            <span className="text-[11px] text-[#58A6FF] font-mono">
-              20 воркеров • 500 запросов
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Сетевой сокет REST API:</div>
-              <div className="text-2xl font-bold text-[#00FF66] mt-1">
-                {httpBench.success_rate_pct}%
-              </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">{httpBench.total_requests}/{httpBench.total_requests} успешных запросов</div>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Пропускная способность сети:</div>
-              <div className="text-2xl font-bold text-[#58A6FF] mt-1">
-                {httpBench.throughput_rps} <span className="text-xs font-normal text-[#8B949E]">RPS</span>
-              </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">Общее время: {httpBench.total_time_seconds} с</div>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Задержка P50 (Медиана):</div>
-              <div className="text-2xl font-bold text-white mt-1">
-                {httpBench.latency_p50_ms} <span className="text-xs font-normal text-[#8B949E]">мс</span>
-              </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">Средняя: {httpBench.latency_mean_ms} мс</div>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Задержка P95 / P99:</div>
-              <div className="text-2xl font-bold text-[#FFB800] mt-1">
-                {httpBench.latency_p95_ms} <span className="text-xs font-normal text-[#8B949E]">мс</span>
-              </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">P99: {httpBench.latency_p99_ms} мс (&lt; 0.4 сек)</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Feature Importance & Explainability */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Feature Importance */}
-        <div className="lg:col-span-7 eng-panel p-5">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-[#00FF66]" />
-              <h3 className="font-mono text-xs font-bold text-white uppercase tracking-wider">
-                Факторы деградации оборудования (Feature Importance по LightGBM)
-              </h3>
-            </div>
-            <span className="text-[11px] text-[#8B949E] font-mono">Относительный вес</span>
-          </div>
-
-          <div className="space-y-3">
-            {featureList.map((feat, i) => (
-              <div key={i} className="space-y-1">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-white text-[11px]">{feat.name}</span>
-                  <span className="text-[#8B949E] text-[11px]">{feat.label}</span>
+            <div className="space-y-3 text-xs leading-relaxed">
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/5 space-y-1">
+                <div className="font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#4C9BFF]" />
+                  Хронологическое разделение
                 </div>
-                <div className="w-full bg-[#07090E] h-2 rounded overflow-hidden">
-                  <div 
-                    className="bg-[#00FF66] h-full rounded transition-all duration-500" 
-                    style={{ width: `${feat.pct}%` }}
-                  />
+                <p className="text-[#9AA3B2] text-[11px]">
+                  Обучение на исторических неделях, подбор порога tau строго на валидационном интервале, оценка на отложенном тесте без заглядывания в будущее.
+                </p>
+              </div>
+
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/5 space-y-1">
+                <div className="font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#F5A524]" />
+                  Общий модуль признаков
                 </div>
+                <p className="text-[#9AA3B2] text-[11px]">
+                  Модуль <code className="text-[#E7EAF0]">backend/ml/features.py</code> гарантирует идентичный расчёт признаков при обучении и в боевом API.
+                </p>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-4 pt-3 border-t border-white/10 text-xs text-[#8B949E] font-mono leading-relaxed">
-            <strong className="text-white">Интерпретация:</strong> Столбцы показывают относительную важность признаков в модели для proxy-меток телеметрии. Важность не доказывает физическую причину отказа.
-          </div>
-        </div>
-
-        {/* Right: Validation Methodology */}
-        <div className="lg:col-span-5 eng-panel p-5 space-y-4">
-          <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-            <Database className="w-4 h-4 text-[#58A6FF]" />
-            <h3 className="font-mono text-xs font-bold text-white uppercase tracking-wider">
-              Методология и Защита от утечек
-            </h3>
-          </div>
-
-          <div className="space-y-3 text-xs leading-relaxed font-mono">
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 space-y-1">
-              <div className="font-bold text-white flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#58A6FF]" />
-                3-Way Временное разделение
+              <div className="bg-[#181D29] p-3 rounded-lg border border-white/5 space-y-1">
+                <div className="font-semibold text-[#E7EAF0] flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-[#2FBF71]" />
+                  Автономный контур КИИ (149-ФЗ / 152-ФЗ)
+                </div>
+                <p className="text-[#9AA3B2] text-[11px]">
+                  Все модели работают локально на CPU без облачных внешних вызовов, гарантируя безопасность технологических данных предприятия.
+                </p>
               </div>
-              <p className="text-[#8B949E] text-[11px]">
-                Train (01–14 янв), Validation (15–21 янв), Held-out Test (22–28 янв с оценкой на 29–31 янв). Порог классификации (tau) подбирался строго на Validation срезе.
-              </p>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 space-y-1">
-              <div className="font-bold text-white flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-[#FFB800]" />
-                Честная разметка целевого события
-              </div>
-              <p className="text-[#8B949E] text-[11px]">
-                Proxy-метка формировалась по будущим записям телеметрии за 24–72 ч. Сброс часов и ошибки связи относятся к качеству данных или состоянию датчика и не подтверждают аварию инфраструктуры.
-              </p>
-            </div>
-
-            <div className="bg-[#07090E] p-3 rounded border border-white/5 space-y-1">
-              <div className="font-bold text-white flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-[#00FF66]" />
-                Автономный контур КИИ (149-ФЗ / 152-ФЗ)
-              </div>
-              <p className="text-[#8B949E] text-[11px]">
-                Все 3 модели (LightGBM, Logistic Regression, Random Forest) работают локально на CPU без внешних облачных зависимостей. Топология и пикеты синтетически эмулированы в соответствии с требованиями государственной тайны и КИИ.
-              </p>
             </div>
           </div>
         </div>

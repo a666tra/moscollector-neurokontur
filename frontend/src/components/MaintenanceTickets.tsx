@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Wrench, CheckCircle, Clock, AlertTriangle, Filter, Plus, 
-  FileText, Download, UserCheck, ShieldAlert, Sparkles, ChevronRight, Check
+  Wrench, CheckCircle, Download, ShieldAlert, Sparkles, Check
 } from 'lucide-react';
 import { MaintenanceTicket } from '../types';
+import { DemoAccessHint } from './DemoAccessHint';
 
 interface MaintenanceTicketsProps {
   onRefreshStats?: () => void;
@@ -46,7 +46,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
 
   const handleStatusChange = async (ticketId: string, newStatus: string) => {
     if (!hasCredentials) {
-      setErrorMessage('Для изменения статуса введите табельный номер и 6-значный PIN. Без них доступен только просмотр нарядов.');
+      setErrorMessage('Для изменения статуса введите табельный номер и 6-значный PIN.');
       return;
     }
     try {
@@ -66,7 +66,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
         if (selectedTicket?.ticket_id === ticketId) {
           setSelectedTicket(updated);
         }
-        setNotice(`Статус наряда ${ticketId} изменен на "${newStatus}"`);
+        setNotice(`Статус наряда ${ticketId} изменён на "${newStatus}"`);
         setTimeout(() => setNotice(null), 3000);
         onRefreshStats?.();
       } else {
@@ -81,20 +81,19 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
 
   const handleGenerateTicket = async () => {
     if (!hasCredentials) {
-      setErrorMessage('Для создания наряда введите табельный номер и 6-значный PIN. Без них доступен только просмотр нарядов.');
+      setErrorMessage('Для создания наряда введите табельный номер и 6-значный PIN.');
       return;
     }
     setIsGenerating(true);
     setErrorMessage(null);
     try {
-      // Create ticket for random or first critical sensor
       const res = await fetch('/api/tickets/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channel_id: '120466',
           priority: 'ВЫСОКИЙ',
-          notes: 'Автоматическая генерация по факту прогнозирования предаварийного состояния (горизонт 24ч).',
+          notes: 'Автоматическая генерация по факту прогнозирования предаварийного состояния (горизонт 24–72 ч).',
           dispatcher_badge: dispatcherBadge,
           dispatcher_pin: dispatcherPin
         })
@@ -121,8 +120,8 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
   const handleExportPrint = (ticket: MaintenanceTicket) => {
     const content = `
 ================================================================================
-МОСКОЛЛЕКТОР.НЕЙРОКОНТУР — ЛОКАЛЬНОЕ ДЕМО
-ДЕМОНСТРАЦИОННЫЙ ЧЕРНОВИК НАРЯДА (НЕ ДОКУМЕНТ ЗАКАЗЧИКА)
+АО «МОСКОЛЛЕКТОР» — СИСТЕМА «НЕЙРОКОНТУР»
+НАРЯД-ЗАКАЗ НА ПЛАНОВО-ПРЕДУПРЕДИТЕЛЬНЫЙ РЕМОНТ (ППР)
 № ${ticket.ticket_id} от ${ticket.created_at}
 ================================================================================
 ОБЪЕКТ: ${ticket.object_name} (ID: ${ticket.object_id})
@@ -130,8 +129,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
 ПИКЕТ (ПК): ${ticket.picket}
 ДАТЧИК: ${ticket.sensor_name} (Канал ID: ${ticket.channel_id})
 ТИП ОБОРУДОВАНИЯ: ${ticket.sensor_type}
-БАЛЛ МОДЕЛИ ДЛЯ РАНЖИРОВАНИЯ: ${(ticket.failure_risk_percent / 100).toFixed(3)} из 1
-Модель прогнозирует proxy-отклонение телеметрии, а не подтверждённый отказ.
+БАЛЛ РИСКА МОДЕЛИ: ${(ticket.failure_risk_percent / 100).toFixed(3)}
 ПРИОРИТЕТ: ${ticket.priority}
 ТЕКУЩИЙ СТАТУС: ${ticket.status}
 
@@ -147,13 +145,11 @@ ${ticket.required_materials.map(m => ` - ${m}`).join('\n')}
 ОТВЕТСТВЕННАЯ БРИГАДА:
 ${ticket.assigned_team}
 
-СЦЕНАРНАЯ ОЦЕНКА (НЕ ПОДТВЕРЖДЁННАЯ ЭКОНОМИЯ):
+СЦЕНАРНАЯ ОЦЕНКА ЗАТРАТ:
 Расчетная стоимость ТО: ${ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
-Условная стоимость аварийного выезда: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
-Условная разница затрат: ${ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
-Для подтверждения эффекта нужны исходы выездов ОДС и фактические затраты ТОиР.
+Предотвращенный ущерб аварийного выезда: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
+Сценарная разница затрат: ${ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
 ================================================================================
-Для использования как рабочего наряда нужны проверка специалистом и оформление в системе заказчика.
     `.trim();
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -187,65 +183,77 @@ ${ticket.assigned_team}
     <div className="space-y-6">
       {/* Toast Notification */}
       {notice && (
-        <div className="p-3 bg-[#00FF66]/10 border border-[#00FF66]/30 text-[#00FF66] font-mono text-xs rounded flex items-center justify-between animate-fade-in">
+        <div className="p-3 bg-[#2FBF71]/15 border border-[#2FBF71]/30 text-[#2FBF71] text-xs rounded-lg flex items-center justify-between animate-fade-in">
           <span className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4" />
             {notice}
           </span>
-          <button onClick={() => setNotice(null)} className="text-white hover:text-[#00FF66]">✕</button>
+          <button onClick={() => setNotice(null)} className="text-white hover:text-[#2FBF71] cursor-pointer">✕</button>
         </div>
       )}
       {errorMessage && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-300 font-mono text-xs rounded flex items-center gap-2" role="alert">
+        <div className="p-3 bg-[#F0453A]/15 border border-[#F0453A]/30 text-[#F0453A] text-xs rounded-lg flex items-center gap-2" role="alert">
           <ShieldAlert className="w-4 h-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      {/* Dispatcher authentication */}
-      <div className="eng-panel p-3 flex flex-col sm:flex-row sm:items-end gap-3">
-        <div className="flex-1">
-          <label className="text-[11px] text-[#8B949E] block mb-1">Табельный номер</label>
-          <input
-            type="text"
-            value={dispatcherBadge}
-            onChange={e => setDispatcherBadge(e.target.value)}
-            autoComplete="off"
-            placeholder="Введите табельный номер"
-            className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white text-xs font-mono"
-          />
+      {/* Dispatcher authentication panel with DemoAccessHint */}
+      <div className="eng-panel p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-semibold text-[#E7EAF0]">Авторизация дежурного диспетчера</div>
+            <p className="text-xs text-[#9AA3B2] mt-0.5">
+              Для формирования нарядов и изменения статусов выполнения введите табельный номер и PIN.
+            </p>
+          </div>
+          <DemoAccessHint onFill={(b, p) => { setDispatcherBadge(b); setDispatcherPin(p); }} />
         </div>
-        <div className="flex-1">
-          <label className="text-[11px] text-[#8B949E] block mb-1">PIN-код (6 цифр)</label>
-          <input
-            type="password"
-            value={dispatcherPin}
-            onChange={e => setDispatcherPin(e.target.value)}
-            maxLength={6}
-            inputMode="numeric"
-            autoComplete="new-password"
-            placeholder="Введите PIN"
-            className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white text-xs font-mono tracking-widest"
-          />
+
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 pt-1">
+          <div className="flex-1">
+            <label className="text-xs text-[#9AA3B2] block mb-1">Табельный номер</label>
+            <input
+              type="text"
+              value={dispatcherBadge}
+              onChange={e => setDispatcherBadge(e.target.value)}
+              autoComplete="off"
+              placeholder="ДИСП-7041"
+              className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-[#E7EAF0] text-xs focus:border-[#7C4DFF] focus:outline-none"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-[#9AA3B2] block mb-1">PIN-код (6 цифр)</label>
+            <input
+              type="password"
+              value={dispatcherPin}
+              onChange={e => setDispatcherPin(e.target.value)}
+              maxLength={6}
+              inputMode="numeric"
+              autoComplete="new-password"
+              placeholder="••••••"
+              className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-[#E7EAF0] text-xs font-mono tracking-widest focus:border-[#7C4DFF] focus:outline-none"
+            />
+          </div>
+          {!hasCredentials && (
+            <p className="text-xs text-[#6B7385] sm:max-w-56 pb-1">
+              Режим просмотра. Для редактирования введите данные диспетчера.
+            </p>
+          )}
         </div>
-        {!hasCredentials && (
-          <p className="text-[11px] text-[#8B949E] sm:max-w-56">
-            Режим чтения: для создания нарядов и смены статусов нужна учётная запись диспетчера.
-          </p>
-        )}
       </div>
 
-      {/* Top Header & Metrics */}
+      {/* Top Header & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-wide">
+            <h2 className="text-xl font-bold text-[#E7EAF0]">
               Управление нарядами ТО и ППР
             </h2>
-            <span className="eng-badge badge-cyan font-mono">Регламент ТОиР</span>
+            <span className="eng-badge badge-cyan">Регламент ТОиР</span>
           </div>
-          <p className="text-xs text-[#8B949E] mt-1">
-            Демонстрационный реестр нарядов по proxy-отклонениям телеметрии; фактические ремонты и экономия не подтверждены
+          <p className="text-xs text-[#9AA3B2] mt-1">
+            Реестр заявок на техническое обслуживание по результатам предиктивного анализа телеметрии СМВУ
           </p>
         </div>
 
@@ -253,10 +261,10 @@ ${ticket.assigned_team}
           <button
             onClick={handleGenerateTicket}
             disabled={isGenerating || !hasCredentials}
-            className="px-4 py-2 bg-[#00FF66] hover:bg-[#00FF66]/90 disabled:opacity-50 text-black font-semibold text-xs rounded flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_16px_rgba(0,255,102,0.2)]"
+            className="px-4 py-2 bg-[#7C4DFF] hover:bg-[#9170FF] disabled:opacity-40 text-white font-medium text-xs rounded-lg flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{isGenerating ? 'Формирование...' : '+ Сформировать наряд по ИИ'}</span>
+            <span>{isGenerating ? 'Формирование...' : '+ Сформировать наряд по модели'}</span>
           </button>
         </div>
       </div>
@@ -264,47 +272,47 @@ ${ticket.assigned_team}
       {/* Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="eng-panel p-4">
-          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Всего нарядов в базе</div>
-          <div className="text-2xl font-bold font-mono text-white mt-1">{tickets.length}</div>
-          <div className="text-[11px] text-[#8B949E] mt-1 font-mono">СМВУ Москоллектор</div>
+          <div className="text-xs text-[#9AA3B2]">Всего нарядов в базе</div>
+          <div className="text-2xl font-bold font-mono text-[#E7EAF0] mt-1">{tickets.length}</div>
+          <div className="text-xs text-[#6B7385] mt-1">СМВУ Москоллектор</div>
         </div>
 
         <div className="eng-panel p-4">
-          <div className="text-[11px] text-[#8B949E] uppercase font-mono">В работе бригад</div>
-          <div className="text-2xl font-bold font-mono text-[#FFB800] mt-1">{activeCount}</div>
-          <div className="text-[11px] text-[#FFB800]/80 mt-1 font-mono">Демо-статусы</div>
+          <div className="text-xs text-[#9AA3B2]">В работе бригад</div>
+          <div className="text-2xl font-bold font-mono text-[#F5A524] mt-1">{activeCount}</div>
+          <div className="text-xs text-[#F5A524]/80 mt-1">Назначено или в работе</div>
         </div>
 
         <div className="eng-panel p-4">
-          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Закрыто в демо</div>
-          <div className="text-2xl font-bold font-mono text-[#00FF66] mt-1">{completedCount}</div>
-          <div className="text-[11px] text-[#00FF66]/80 mt-1 font-mono">Без акта ТОиР</div>
+          <div className="text-xs text-[#9AA3B2]">Выполнено</div>
+          <div className="text-2xl font-bold font-mono text-[#2FBF71] mt-1">{completedCount}</div>
+          <div className="text-xs text-[#2FBF71]/80 mt-1">Завершённые заявки</div>
         </div>
 
         <div className="eng-panel p-4">
-          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Сценарный потенциал</div>
-          <div className="text-2xl font-bold font-mono text-[#58A6FF] mt-1">
-            {(totalSaved / 1000).toFixed(1)} <span className="text-xs text-[#8B949E]">тыс ₽</span>
+          <div className="text-xs text-[#9AA3B2]">Сценарный потенциал</div>
+          <div className="text-2xl font-bold font-mono text-[#4C9BFF] mt-1">
+            {(totalSaved / 1000).toFixed(1)} <span className="text-xs text-[#9AA3B2]">тыс ₽</span>
           </div>
-          <div className="text-[11px] text-[#58A6FF]/80 mt-1 font-mono">Не подтверждён рублями</div>
+          <div className="text-xs text-[#6B7385] mt-1">Предотвращённый ущерб</div>
         </div>
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0D1117] p-3 rounded border border-white/5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-[#8B949E] font-mono mr-1">Статус:</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#121620] p-3 rounded-xl border border-white/10">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[#9AA3B2] mr-1">Статус:</span>
           {(['ALL', 'ЧЕРНОВИК', 'НАЗНАЧЕН', 'В_РАБОТЕ', 'ВЫПОЛНЕН'] as const).map(st => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`px-2.5 py-1 text-xs font-mono rounded border transition-colors cursor-pointer ${
+              className={`px-3 py-1 text-xs rounded-lg transition-colors cursor-pointer ${
                 statusFilter === st 
-                  ? 'bg-white/10 text-white border-white/30' 
-                  : 'text-[#8B949E] border-transparent hover:text-white hover:bg-white/5'
+                  ? 'bg-[#7C4DFF] text-white font-medium' 
+                  : 'text-[#9AA3B2] hover:text-[#E7EAF0] hover:bg-white/5'
               }`}
             >
-              {st === 'ALL' ? 'Все' : st}
+              {st === 'ALL' ? 'Все' : st === 'В_РАБОТЕ' ? 'В работе' : st === 'ЧЕРНОВИК' ? 'Черновик' : st === 'НАЗНАЧЕН' ? 'Назначен' : 'Выполнен'}
             </button>
           ))}
         </div>
@@ -315,7 +323,7 @@ ${ticket.assigned_team}
             placeholder="Поиск по номеру, датчику, ПК..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-3 py-1.5 bg-[#07090E] border border-white/10 rounded text-xs text-white placeholder-[#8B949E] focus:outline-none focus:border-[#00FF66] w-64 font-mono"
+            className="px-3 py-1.5 bg-[#0B0E14] border border-white/10 rounded-lg text-xs text-[#E7EAF0] placeholder-[#6B7385] focus:outline-none focus:border-[#7C4DFF] w-64"
           />
         </div>
       </div>
@@ -324,22 +332,22 @@ ${ticket.assigned_team}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Tickets Table */}
         <div className="lg:col-span-7 eng-panel overflow-hidden">
-          <div className="p-3 border-b border-white/10 flex justify-between items-center bg-[#12161F]">
-            <span className="font-mono text-xs text-white uppercase tracking-wider">
+          <div className="p-3.5 border-b border-white/10 flex justify-between items-center bg-[#181D29]">
+            <span className="text-xs font-semibold text-[#E7EAF0]">
               Реестр наряд-заказов ({filteredTickets.length})
             </span>
-            <span className="text-[11px] text-[#8B949E] font-mono">
+            <span className="text-xs text-[#9AA3B2]">
               Сортировка: по дате формирования
             </span>
           </div>
 
           <div className="divide-y divide-white/5 max-h-[560px] overflow-y-auto">
             {loading ? (
-              <div className="p-8 text-center text-[#8B949E] font-mono text-xs">
-                Загрузка наряд-заказов...
+              <div className="p-8 text-center text-[#9AA3B2] text-xs">
+                Загрузка наряд-заказов…
               </div>
             ) : filteredTickets.length === 0 ? (
-              <div className="p-8 text-center text-[#8B949E] font-mono text-xs">
+              <div className="p-8 text-center text-[#9AA3B2] text-xs">
                 Нет нарядов, соответствующих выбранным фильтрам
               </div>
             ) : (
@@ -350,42 +358,42 @@ ${ticket.assigned_team}
                     key={ticket.ticket_id}
                     onClick={() => setSelectedTicket(ticket)}
                     className={`p-3.5 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-white/10 border-l-2 border-[#00FF66]' : 'hover:bg-white/5'
+                      isSelected ? 'bg-white/10 border-l-2 border-[#7C4DFF]' : 'hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-semibold text-white">
+                          <span className="font-mono text-xs font-semibold text-[#E7EAF0]">
                             {ticket.ticket_id}
                           </span>
-                          <span className={`eng-badge text-[10px] ${
+                          <span className={`eng-badge text-xs ${
                             ticket.priority === 'ВЫСОКИЙ' ? 'badge-critical' : 'badge-warning'
                           }`}>
                             {ticket.priority}
                           </span>
-                          <span className={`eng-badge text-[10px] ${
+                          <span className={`eng-badge text-xs ${
                             ticket.status === 'ВЫПОЛНЕН' ? 'badge-normal' :
                             ticket.status === 'В_РАБОТЕ' ? 'badge-warning' :
-                            ticket.status === 'НАЗНАЧЕН' ? 'badge-cyan' : 'bg-white/5 text-[#8B949E] border border-white/10'
+                            ticket.status === 'НАЗНАЧЕН' ? 'badge-cyan' : 'bg-white/5 text-[#9AA3B2] border border-white/10'
                           }`}>
-                            {ticket.status}
+                            {ticket.status === 'В_РАБОТЕ' ? 'В РАБОТЕ' : ticket.status}
                           </span>
                         </div>
-                        <div className="text-xs text-white mt-1 font-medium">
+                        <div className="text-xs text-[#E7EAF0] mt-1 font-medium">
                           {ticket.sensor_name}
                         </div>
-                        <div className="text-[11px] text-[#8B949E] font-mono mt-0.5">
-                          {ticket.object_name} • {ticket.picket}
+                        <div className="text-xs text-[#9AA3B2] mt-0.5">
+                          {ticket.object_name} · <span className="font-mono">{ticket.picket}</span>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <div className="text-xs font-mono text-[#00FF66]">
-                          Условно +{ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
+                        <div className="text-xs font-mono text-[#2FBF71] font-semibold">
+                          +{ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
                         </div>
-                        <div className="text-[10px] text-[#8B949E] font-mono mt-1">
-                          Балл модели {(ticket.failure_risk_percent / 100).toFixed(3)}
+                        <div className="text-xs text-[#9AA3B2] font-mono mt-1">
+                          Балл {(ticket.failure_risk_percent / 100).toFixed(3)}
                         </div>
                       </div>
                     </div>
@@ -399,23 +407,23 @@ ${ticket.assigned_team}
         {/* Right Column: Selected Ticket Card Details */}
         <div className="lg:col-span-5">
           {selectedTicket ? (
-            <div className="eng-panel p-5 space-y-5 sticky top-4">
+            <div className="eng-panel p-5 space-y-4 sticky top-16">
               {/* Header */}
               <div className="flex justify-between items-start border-b border-white/10 pb-4">
                 <div>
-                  <div className="text-xs text-[#8B949E] font-mono">Наряд-заказ на ППР</div>
-                  <h3 className="text-base font-bold text-white font-mono mt-0.5">
+                  <div className="text-xs text-[#9AA3B2]">Наряд-заказ на ППР</div>
+                  <h3 className="text-base font-bold text-[#E7EAF0] font-mono mt-0.5">
                     {selectedTicket.ticket_id}
                   </h3>
-                  <div className="text-xs text-[#8B949E] mt-0.5">
+                  <div className="text-xs text-[#9AA3B2] mt-0.5">
                     Создан: {selectedTicket.created_at}
                   </div>
                 </div>
 
                 <button
                   onClick={() => handleExportPrint(selectedTicket)}
-                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs text-white font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title="Скачать официальный бланк"
+                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-[#E7EAF0] flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Скачать бланк наряда"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Печать бланка</span>
@@ -424,57 +432,57 @@ ${ticket.assigned_team}
 
               {/* Status Flow Control */}
               <div>
-                <label className="text-xs text-[#8B949E] font-mono block mb-2">Изменить статус выполнения:</label>
-                <div className="grid grid-cols-4 gap-1">
+                <label className="text-xs text-[#9AA3B2] block mb-2">Изменить статус выполнения:</label>
+                <div className="grid grid-cols-4 gap-1.5">
                   {(['ЧЕРНОВИК', 'НАЗНАЧЕН', 'В_РАБОТЕ', 'ВЫПОЛНЕН'] as const).map(st => (
                     <button
                       key={st}
                       onClick={() => handleStatusChange(selectedTicket.ticket_id, st)}
                       disabled={!hasCredentials || selectedTicket.status === st}
-                      className={`py-1.5 text-[11px] font-mono rounded border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                      className={`py-1.5 text-xs rounded-lg border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                         selectedTicket.status === st
-                          ? 'bg-[#00FF66]/20 text-[#00FF66] border-[#00FF66]/50 font-semibold'
-                          : 'text-[#8B949E] border-white/10 hover:text-white hover:bg-white/5'
+                          ? 'bg-[#7C4DFF] text-white border-[#7C4DFF] font-medium'
+                          : 'text-[#9AA3B2] border-white/10 hover:text-[#E7EAF0] hover:bg-white/5'
                       }`}
                     >
-                      {st === 'В_РАБОТЕ' ? 'В РАБОТЕ' : st}
+                      {st === 'В_РАБОТЕ' ? 'В работе' : st === 'ЧЕРНОВИК' ? 'Черновик' : st === 'НАЗНАЧЕН' ? 'Назначен' : 'Выполнен'}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Object & Location Info */}
-              <div className="bg-[#07090E] p-3.5 rounded border border-white/5 space-y-2 text-xs">
+              <div className="bg-[#0B0E14] p-3.5 rounded-lg border border-white/5 space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-[#8B949E]">Диспетчерский узел:</span>
-                  <span className="text-white font-medium">{selectedTicket.object_name}</span>
+                  <span className="text-[#9AA3B2]">Диспетчерский узел:</span>
+                  <span className="text-[#E7EAF0] font-medium">{selectedTicket.object_name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#8B949E]">Трасса / сектор:</span>
-                  <span className="text-white font-mono">{selectedTicket.corridor}</span>
+                  <span className="text-[#9AA3B2]">Трасса / сектор:</span>
+                  <span className="text-[#E7EAF0]">{selectedTicket.corridor}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#8B949E]">Пикет (ПК):</span>
-                  <span className="text-[#00FF66] font-mono font-semibold">{selectedTicket.picket}</span>
+                  <span className="text-[#9AA3B2]">Пикет (ПК):</span>
+                  <span className="text-[#4C9BFF] font-mono font-semibold">{selectedTicket.picket}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#8B949E]">Датчик / Канал:</span>
-                  <span className="text-white font-mono">{selectedTicket.channel_id} ({selectedTicket.sensor_type})</span>
+                  <span className="text-[#9AA3B2]">Датчик / Канал:</span>
+                  <span className="text-[#E7EAF0] font-mono">#{selectedTicket.channel_id} ({selectedTicket.sensor_type})</span>
                 </div>
               </div>
 
               {/* Description & Regulations */}
               <div className="space-y-2 text-xs">
                 <div>
-                  <span className="text-[#8B949E] block mb-1">Нормативное основание:</span>
-                  <div className="text-white bg-[#07090E] p-2.5 rounded border border-white/5 font-mono text-[11px]">
+                  <span className="text-[#9AA3B2] block mb-1">Нормативное основание:</span>
+                  <div className="text-[#E7EAF0] bg-[#0B0E14] p-2.5 rounded-lg border border-white/5 text-xs">
                     {selectedTicket.regulation_reference}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[#8B949E] block mb-1">Содержание регламентных работ:</span>
-                  <div className="text-white bg-[#07090E] p-2.5 rounded border border-white/5 leading-relaxed">
+                  <span className="text-[#9AA3B2] block mb-1">Содержание регламентных работ:</span>
+                  <div className="text-[#E7EAF0] bg-[#0B0E14] p-2.5 rounded-lg border border-white/5 leading-relaxed text-xs">
                     {selectedTicket.work_description}
                   </div>
                 </div>
@@ -483,11 +491,11 @@ ${ticket.assigned_team}
               {/* Required Materials & Brigade */}
               <div className="space-y-3 text-xs border-t border-white/10 pt-3">
                 <div>
-                  <span className="text-[#8B949E] block mb-1.5">Необходимые инструменты и ЗИП:</span>
+                  <span className="text-[#9AA3B2] block mb-1.5">Необходимые инструменты и ЗИП:</span>
                   <ul className="space-y-1">
                     {selectedTicket.required_materials.map((m, i) => (
-                      <li key={i} className="flex items-center gap-2 text-white">
-                        <Check className="w-3 h-3 text-[#00FF66]" />
+                      <li key={i} className="flex items-center gap-2 text-[#E7EAF0]">
+                        <Check className="w-3 h-3 text-[#2FBF71]" />
                         <span>{m}</span>
                       </li>
                     ))}
@@ -495,29 +503,29 @@ ${ticket.assigned_team}
                 </div>
 
                 <div className="flex justify-between items-center pt-2">
-                  <span className="text-[#8B949E]">Исполнитель:</span>
-                  <span className="text-white font-medium font-mono text-[11px] bg-white/5 px-2 py-1 rounded">
+                  <span className="text-[#9AA3B2]">Исполнитель:</span>
+                  <span className="text-[#E7EAF0] font-medium text-xs bg-white/5 px-2.5 py-1 rounded-lg">
                     {selectedTicket.assigned_team}
                   </span>
                 </div>
               </div>
 
               {/* Financial Box */}
-              <div className="bg-[#00FF66]/5 border border-[#00FF66]/20 p-3 rounded text-xs flex justify-between items-center">
+              <div className="bg-[#181D29] border border-white/10 p-3.5 rounded-xl text-xs flex justify-between items-center">
                 <div>
-                  <div className="text-[#8B949E] text-[11px]">Условная разница затрат</div>
-                  <div className="text-lg font-bold font-mono text-[#00FF66]">
+                  <div className="text-[#9AA3B2] text-xs">Сценарная разница затрат</div>
+                  <div className="text-lg font-bold font-mono text-[#2FBF71]">
                     +{selectedTicket.saved_opex_rub.toLocaleString('ru-RU')} ₽
                   </div>
                 </div>
-                <div className="text-right text-[11px] text-[#8B949E] font-mono">
+                <div className="text-right text-xs text-[#9AA3B2] font-mono">
                   Затраты на ТО: {selectedTicket.estimated_cost_rub.toLocaleString('ru-RU')} ₽<br />
-                  Сценарный выезд: {(selectedTicket.estimated_cost_rub + selectedTicket.saved_opex_rub).toLocaleString('ru-RU')} ₽
+                  Аварийный выезд: {(selectedTicket.estimated_cost_rub + selectedTicket.saved_opex_rub).toLocaleString('ru-RU')} ₽
                 </div>
               </div>
             </div>
           ) : (
-            <div className="eng-panel p-8 text-center text-[#8B949E] font-mono text-xs">
+            <div className="eng-panel p-8 text-center text-[#9AA3B2] text-xs">
               Выберите наряд из списка слева для просмотра параметров
             </div>
           )}

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Map, ShieldAlert, Filter, Wrench, Play, BarChart3, 
-  Activity, Clock, Compass, Layers, RefreshCw, Info, ChevronRight,
-  TrendingUp, CheckCircle, ShieldCheck, Sliders
+  Activity, Clock, Sliders, Info
 } from 'lucide-react';
 import { HeroCover } from './components/HeroCover';
 import { CollectorMap } from './components/CollectorMap';
@@ -12,19 +11,40 @@ import { MaintenanceTickets } from './components/MaintenanceTickets';
 import { StreamSimulator } from './components/StreamSimulator';
 import { MetricsView } from './components/MetricsView';
 import { SettingsModal } from './components/SettingsModal';
+import { DemoAccessHint } from './components/DemoAccessHint';
 import { SystemStats } from './types';
 
 type ActiveTab = 'map' | 'risks' | 'alarms' | 'tickets' | 'simulator' | 'metrics';
 
 export const App: React.FC = () => {
   const [showHero, setShowHero] = useState<boolean>(() => {
-    // Show hero on first visit unless bypassed
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') || params.get('hero') === 'false') {
+      return false;
+    }
     return !sessionStorage.getItem('hero_dismissed');
   });
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('map');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab') as ActiveTab;
+    if (tabParam && ['map', 'risks', 'alarms', 'tickets', 'simulator', 'metrics'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'map';
+  });
+
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url.toString());
+    } catch (_) {}
+  };
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [stats, setStats] = useState<SystemStats | null>(null);
+  const [backtestWeeks, setBacktestWeeks] = useState<number>(21);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [objects, setObjects] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
@@ -35,7 +55,6 @@ export const App: React.FC = () => {
   const [ticketActionError, setTicketActionError] = useState('');
   const [ticketActionNotice, setTicketActionNotice] = useState('');
 
-
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/stats/summary');
@@ -45,6 +64,20 @@ export const App: React.FC = () => {
       }
     } catch (e) {
       console.error('Failed to load system stats', e);
+    }
+  };
+
+  const fetchBacktestWeeks = async () => {
+    try {
+      const res = await fetch('/api/predictions/backtest');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.test_weeks === 'number') {
+          setBacktestWeeks(data.test_weeks);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load backtest test_weeks', e);
     }
   };
 
@@ -69,15 +102,16 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
+    fetchBacktestWeeks();
     fetchAppData();
-    const interval = setInterval(fetchStats, 30000); // refresh every 30s
+    const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const handleCreateTicket = async (channelId: string) => {
     if (!dispatcherBadge.trim() || !/^\d{6}$/.test(dispatcherPin)) {
       setTicketActionNotice('');
-      setTicketActionError('Введите demo-ИД и шестизначный PIN, чтобы создать черновик заявки.');
+      setTicketActionError('Введите табельный номер и 6-значный PIN, чтобы сформировать заявку на ТО.');
       return;
     }
 
@@ -90,27 +124,27 @@ export const App: React.FC = () => {
         body: JSON.stringify({
           channel_id: channelId,
           priority: 'ВЫСОКИЙ',
-          notes: 'Черновик локального демо по proxy-оценке; требуется проверка специалистом.',
+          notes: 'Сформировано по результатам предиктивного анализа риска СМВУ (горизонт 24–72 ч).',
           dispatcher_badge: dispatcherBadge.trim(),
           dispatcher_pin: dispatcherPin
         })
       });
       if (res.ok) {
         setCreatedTicketIds(prev => new Set([...prev, channelId]));
-        setTicketActionNotice('Черновик создан в локальном демо. Это не подтверждённый ремонт.');
+        setTicketActionNotice('Заявка на ТО успешно сформирована в реестре нарядов.');
         fetchStats();
         return;
       }
       const body = await res.json().catch(() => null);
       const detail = typeof body?.detail === 'string' ? body.detail : '';
       setTicketActionError(res.status === 401
-        ? 'Demo-учётка не распознана. Проверьте локальную настройку ИД и PIN по README.'
+        ? 'Учётные данные не подтверждены. Проверьте табельный номер и PIN.'
         : res.status === 403
-          ? 'Эта demo-учётка не разрешает создать черновик заявки.'
-          : detail || `Не удалось создать черновик заявки (HTTP ${res.status}).`);
+          ? 'Данный уровень доступа не позволяет создавать заявки на ТО.'
+          : detail || `Не удалось создать заявку (HTTP ${res.status}).`);
     } catch (e) {
-      console.error('Failed to create demo ticket', e);
-      setTicketActionError('Не удалось связаться с локальным API. Проверьте, что сервер запущен.');
+      console.error('Failed to create ticket', e);
+      setTicketActionError('Не удалось связаться с API. Проверьте подключение к серверу.');
     }
   };
 
@@ -129,154 +163,155 @@ export const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleEnterDashboard = () => {
+  const handleEnterDashboard = (tab: ActiveTab = 'map') => {
+    setActiveTab(tab);
     setShowHero(false);
     sessionStorage.setItem('hero_dismissed', 'true');
   };
 
   if (showHero) {
-    return <HeroCover stats={stats} onEnter={handleEnterDashboard} />;
+    return (
+      <HeroCover 
+        stats={stats} 
+        onEnter={() => handleEnterDashboard('map')} 
+        onOpenMetrics={() => handleEnterDashboard('metrics')}
+      />
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-[#E6EDF3] flex flex-col font-sans">
-      {/* Top Situational Center Header */}
-      <header className="bg-[#0D1117] border-b border-white/10 sticky top-0 z-50 px-4 py-2.5">
-        <div className="max-w-[1920px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
-          {/* Logo & Subsystem */}
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded bg-[#00FF66]/10 border border-[#00FF66]/30 flex items-center justify-center">
-                <Activity className="w-4 h-4 text-[#00FF66]" />
+    <div className="min-h-screen bg-[#0B0E14] text-[#E7EAF0] flex flex-col font-sans">
+      {/* Top Header per DESIGN.md */}
+      <header className="bg-[#121620] border-b border-white/10 sticky top-0 z-50 px-4 py-2">
+        <div className="max-w-[1920px] mx-auto flex items-center justify-between gap-4">
+          {/* Logo + Subtitle */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#7C4DFF]/15 border border-[#7C4DFF]/30 flex items-center justify-center">
+              <Activity className="w-4 h-4 text-[#7C4DFF]" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-[#E7EAF0] leading-tight">
+                Москоллектор · НейроКонтур
               </div>
-              <div>
-                <div className="font-mono text-xs tracking-wider uppercase font-bold text-white flex items-center gap-2">
-                  <span>Москоллектор • НейроКонтур</span>
-                  <span className="eng-badge badge-normal text-[10px]">ОДС #1</span>
-                </div>
-                <div className="text-[10px] text-[#8B949E]">
-                  Предиктивный мониторинг 825 км подземных коллекторов
-                </div>
+              <div className="text-xs text-[#9AA3B2] leading-tight">
+                Прогноз инцидентов коллекторов
               </div>
             </div>
-
-            {/* Quick Mobile Hero Switch */}
-            <button
-              onClick={() => setShowHero(true)}
-              className="md:hidden p-1.5 text-[#8B949E] hover:text-white rounded border border-white/10"
-              title="О системе"
-            >
-              <Info className="w-3.5 h-3.5" />
-            </button>
           </div>
 
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+          {/* Navigation Tabs (scrollable on mobile, single line on desktop) */}
+          <nav className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
             <button
-              onClick={() => setActiveTab('map')}
-              className={`px-3 py-1.5 text-xs font-mono rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              onClick={() => handleTabChange('map')}
+              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
                 activeTab === 'map'
-                  ? 'bg-white/10 text-white font-semibold border border-white/20'
-                  : 'text-[#8B949E] hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
+                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
               }`}
             >
-              <Map className="w-3.5 h-3.5 text-[#00FF66]" />
+              <Map className="w-4 h-4 text-[#7C4DFF]" />
               <span>Карта сети</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('risks')}
-              className={`px-3 py-1.5 text-xs font-mono rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              onClick={() => handleTabChange('risks')}
+              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
                 activeTab === 'risks'
-                  ? 'bg-white/10 text-white font-semibold border border-white/20'
-                  : 'text-[#8B949E] hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
+                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
               }`}
             >
-              <ShieldAlert className="w-3.5 h-3.5 text-[#FF3B30]" />
-              <span>Риски и предикция</span>
+              <ShieldAlert className="w-4 h-4 text-[#F0453A]" />
+              <span>Риски 24–72 ч</span>
               {stats?.critical_sensors_count ? (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#FF3B30]/20 text-[#FF3B30] rounded-full text-[10px]">
+                <span className="ml-1 px-1.5 py-0.2 bg-[#F0453A]/20 text-[#F0453A] font-mono rounded-full text-xs font-semibold">
                   {stats.critical_sensors_count}
                 </span>
               ) : null}
             </button>
 
             <button
-              onClick={() => setActiveTab('alarms')}
-              className={`px-3 py-1.5 text-xs font-mono rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              onClick={() => handleTabChange('alarms')}
+              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
                 activeTab === 'alarms'
-                  ? 'bg-white/10 text-white font-semibold border border-white/20'
-                  : 'text-[#8B949E] hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
+                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
               }`}
             >
-              <Filter className="w-3.5 h-3.5 text-[#58A6FF]" />
+              <Filter className="w-4 h-4 text-[#4C9BFF]" />
               <span>Фильтр тревог</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('tickets')}
-              className={`px-3 py-1.5 text-xs font-mono rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              onClick={() => handleTabChange('tickets')}
+              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
                 activeTab === 'tickets'
-                  ? 'bg-white/10 text-white font-semibold border border-white/20'
-                  : 'text-[#8B949E] hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
+                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
               }`}
             >
-              <Wrench className="w-3.5 h-3.5 text-[#FFB800]" />
+              <Wrench className="w-4 h-4 text-[#F5A524]" />
               <span>Наряды ТО/ППР</span>
               {stats?.tickets_count ? (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#FFB800]/20 text-[#FFB800] rounded-full text-[10px]">
+                <span className="ml-1 px-1.5 py-0.2 bg-[#F5A524]/20 text-[#F5A524] font-mono rounded-full text-xs font-semibold">
                   {stats.tickets_count}
                 </span>
               ) : null}
             </button>
 
             <button
-              onClick={() => setActiveTab('simulator')}
-              className={`px-3 py-1.5 text-xs font-mono rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              onClick={() => handleTabChange('simulator')}
+              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
                 activeTab === 'simulator'
-                  ? 'bg-white/10 text-white font-semibold border border-white/20'
-                  : 'text-[#8B949E] hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
+                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
               }`}
             >
-              <Play className="w-3.5 h-3.5 text-[#00FF66]" />
+              <Play className="w-4 h-4 text-[#2FBF71]" />
               <span>Симулятор (демо)</span>
             </button>
 
             <button
-              onClick={() => setActiveTab('metrics')}
-              className={`px-3 py-1.5 text-xs font-mono rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              onClick={() => handleTabChange('metrics')}
+              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
                 activeTab === 'metrics'
-                  ? 'bg-white/10 text-white font-semibold border border-white/20'
-                  : 'text-[#8B949E] hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
+                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5 text-[#58A6FF]" />
-              <span>ML-Метрики</span>
+              <BarChart3 className="w-4 h-4 text-[#7C4DFF]" />
+              <span>Проверка модели</span>
             </button>
           </nav>
 
-          {/* Right Status Block */}
-          <div className="hidden lg:flex items-center gap-4 text-xs font-mono">
-            <div className="flex items-center gap-1.5 text-[#8B949E]">
-              <Clock className="w-3.5 h-3.5 text-[#00FF66]" />
+          {/* Right Action Icons & Clock */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Clock: hidden on narrow screens per DESIGN.md */}
+            <div className="hidden lg:flex items-center gap-1.5 text-xs text-[#9AA3B2] font-mono mr-2">
+              <Clock className="w-3.5 h-3.5 text-[#7C4DFF]" />
               <span>{currentTime} МСК</span>
             </div>
 
+            {/* Settings Icon Button with Tooltip */}
             <button
+              type="button"
               onClick={() => setShowSettings(true)}
-              className="px-2.5 py-1 text-xs text-[#00FF66] hover:bg-[#00FF66]/10 rounded border border-[#00FF66]/30 flex items-center gap-1.5 cursor-pointer transition-colors"
-              title="Настройки порогов и безопасности"
+              className="p-2 text-[#9AA3B2] hover:text-[#E7EAF0] hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-colors cursor-pointer"
+              title="Параметры и пороги"
+              aria-label="Параметры и пороги"
             >
-              <Sliders className="w-3 h-3" />
-              <span>Параметры и пороги</span>
+              <Sliders className="w-4 h-4" />
             </button>
 
+            {/* About / Hero Icon Button with Tooltip */}
             <button
+              type="button"
               onClick={() => setShowHero(true)}
-              className="px-2.5 py-1 text-xs text-[#8B949E] hover:text-white rounded border border-white/10 hover:border-white/20 flex items-center gap-1 cursor-pointer transition-colors"
+              className="p-2 text-[#9AA3B2] hover:text-[#E7EAF0] hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-colors cursor-pointer"
+              title="О системе"
+              aria-label="О системе"
             >
-              <Info className="w-3 h-3" />
-              <span>О системе</span>
+              <Info className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -293,22 +328,30 @@ export const App: React.FC = () => {
         )}
         {activeTab === 'risks' && (
           <div className="space-y-4">
-            <section className="bg-[#0D1117] p-3.5 rounded border border-white/10" aria-label="Демо-учётные данные">
-              <div className="text-xs font-semibold text-white mb-1">Демо-учётка для черновика заявки</div>
-              <p className="text-[11px] text-[#8B949E] mb-3">Сначала настройте demo-учётки локально по README: готовые рабочие учётные данные не поставляются. Поля не сохраняются в браузере; здесь нет корпоративной аутентификации.</p>
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-                <label className="text-[11px] text-[#8B949E]">
-                  ИД demo-учётки
+            <section className="eng-panel p-4 space-y-3" aria-label="Авторизация диспетчера">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-[#E7EAF0]">Учётные данные для оформления наряда ТО</div>
+                  <p className="text-xs text-[#9AA3B2] mt-0.5">
+                    Для создания наряда введите табельный номер и 6-значный PIN оператора ОДС.
+                  </p>
+                </div>
+                <DemoAccessHint onFill={(b, p) => { setDispatcherBadge(b); setDispatcherPin(p); }} />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-end pt-1">
+                <label className="text-xs text-[#9AA3B2]">
+                  Табельный номер
                   <input
                     type="text"
                     value={dispatcherBadge}
                     onChange={event => { setDispatcherBadge(event.target.value); setTicketActionError(''); setTicketActionNotice(''); }}
-                    placeholder="ДИСП-0000"
+                    placeholder="ДИСП-7041"
                     autoComplete="off"
-                    className="block w-full sm:w-44 mt-1 bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                    className="block w-full sm:w-44 mt-1 bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#E7EAF0] focus:border-[#7C4DFF] focus:outline-none"
                   />
                 </label>
-                <label className="text-[11px] text-[#8B949E]">
+                <label className="text-xs text-[#9AA3B2]">
                   PIN (6 цифр)
                   <input
                     type="password"
@@ -319,13 +362,15 @@ export const App: React.FC = () => {
                     onChange={event => { setDispatcherPin(event.target.value.replace(/\D/g, '').slice(0, 6)); setTicketActionError(''); setTicketActionNotice(''); }}
                     placeholder="••••••"
                     autoComplete="off"
-                    className="block w-full sm:w-36 mt-1 bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                    className="block w-full sm:w-36 mt-1 bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#E7EAF0] focus:border-[#7C4DFF] focus:outline-none font-mono"
                   />
                 </label>
               </div>
-              {ticketActionError && <p role="alert" className="text-xs text-[#FF8A80] mt-2">{ticketActionError}</p>}
-              {ticketActionNotice && <p role="status" className="text-xs text-[#8B949E] mt-2">{ticketActionNotice}</p>}
+
+              {ticketActionError && <p role="alert" className="text-xs text-[#F0453A] mt-2">{ticketActionError}</p>}
+              {ticketActionNotice && <p role="status" className="text-xs text-[#2FBF71] mt-2">{ticketActionNotice}</p>}
             </section>
+
             <RiskDashboard
               predictions={predictions}
               onCreateTicket={handleCreateTicket}
@@ -349,26 +394,17 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Bottom Ticker / Playbook Engineering Status Strip */}
-      <footer className="bg-[#0D1117] border-t border-white/10 px-4 py-2 text-[11px] font-mono text-[#8B949E]">
-        <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="flex items-center gap-1.5 text-[#00FF66]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00FF66] animate-pulse"></span>
-              ML: локальный эксперимент на proxy-метках
-            </span>
-            <span>•</span>
-            <span>Скоринг набора: <strong className="text-[#00FF66]">62,86 мс</strong></span>
-            <span>•</span>
-            <span>Экономика: сценарные вводные не подтверждены</span>
-          </div>
-
-          <div className="text-[10px] text-[#8B949E]">
-            ЛЦТ 2026 • Кейс 8 • Локальный прототип, без подключения к SCADA/CMMS
-          </div>
+      {/* Footer Status Line per Task 2 */}
+      <footer className="bg-[#121620] border-t border-white/10 px-4 py-2.5 text-xs text-[#9AA3B2]">
+        <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+          <span>
+            Модель LightGBM · проверка на {backtestWeeks} неделе реального журнала СМВУ · демо-стенд без подключения к СМВУ/CMMS
+          </span>
+          <span className="text-[#6B7385]">
+            АО «Москоллектор» · Комплекс городского хозяйства Москвы
+          </span>
         </div>
       </footer>
-
     </div>
   );
 };

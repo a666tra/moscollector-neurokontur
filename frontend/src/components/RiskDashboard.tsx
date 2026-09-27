@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { PredictionItem, RealtimeScoreResult } from '../types';
 import { 
-  AlertCircle, CheckCircle2, AlertTriangle, Wrench, Search, Zap, 
-  HelpCircle, Play, ChevronDown, ChevronUp, Cpu, Activity, Clock
+  Wrench, Search, Zap, 
+  Play, ChevronDown, ChevronUp, Cpu
 } from 'lucide-react';
 
 interface RiskDashboardProps {
@@ -66,7 +66,6 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
   const selectChannelForSandbox = (p: PredictionItem) => {
     setTestChannelId(p.channel_id);
     setShowSandbox(true);
-    // pre-fill based on factors
     const hasSilence = p.explanation_factors.some(f => f.includes('Молчание'));
     const hasChatter = p.explanation_factors.some(f => f.includes('Дребезг'));
     const hasBattery = p.explanation_factors.some(f => f.includes('питания'));
@@ -96,57 +95,57 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
   return (
     <div className="space-y-4">
       {/* Top Banner & Sandbox Toggle */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#0D1117] p-3.5 rounded border border-white/10">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 eng-panel p-4">
         <div>
-          <h2 className="text-base font-bold text-white tracking-wide font-mono flex items-center gap-2">
-            <span>Реестр предиктивного скоринга датчиков СМВУ</span>
-            <span className="eng-badge badge-normal text-[10px]">Горизонт 24–72ч</span>
+          <h2 className="text-base font-semibold text-[#E7EAF0] flex items-center gap-2">
+            <span>Реестр предиктивного ранжирования каналов СМВУ</span>
+            <span className="eng-badge badge-normal text-xs">Горизонт 24–72 ч</span>
           </h2>
-          <p className="text-[11px] text-[#8B949E] mt-0.5 font-mono">
-            Ранжирование каналов по баллу модели и proxy-отклонениям телеметрии; решения о ТО принимает специалист
+          <p className="text-xs text-[#9AA3B2] mt-0.5">
+            Ранжирование каналов по риску инцидента на основе признаков деградации телеметрии; решение по наряду принимает диспетчер
           </p>
         </div>
 
         <button
           onClick={() => setShowSandbox(!showSandbox)}
-          className="px-3 py-1.5 bg-[#58A6FF]/10 hover:bg-[#58A6FF]/20 border border-[#58A6FF]/30 text-[#58A6FF] rounded text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all"
+          className="px-3.5 py-1.5 bg-[#7C4DFF]/10 hover:bg-[#7C4DFF]/20 border border-[#7C4DFF]/30 text-[#E7EAF0] rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors shrink-0"
         >
-          <Cpu className="w-3.5 h-3.5" />
-          <span>{showSandbox ? 'Скрыть Live-Инференс' : '⚡ Открыть Live-Инференс датчика'}</span>
+          <Cpu className="w-3.5 h-3.5 text-[#7C4DFF]" />
+          <span>{showSandbox ? 'Скрыть Live-инференс' : 'Открыть Live-инференс канала'}</span>
           {showSandbox ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
 
       {/* Live Inference Sandbox Panel */}
       {showSandbox && (
-        <div className="bg-[#12161F] p-4 rounded border border-[#58A6FF]/40 space-y-4 animate-fade-in font-mono text-xs">
-          <div className="flex justify-between items-center border-b border-white/10 pb-2">
-            <div className="flex items-center gap-2 text-white font-bold">
-              <Zap className="w-4 h-4 text-[#00FF66]" />
-              <span>Динамический балл модели и proxy-вероятность (локальное демо)</span>
+        <div className="bg-[#121620] p-4 sm:p-5 rounded-xl border border-[#7C4DFF]/30 space-y-4 text-xs">
+          <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
+            <div className="flex items-center gap-2 text-[#E7EAF0] font-semibold text-sm">
+              <Zap className="w-4 h-4 text-[#7C4DFF]" />
+              <span>Прямой инференс модели по заданным параметрам канала</span>
             </div>
-            <span className="text-[10px] text-[#8B949E]">
-              Прямой вызов C-ядра модели без кэша
+            <span className="text-xs text-[#9AA3B2]">
+              Вызов C-ядра модели без обращения к кэшу
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
-              <label className="text-[11px] text-[#8B949E] block mb-1">ID канала датчика:</label>
+              <label className="text-xs text-[#9AA3B2] block mb-1">ID канала датчика:</label>
               <input
                 type="text"
                 value={testChannelId}
                 onChange={e => setTestChannelId(e.target.value)}
-                className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-[#E7EAF0] font-mono focus:border-[#7C4DFF] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-[11px] text-[#8B949E] block mb-1">Модель инференса:</label>
+              <label className="text-xs text-[#9AA3B2] block mb-1">Модель инференса:</label>
               <select
                 value={sandboxModel}
                 onChange={e => setSandboxModel(e.target.value)}
-                className="w-full bg-[#07090E] border border-[#00FF66]/30 text-[#00FF66] rounded px-2 py-1.5 text-xs font-mono"
+                className="w-full bg-[#0B0E14] border border-[#7C4DFF]/40 text-[#E7EAF0] rounded-lg px-2 py-1.5 text-xs focus:border-[#7C4DFF] focus:outline-none"
               >
                 <option value="champion_lightgbm">LightGBM (Champion)</option>
                 <option value="logistic_regression">LogReg (High-Recall)</option>
@@ -155,7 +154,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
             </div>
 
             <div>
-              <label className="text-[11px] text-[#8B949E] block mb-1">Молчание (часов):</label>
+              <label className="text-xs text-[#9AA3B2] block mb-1">Молчание (часов):</label>
               <input
                 type="number"
                 step="0.5"
@@ -163,43 +162,43 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
                 max="168"
                 value={testSilence}
                 onChange={e => setTestSilence(parseFloat(e.target.value) || 0)}
-                className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-[#E7EAF0] font-mono focus:border-[#7C4DFF] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-[11px] text-[#8B949E] block mb-1">Дребезг (микро-флипы):</label>
+              <label className="text-xs text-[#9AA3B2] block mb-1">Дребезг (микро-флипы):</label>
               <input
                 type="number"
                 min="0"
                 max="50"
                 value={testChatter}
                 onChange={e => setTestChatter(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-[#E7EAF0] font-mono focus:border-[#7C4DFF] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-[11px] text-[#8B949E] block mb-1">Сбои питания (АКБ):</label>
+              <label className="text-xs text-[#9AA3B2] block mb-1">Сбои питания (АКБ):</label>
               <input
                 type="number"
                 min="0"
                 max="10"
                 value={testBattery}
                 onChange={e => setTestBattery(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-[#E7EAF0] font-mono focus:border-[#7C4DFF] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-[11px] text-[#8B949E] block mb-1">Всплески метана:</label>
+              <label className="text-xs text-[#9AA3B2] block mb-1">Всплески метана:</label>
               <input
                 type="number"
                 min="0"
                 max="10"
                 value={testGasSpikes}
                 onChange={e => setTestGasSpikes(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-[#E7EAF0] font-mono focus:border-[#7C4DFF] focus:outline-none"
               />
             </div>
           </div>
@@ -208,59 +207,59 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
             <button
               onClick={handleLiveScore}
               disabled={scoringLoading}
-              className="px-4 py-2 bg-[#00FF66] hover:bg-[#00FF66]/90 text-black font-semibold rounded flex items-center gap-2 cursor-pointer shadow-[0_0_12px_rgba(0,255,102,0.2)]"
+              className="px-4 py-2 bg-[#7C4DFF] hover:bg-[#9170FF] text-white font-medium rounded-lg flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
             >
-              <Play className="w-3.5 h-3.5 fill-black" />
-              <span>{scoringLoading ? 'Инференс...' : 'Запустить live-инференс'}</span>
+              <Play className="w-3.5 h-3.5 fill-white" />
+              <span>{scoringLoading ? 'Инференс...' : 'Запустить Live-инференс'}</span>
             </button>
 
             {liveResult && (
-              <div className="flex items-center gap-4 bg-[#07090E] p-2.5 rounded border border-white/10 text-xs">
+              <div className="flex flex-wrap items-center gap-4 bg-[#0B0E14] p-3 rounded-lg border border-white/10 text-xs">
                 <div>
-                  <span className="text-[#8B949E]">Балл риска: </span>
-                  <span className="text-[#00FF66] font-bold">
+                  <span className="text-[#9AA3B2]">Балл риска: </span>
+                  <span className="text-[#7C4DFF] font-bold font-mono">
                     {(liveResult.raw_model_score ?? liveResult.failure_probability).toFixed(3)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[#8B949E]">Proxy-вер-ть: </span>
-                  <span className="text-[#38BDF8] font-bold">
+                  <span className="text-[#9AA3B2]">Калиброванная вер-ть: </span>
+                  <span className="text-[#4C9BFF] font-bold font-mono">
                     {liveResult.calibrated_proxy_probability !== null && liveResult.calibrated_proxy_probability !== undefined
                       ? `${(liveResult.calibrated_proxy_probability * 100).toFixed(2)}%`
                       : '—'}
                   </span>
-                  <span className="text-[9px] text-[#8B949E] block">Beta 24–72ч</span>
                 </div>
                 <div>
-                  <span className="text-[#8B949E]">Уровень: </span>
-                  <span className={`eng-badge text-[10px] ${
+                  <span className="text-[#9AA3B2]">Уровень: </span>
+                  <span className={`eng-badge ${
                     liveResult.risk_level === 'CRITICAL' ? 'badge-critical' :
                     liveResult.risk_level === 'WARNING' ? 'badge-warning' : 'badge-normal'
                   }`}>
-                    {liveResult.risk_level}
+                    {liveResult.risk_level === 'CRITICAL' ? 'Критический' :
+                     liveResult.risk_level === 'WARNING' ? 'Предупреждение' : 'Штатный'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[#8B949E]">Время инференса: </span>
-                  <span className="text-white font-semibold">{liveResult.inference_latency_ms} мс</span>
+                  <span className="text-[#9AA3B2]">Время инференса: </span>
+                  <span className="text-[#E7EAF0] font-mono font-semibold">{liveResult.inference_latency_ms} мс</span>
                 </div>
               </div>
             )}
-            {liveError && <p role="alert" className="text-xs text-[#FF6B6B]">{liveError}</p>}
+            {liveError && <p role="alert" className="text-xs text-[#F0453A]">{liveError}</p>}
           </div>
         </div>
       )}
 
       {/* Controls Bar: Search and Filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#0D1117] p-3 rounded border border-white/10 font-mono">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 eng-panel p-3.5">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-[#8B949E] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#9AA3B2] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Поиск по ID, пикету, объекту, тегу..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#161B22] text-white border border-white/10 rounded pl-9 pr-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#00FF66]"
+            className="w-full bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#7C4DFF]"
           />
         </div>
 
@@ -268,7 +267,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
           <select
             value={riskFilter}
             onChange={(e) => setRiskFilter(e.target.value)}
-            className="bg-[#161B22] text-white border border-white/10 rounded px-2.5 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
+            className="bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#7C4DFF]"
           >
             <option value="ALL">Все уровни риска ({predictions.length})</option>
             <option value="CRITICAL">🔴 Критический риск (балл &ge; 0.70)</option>
@@ -280,7 +279,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
           <select
             value={systemFilter}
             onChange={(e) => setSystemFilter(e.target.value)}
-            className="bg-[#161B22] text-white border border-white/10 rounded px-2.5 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
+            className="bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#7C4DFF]"
           >
             <option value="ALL">Все подсистемы</option>
             <option value="Пожар">Пожарная охрана</option>
@@ -294,83 +293,79 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
       {/* Main Table */}
       <div className="eng-panel overflow-hidden">
         <div className="overflow-x-auto max-h-[580px]">
-          <table className="w-full text-left font-mono text-xs">
-            <thead className="bg-[#12161F] text-[#8B949E] border-b border-white/10 sticky top-0 z-10">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#181D29] text-[#9AA3B2] border-b border-white/10 sticky top-0 z-10">
               <tr>
-                <th className="p-3">Канал / Тег</th>
-                <th className="p-3">Объект и Пикет</th>
-                <th className="p-3">Тип оборудования</th>
-                <th className="p-3">Балл риска модели [0, 1]</th>
-                <th className="p-3">Proxy-вероятность</th>
-                <th className="p-3">Факторы риска (Explainability)</th>
-                <th className="p-3 text-right">Действие</th>
+                <th className="py-3 px-4 font-medium">Канал / Тег</th>
+                <th className="py-3 px-4 font-medium">Объект и Пикет</th>
+                <th className="py-3 px-4 font-medium">Тип оборудования</th>
+                <th className="py-3 px-4 font-medium text-right">Балл риска [0, 1]</th>
+                <th className="py-3 px-4 font-medium text-right">Калибр. вероятность</th>
+                <th className="py-3 px-4 font-medium">Факторы риска</th>
+                <th className="py-3 px-4 font-medium text-right">Действие</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-white/5 bg-[#121620]">
               {filtered.slice(0, 100).map((p) => {
                 const isTicketCreated = createdTicketIds.has(p.channel_id);
                 return (
                   <tr key={p.channel_id} className="hover:bg-white/5 transition-colors">
-                    <td className="p-3 font-semibold text-white">
-                      <div>#{p.channel_id}</div>
-                      <div className="text-[10px] text-[#8B949E] font-normal">{p.tag || p.sensor_name}</div>
+                    <td className="py-3 px-4">
+                      <div className="font-mono font-semibold text-[#E7EAF0]">#{p.channel_id}</div>
+                      <div className="text-[11px] text-[#9AA3B2]">{p.tag || p.sensor_name}</div>
                     </td>
 
-                    <td className="p-3">
-                      <div className="text-white font-medium">{p.object_name}</div>
-                      <div className="text-[10px] text-[#00FF66]">{p.tag.includes('ПК') ? p.tag.split(' ').pop() : 'Пикет не указан'}</div>
+                    <td className="py-3 px-4">
+                      <div className="text-[#E7EAF0] font-medium">{p.object_name}</div>
+                      <div className="text-[11px] text-[#4C9BFF] font-mono">{p.tag.includes('ПК') ? p.tag.split(' ').pop() : 'Пикет не указан'}</div>
                     </td>
 
-                    <td className="p-3">
-                      <span className="eng-badge bg-white/5 text-[#8B949E] border border-white/10">
+                    <td className="py-3 px-4">
+                      <span className="eng-badge bg-white/5 text-[#9AA3B2] border border-white/10">
                         {p.sensor_type}
                       </span>
                     </td>
 
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <span className={`eng-badge ${
                           p.risk_level === 'CRITICAL' ? 'badge-critical' :
                           p.risk_level === 'WARNING' ? 'badge-warning' :
                           p.risk_level === 'ATTENTION' ? 'badge-cyan' : 'badge-normal'
                         }`}>
-                          {(p.raw_model_score ?? p.failure_probability).toFixed(3)}
-                        </span>
-                        <span className="text-[10px] text-[#8B949E]">
-                          {p.risk_level === 'CRITICAL' ? 'Критично' :
-                           p.risk_level === 'WARNING' ? 'ППР' : 'Норма'}
+                          <span className="font-mono">{(p.raw_model_score ?? p.failure_probability).toFixed(3)}</span>
                         </span>
                       </div>
                     </td>
 
-                    <td className="p-3">
-                      <div className="flex flex-col">
-                        <span className="text-white font-medium">
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-[#E7EAF0] font-mono font-medium">
                           {p.calibrated_proxy_probability !== null && p.calibrated_proxy_probability !== undefined
                             ? `${(p.calibrated_proxy_probability * 100).toFixed(1)}%`
                             : '—'}
                         </span>
-                        <span className="text-[9px] text-[#8B949E]">
-                          {p.is_calibrated && p.calibrated_proxy_probability != null ? 'Beta proxy 24–72ч' : 'Калибровка недоступна'}
+                        <span className="text-[10px] text-[#6B7385]">
+                          {p.is_calibrated && p.calibrated_proxy_probability != null ? 'Beta 24–72ч' : 'Калибровка'}
                         </span>
                       </div>
                     </td>
 
-                    <td className="p-3">
+                    <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1 max-w-xs">
                         {p.explanation_factors.map((f, i) => (
-                          <span key={i} className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-[#8B949E]">
+                          <span key={i} className="text-[11px] bg-white/5 px-2 py-0.5 rounded-md text-[#9AA3B2]">
                             {f}
                           </span>
                         ))}
                       </div>
                     </td>
 
-                    <td className="p-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => selectChannelForSandbox(p)}
-                          className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white rounded text-[11px] cursor-pointer"
+                          className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-[#9AA3B2] hover:text-[#E7EAF0] rounded-md text-xs transition-colors cursor-pointer"
                           title="Тестировать в Live Sandbox"
                         >
                           Live
@@ -379,14 +374,14 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
                         <button
                           onClick={() => onCreateTicket(p.channel_id)}
                           disabled={isTicketCreated}
-                          className={`px-3 py-1 text-[11px] rounded flex items-center gap-1 cursor-pointer transition-colors ${
+                          className={`px-3 py-1 text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
                             isTicketCreated
-                              ? 'bg-white/5 text-[#8B949E] cursor-not-allowed'
-                              : 'bg-[#FFB800] hover:bg-[#FFB800]/90 text-black font-semibold shadow-[0_0_10px_rgba(255,184,0,0.2)]'
+                              ? 'bg-white/5 text-[#6B7385] cursor-not-allowed'
+                              : 'bg-[#7C4DFF] hover:bg-[#9170FF] text-white font-medium'
                           }`}
                         >
                           <Wrench className="w-3 h-3" />
-                          <span>{isTicketCreated ? 'Наряд создан' : 'Наряд ТО'}</span>
+                          <span>{isTicketCreated ? 'Заявка создана' : 'Наряд ТО'}</span>
                         </button>
                       </div>
                     </td>

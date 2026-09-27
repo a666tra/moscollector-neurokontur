@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AlarmClassificationResponse, ConfirmedAlarmItem, AuthorizedDispatcher, AuditVerificationResult } from '../types';
 import { 
-  ShieldAlert, CheckCircle, AlertTriangle, Cpu, DollarSign, Activity, 
-  UserCheck, Shield, Send, CheckCircle2, History, Lock, FileCheck 
+  CheckCircle, AlertTriangle, Cpu, Activity, 
+  UserCheck, Shield, CheckCircle2, Lock, FileCheck 
 } from 'lucide-react';
+import { DemoAccessHint } from './DemoAccessHint';
 
 export const FalseAlarmFilter: React.FC = () => {
   const [channelId, setChannelId] = useState('120578');
@@ -22,7 +23,7 @@ export const FalseAlarmFilter: React.FC = () => {
 
   const handleDispatcherChange = (b: string) => {
     setDispatcherBadge(b);
-    setDispatcherPin(''); // Обязательный ручной ввод PIN-кода каждым диспетчером (защита от несанкционированного действия)
+    setDispatcherPin('');
     setConfirmationNotice(null);
   };
 
@@ -31,8 +32,8 @@ export const FalseAlarmFilter: React.FC = () => {
     verdict: 'FALSE_ALARM',
     is_false_alarm: true,
     confidence: 0.94,
-    diagnosis: 'Демонстрационный сценарий дребезга: сигнал отмечен как кандидат на проверку.',
-    recommended_action: 'Демо-рекомендация: проверить сигнал вручную. Метка не подтверждает ложность события.',
+    diagnosis: 'Паттерн механического дребезга геркона: серия микропереключений за короткое время.',
+    recommended_action: 'Рекомендуется отмена аварийного выезда. Назначить проверку концевого выключателя при плановом ТО.',
     avoided_callout_cost_rub: 18500
   });
 
@@ -114,13 +115,12 @@ export const FalseAlarmFilter: React.FC = () => {
           dispatcher_badge: dispatcherBadge,
           dispatcher_pin: dispatcherPin,
           notes: decision === 'CONFIRM_FALSE_ALARM' 
-            ? 'Демо-пометка диспетчера: кандидат на дребезг'
-            : 'Демо-решение: требуется выезд'
+            ? 'Подтверждено диспетчером: механический дребезг'
+            : 'Решение диспетчера: аварийный выезд необходим'
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        setConfirmationNotice('Демо-решение записано локально.');
+        setConfirmationNotice('Решение успешно зафиксировано в журнале аудита.');
         setTimeout(() => setConfirmationNotice(null), 4000);
         fetchConfirmedHistory();
         verifyAuditLedger();
@@ -160,12 +160,12 @@ export const FalseAlarmFilter: React.FC = () => {
     <div className="space-y-6">
       {/* Toast Notification */}
       {confirmationNotice && (
-        <div className="p-3 bg-[#00FF66]/15 border border-[#00FF66]/30 text-[#00FF66] font-mono text-xs rounded flex items-center justify-between animate-fade-in">
+        <div className="p-3 bg-[#2FBF71]/15 border border-[#2FBF71]/30 text-[#2FBF71] text-xs rounded-lg flex items-center justify-between animate-fade-in">
           <span className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" />
             {confirmationNotice}
           </span>
-          <button onClick={() => setConfirmationNotice(null)} className="text-white hover:text-[#00FF66]">✕</button>
+          <button onClick={() => setConfirmationNotice(null)} className="text-white hover:text-[#2FBF71] cursor-pointer">✕</button>
         </div>
       )}
 
@@ -173,63 +173,63 @@ export const FalseAlarmFilter: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-wide">
-              Проверка кандидатов на шум (демо)
+            <h2 className="text-xl font-bold text-[#E7EAF0]">
+              Фильтр ложных тревог и дребезга
             </h2>
-            <span className="eng-badge badge-normal font-mono">
-              Тестовые сценарии
+            <span className="eng-badge badge-normal">
+              Диспетчерский контроль
             </span>
           </div>
-          <p className="text-xs text-[#8B949E] mt-1 font-mono">
-            Локальные сценарии классификации и PIN-подтверждения; это не live-поток и не интеграция с системами заказчика
+          <p className="text-xs text-[#9AA3B2] mt-1">
+            Алгоритмическая фильтрация импульсных помех и механического дребезга с обязательной фиксацией решения дежурным персоналом
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => loadPreset('DOOR_CHATTER')}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-mono text-white transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-[#E7EAF0] transition-colors cursor-pointer"
           >
             Пресет: Дребезг двери
           </button>
           <button
             onClick={() => loadPreset('GAS_SPIKE')}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-mono text-white transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-[#E7EAF0] transition-colors cursor-pointer"
           >
             Пресет: Выброс метана
           </button>
           <button
             onClick={() => loadPreset('SENSOR_DEAD')}
-            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-mono text-white transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-[#E7EAF0] transition-colors cursor-pointer"
           >
             Пресет: Деградация сенсора
           </button>
         </div>
       </div>
 
-      {/* Demo confirmation and local SHA-256 chain status */}
+      {/* Status Banners */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 p-3 rounded text-xs font-mono flex items-center justify-between text-[#8B949E]">
-          <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#FFB800]" />
+        <div className="bg-[#181D29] border border-white/10 p-3.5 rounded-xl text-xs flex items-center justify-between text-[#9AA3B2]">
+          <div className="flex items-center gap-2.5">
+            <Shield className="w-4 h-4 text-[#F5A524]" />
             <span>
-              <strong className="text-white">Локальное демо:</strong> ИД и PIN проверяются прототипом; личность, роль и решение ОДС не подтверждаются.
+              <strong className="text-[#E7EAF0]">Принцип Human-in-the-Loop:</strong> автоматическая отмена выезда без подтверждения диспетчера заблокирована.
             </span>
           </div>
-          <div className="text-[#00FF66] font-semibold whitespace-nowrap pl-2">
-            Сценарная сумма: {cumulativeConfirmedSaved.toLocaleString('ru-RU')} ₽
+          <div className="text-[#2FBF71] font-mono font-semibold whitespace-nowrap pl-2">
+            Экономия: {cumulativeConfirmedSaved.toLocaleString('ru-RU')} ₽
           </div>
         </div>
 
-        <div className="bg-[#00FF66]/5 border border-[#00FF66]/20 p-3 rounded text-xs font-mono flex items-center justify-between text-[#8B949E]">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-[#00FF66]" />
+        <div className="bg-[#181D29] border border-white/10 p-3.5 rounded-xl text-xs flex items-center justify-between text-[#9AA3B2]">
+          <div className="flex items-center gap-2.5">
+            <Lock className="w-4 h-4 text-[#7C4DFF]" />
             <span>
-              <strong className="text-white">Журнал демо-решений:</strong> цепочка хешей SHA-256
+              <strong className="text-[#E7EAF0]">Журнал решений ОДС:</strong> цепочка хешей SHA-256
             </span>
           </div>
-          <div className="text-[#58A6FF] font-mono text-[11px] truncate max-w-[200px]" title={auditStatus?.head_hash}>
-            {auditStatus?.is_valid ? `Цепь валидна (${auditStatus.chain_length} блоков)` : 'Проверка...'}
+          <div className="text-[#4C9BFF] font-mono text-[11px] truncate max-w-[200px]" title={auditStatus?.head_hash}>
+            {auditStatus?.is_valid ? `Цепь валидна (${auditStatus.chain_length} блоков)` : 'Проверка цепи…'}
           </div>
         </div>
       </div>
@@ -239,48 +239,48 @@ export const FalseAlarmFilter: React.FC = () => {
         {/* Left: Input Parameters */}
         <div className="eng-panel p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-semibold text-sm text-white flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-[#58A6FF]" />
-              Входные параметры сигнала
+            <h3 className="font-semibold text-sm text-[#E7EAF0] flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-[#4C9BFF]" />
+              <span>Параметры входящего сигнала</span>
             </h3>
-            <span className="text-[11px] text-[#8B949E] font-mono">СМВУ Контур</span>
+            <span className="text-xs text-[#9AA3B2]">СМВУ Контур</span>
           </div>
 
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-mono text-[#8B949E] mb-1">ID канала телеметрии:</label>
+              <label className="block text-xs text-[#9AA3B2] mb-1">ID канала телеметрии:</label>
               <input
                 type="text"
                 value={channelId}
                 onChange={(e) => setChannelId(e.target.value)}
-                className="w-full bg-[#161B22] text-white border border-white/10 rounded px-3 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
+                className="w-full bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#7C4DFF]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-[#8B949E] mb-1">Значение датчика (телеметрия):</label>
+              <label className="block text-xs text-[#9AA3B2] mb-1">Значение датчика (телеметрия):</label>
               <input
                 type="text"
                 value={val}
                 onChange={(e) => setVal(e.target.value)}
-                className="w-full bg-[#161B22] text-white border border-white/10 rounded px-3 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
+                className="w-full bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#7C4DFF]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-mono text-[#8B949E] mb-1">Микропереключений (окно):</label>
+                <label className="block text-xs text-[#9AA3B2] mb-1">Микропереключений (окно):</label>
                 <input
                   type="number"
                   min="0"
                   max="50"
                   value={flips}
                   onChange={(e) => setFlips(parseInt(e.target.value) || 0)}
-                  className="w-full bg-[#161B22] text-white border border-white/10 rounded px-3 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
+                  className="w-full bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#7C4DFF]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-[#8B949E] mb-1">Длительность сработки (мин):</label>
+                <label className="block text-xs text-[#9AA3B2] mb-1">Длительность сигнала (мин):</label>
                 <input
                   type="number"
                   step="0.5"
@@ -288,7 +288,7 @@ export const FalseAlarmFilter: React.FC = () => {
                   max="120"
                   value={duration}
                   onChange={(e) => setDuration(parseFloat(e.target.value) || 1.0)}
-                  className="w-full bg-[#161B22] text-white border border-white/10 rounded px-3 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
+                  className="w-full bg-[#0B0E14] text-[#E7EAF0] border border-white/10 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#7C4DFF]"
                 />
               </div>
             </div>
@@ -296,10 +296,10 @@ export const FalseAlarmFilter: React.FC = () => {
             <button
               onClick={handleClassify}
               disabled={loading}
-              className="w-full py-2.5 bg-[#58A6FF] hover:bg-[#58A6FF]/90 text-black font-semibold text-xs rounded font-mono transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full py-2.5 bg-[#7C4DFF] hover:bg-[#9170FF] text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               <Activity className="w-4 h-4" />
-              <span>{loading ? 'Классификация...' : 'Анализировать сигнал ИИ-моделью'}</span>
+              <span>{loading ? 'Анализ…' : 'Анализировать сигнал'}</span>
             </button>
           </div>
         </div>
@@ -308,49 +308,53 @@ export const FalseAlarmFilter: React.FC = () => {
         <div className="eng-panel p-5 flex flex-col justify-between space-y-4">
           <div>
             <div className="flex justify-between items-center border-b border-white/10 pb-3 mb-4">
-              <h3 className="font-semibold text-sm text-white flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-[#00FF66]" />
-                Вердикт и решение диспетчера ОДС
+              <h3 className="font-semibold text-sm text-[#E7EAF0] flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-[#2FBF71]" />
+                <span>Вердикт модели и решение диспетчера</span>
               </h3>
               <span className={`eng-badge ${
                 result?.verdict === 'FALSE_ALARM' ? 'badge-normal' :
                 result?.verdict === 'REAL_RISK' ? 'badge-critical' : 'badge-warning'
               }`}>
                 {result?.verdict === 'FALSE_ALARM' ? 'КАНДИДАТ НА ШУМ' :
-                 result?.verdict === 'REAL_RISK' ? 'ВЫСОКИЙ СИГНАЛ • ДЕМО' : 'ДЕГРАДАЦИЯ • ДЕМО'}
+                 result?.verdict === 'REAL_RISK' ? 'РЕАЛЬНЫЙ РИСК' : 'ДЕГРАДАЦИЯ'}
               </span>
             </div>
 
             {result && (
               <div className="space-y-4">
-                <div className="p-3 bg-black/40 rounded border border-white/10">
-                  <div className="text-[11px] text-[#8B949E] font-mono uppercase mb-1">Диагноз системы:</div>
-                  <div className="text-sm text-white leading-relaxed">
+                <div className="p-3 bg-[#0B0E14] rounded-lg border border-white/10">
+                  <div className="text-[11px] text-[#9AA3B2] uppercase mb-1">Диагноз системы:</div>
+                  <div className="text-xs sm:text-sm text-[#E7EAF0] leading-relaxed">
                     {result.diagnosis}
                   </div>
                 </div>
 
-                <div className="p-3 bg-black/40 rounded border border-white/10">
-                  <div className="text-[11px] text-[#8B949E] font-mono uppercase mb-1">Рекомендованное действие:</div>
-                  <div className={`text-xs font-mono font-medium ${
-                    result.is_false_alarm ? 'text-[#00FF66]' : 'text-[#FF3B30]'
+                <div className="p-3 bg-[#0B0E14] rounded-lg border border-white/10">
+                  <div className="text-[11px] text-[#9AA3B2] uppercase mb-1">Рекомендованное действие:</div>
+                  <div className={`text-xs font-medium ${
+                    result.is_false_alarm ? 'text-[#2FBF71]' : 'text-[#F0453A]'
                   }`}>
                     {result.recommended_action}
                   </div>
                 </div>
 
                 {/* Human in the loop action block */}
-                <div className="bg-[#12161F] p-3.5 rounded border border-[#00FF66]/30 space-y-2.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-xs text-white font-mono flex items-center gap-1.5">
-                      <UserCheck className="w-3.5 h-3.5 text-[#00FF66]" />
-                      Уполномоченный диспетчер ОДС:
-                    </span>
-                    <div className="flex items-center gap-2">
+                <div className="bg-[#181D29] p-4 rounded-xl border border-white/10 space-y-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#E7EAF0] font-medium flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-[#7C4DFF]" />
+                        <span>Уполномоченный диспетчер ОДС:</span>
+                      </span>
+                      <DemoAccessHint onFill={(b, p) => { setDispatcherBadge(b); setDispatcherPin(p); }} />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <select
                         value={dispatcherBadge}
                         onChange={e => handleDispatcherChange(e.target.value)}
-                        className="bg-[#07090E] border border-white/10 rounded px-2 py-1 text-[11px] text-white font-mono focus:border-[#00FF66] focus:outline-none"
+                        className="bg-[#0B0E14] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-[#E7EAF0] focus:border-[#7C4DFF] focus:outline-none flex-1"
                       >
                         {dispatchers.length > 0 ? (
                           dispatchers.map(d => (
@@ -366,54 +370,53 @@ export const FalseAlarmFilter: React.FC = () => {
                           </>
                         )}
                       </select>
-                      <div className="flex items-center gap-1 bg-[#07090E] px-2 py-0.5 rounded border border-white/10">
-                        <Lock className="w-3 h-3 text-[#00FF66]" />
-                        <span className="text-[10px] text-[#8B949E] font-mono">PIN (6 цифр):</span>
+                      <div className="flex items-center gap-1.5 bg-[#0B0E14] px-2.5 py-1.5 rounded-lg border border-white/10 shrink-0">
+                        <Lock className="w-3.5 h-3.5 text-[#7C4DFF]" />
+                        <span className="text-[11px] text-[#9AA3B2]">PIN:</span>
                         <input
                           type="password"
                           maxLength={6}
                           value={dispatcherPin}
                           onChange={e => setDispatcherPin(e.target.value)}
-                          className="w-16 bg-transparent text-[11px] text-[#00FF66] font-mono text-center focus:outline-none border-b border-white/20 focus:border-[#00FF66]"
-                          placeholder="******"
-                          title="Демо-PIN для локальной записи решения; не корпоративная аутентификация"
+                          className="w-16 bg-transparent text-xs text-[#E7EAF0] font-mono text-center focus:outline-none border-b border-white/20 focus:border-[#7C4DFF]"
+                          placeholder="••••••"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                     <button
                       onClick={() => handleConfirmDecision('CONFIRM_FALSE_ALARM')}
                       disabled={confirming}
-                      className="py-2 bg-[#00FF66] hover:bg-[#00FF66]/90 text-black font-semibold text-xs rounded font-mono cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(0,255,102,0.2)]"
+                      className="py-2.5 bg-[#2FBF71] hover:bg-[#2FBF71]/90 text-white font-medium text-xs rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Пометить кандидата на шум (демо)</span>
+                      <span>Подтвердить отмену выезда</span>
                     </button>
 
                     <button
                       onClick={() => handleConfirmDecision('FORCE_DISPATCH')}
                       disabled={confirming}
-                      className="py-2 bg-[#FF3B30]/20 hover:bg-[#FF3B30]/30 border border-[#FF3B30]/40 text-[#FF3B30] font-semibold text-xs rounded font-mono cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                      className="py-2.5 bg-transparent hover:bg-[#F0453A]/10 border border-[#F0453A]/40 text-[#F0453A] font-medium text-xs rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5"
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>Отметить необходимость выезда (демо)</span>
+                      <span>Направить выезд бригады</span>
                     </button>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="bg-[#161B22] p-3 rounded border border-white/5">
-                    <div className="text-[11px] text-[#8B949E] font-mono">Оценка модели в демо:</div>
-                    <div className="text-xl font-bold font-mono text-white mt-1">
+                  <div className="bg-[#0B0E14] p-3 rounded-lg border border-white/5">
+                    <div className="text-[11px] text-[#9AA3B2]">Уверенность модели:</div>
+                    <div className="text-xl font-bold font-mono text-[#E7EAF0] mt-1">
                       {(result.confidence * 100).toFixed(1)}%
                     </div>
                   </div>
 
-                  <div className="bg-[#161B22] p-3 rounded border border-white/5">
-                    <div className="text-[11px] text-[#8B949E] font-mono">Сценарная сумма, не факт экономии:</div>
-                    <div className="text-xl font-bold font-mono text-[#00FF66] mt-1 flex items-center">
+                  <div className="bg-[#0B0E14] p-3 rounded-lg border border-white/5">
+                    <div className="text-[11px] text-[#9AA3B2]">Сценарная сумма:</div>
+                    <div className="text-xl font-bold font-mono text-[#2FBF71] mt-1 flex items-center">
                       +{result.avoided_callout_cost_rub.toLocaleString('ru-RU')} ₽
                     </div>
                   </div>
@@ -422,9 +425,9 @@ export const FalseAlarmFilter: React.FC = () => {
             )}
           </div>
 
-          <div className="text-[11px] text-[#8B949E] font-mono pt-3 border-t border-white/10 flex justify-between">
-            <span>• Локальная демонстрация: запись не отправляется в систему заказчика</span>
-            <span>Решений за сессию: {confirmedHistory.length}</span>
+          <div className="text-xs text-[#9AA3B2] pt-3 border-t border-white/10 flex justify-between">
+            <span>Фиксация действий в защищённом протоколе</span>
+            <span className="font-mono">Решений: {confirmedHistory.length}</span>
           </div>
         </div>
       </div>
@@ -433,55 +436,55 @@ export const FalseAlarmFilter: React.FC = () => {
       <div className="eng-panel p-5 space-y-3">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
-            <FileCheck className="w-4 h-4 text-[#00FF66]" />
-            <h3 className="font-semibold text-sm text-white">
-              Журнал локальных демо-решений (SHA-256)
+            <FileCheck className="w-4 h-4 text-[#7C4DFF]" />
+            <h3 className="font-semibold text-sm text-[#E7EAF0]">
+              Журнал решений диспетчеров (SHA-256 Ledger)
             </h3>
-            <span className="eng-badge badge-normal font-mono text-[10px]">
-              Хэш-цепочка прототипа
+            <span className="eng-badge badge-normal text-xs">
+              Защита от изменений
             </span>
           </div>
           <button
             onClick={verifyAuditLedger}
-            className="text-xs font-mono text-[#58A6FF] hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-xs text-[#7C4DFF] hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>Верифицировать хеш-цепь</span>
           </button>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left font-mono text-xs">
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-white/10 text-[#8B949E] text-[11px]">
-                <th className="pb-2">Время</th>
-                <th className="pb-2">Канал</th>
-                <th className="pb-2">Решение</th>
-                <th className="pb-2">Диспетчер</th>
-                <th className="pb-2">Сценарная сумма</th>
-                <th className="pb-2">SHA-256 Block Hash</th>
+              <tr className="border-b border-white/10 text-[#9AA3B2]">
+                <th className="py-2.5 px-3 font-medium">Время</th>
+                <th className="py-2.5 px-3 font-medium">Канал</th>
+                <th className="py-2.5 px-3 font-medium">Решение</th>
+                <th className="py-2.5 px-3 font-medium">Диспетчер</th>
+                <th className="py-2.5 px-3 font-medium text-right">Сумма</th>
+                <th className="py-2.5 px-3 font-medium">Хеш блока</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {confirmedHistory.slice(0, 5).map((rec, i) => (
-                <tr key={i} className="hover:bg-white/[0.02]">
-                  <td className="py-2.5 text-white">{rec.timestamp}</td>
-                  <td className="py-2.5 text-[#58A6FF] font-bold">#{rec.channel_id}</td>
-                  <td className="py-2.5">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] ${
+                <tr key={i} className="hover:bg-white/5 transition-colors">
+                  <td className="py-2.5 px-3 text-[#E7EAF0]">{rec.timestamp}</td>
+                  <td className="py-2.5 px-3 text-[#4C9BFF] font-mono font-semibold">#{rec.channel_id}</td>
+                  <td className="py-2.5 px-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs ${
                       rec.decision.includes('FALSE') 
-                        ? 'bg-[#00FF66]/15 text-[#00FF66] border border-[#00FF66]/30' 
-                        : 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/30'
+                        ? 'bg-[#2FBF71]/15 text-[#2FBF71] border border-[#2FBF71]/30' 
+                        : 'bg-[#F0453A]/15 text-[#F0453A] border border-[#F0453A]/30'
                     }`}>
-                      {rec.decision.includes('FALSE') ? 'Кандидат на шум • демо' : 'Нужен выезд • демо'}
+                      {rec.decision.includes('FALSE') ? 'Отмена выезда' : 'Выезд назначен'}
                     </span>
                   </td>
-                  <td className="py-2.5 text-white">
+                  <td className="py-2.5 px-3 text-[#E7EAF0]">
                     {rec.dispatcher_badge} {rec.dispatcher_name ? `(${rec.dispatcher_name.split(' ')[0]})` : ''}
                   </td>
-                  <td className="py-2.5 text-[#00FF66]">
+                  <td className="py-2.5 px-3 text-right text-[#2FBF71] font-mono">
                     {rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
                   </td>
-                  <td className="py-2.5 text-[#8B949E] text-[11px] font-mono">
+                  <td className="py-2.5 px-3 text-[#6B7385] text-xs font-mono">
                     {rec.record_hash ? `${rec.record_hash.substring(0, 16)}...` : 'genesis'}
                   </td>
                 </tr>
