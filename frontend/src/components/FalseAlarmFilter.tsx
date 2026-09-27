@@ -31,8 +31,8 @@ export const FalseAlarmFilter: React.FC = () => {
     verdict: 'FALSE_ALARM',
     is_false_alarm: true,
     confidence: 0.94,
-    diagnosis: 'Характерный спектр механического дребезга геркона двери (4 переключения за 90с). Внешняя вибрация от линии метро.',
-    recommended_action: 'Рекомендация ИИ: Подавление ложной тревоги. ТРЕБУЕТСЯ ПОДТВЕРЖДЕНИЕ ДИСПЕТЧЕРА ОДС перед отменой выезда бригады.',
+    diagnosis: 'Демонстрационный сценарий дребезга: сигнал отмечен как кандидат на проверку.',
+    recommended_action: 'Демо-рекомендация: проверить сигнал вручную. Метка не подтверждает ложность события.',
     avoided_callout_cost_rub: 18500
   });
 
@@ -114,13 +114,13 @@ export const FalseAlarmFilter: React.FC = () => {
           dispatcher_badge: dispatcherBadge,
           dispatcher_pin: dispatcherPin,
           notes: decision === 'CONFIRM_FALSE_ALARM' 
-            ? 'Подтверждено диспетчером: спектральный дребезг геркона' 
-            : 'Диспетчер принял решение о принудительной отправке бригады'
+            ? 'Демо-пометка диспетчера: кандидат на дребезг'
+            : 'Демо-решение: требуется выезд'
         })
       });
       if (res.ok) {
         const data = await res.json();
-        setConfirmationNotice(data.message);
+        setConfirmationNotice('Демо-решение записано локально.');
         setTimeout(() => setConfirmationNotice(null), 4000);
         fetchConfirmedHistory();
         verifyAuditLedger();
@@ -174,14 +174,14 @@ export const FalseAlarmFilter: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-white tracking-wide">
-              Интеллектуальная фильтрация ложных тревог (СМВУ)
+              Проверка кандидатов на шум (демо)
             </h2>
             <span className="eng-badge badge-normal font-mono">
-              Дребезг контактов
+              Тестовые сценарии
             </span>
           </div>
           <p className="text-xs text-[#8B949E] mt-1 font-mono">
-            Двухфакторная классификация: математический отсев помех + протокол подтверждения диспетчером (ГОСТ Р 53195)
+            Локальные сценарии классификации и PIN-подтверждения; это не live-поток и не интеграция с системами заказчика
           </p>
         </div>
 
@@ -207,17 +207,17 @@ export const FalseAlarmFilter: React.FC = () => {
         </div>
       </div>
 
-      {/* Safety Compliance Alert & SHA-256 Ledger Status */}
+      {/* Demo confirmation and local SHA-256 chain status */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 p-3 rounded text-xs font-mono flex items-center justify-between text-[#8B949E]">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#FFB800]" />
             <span>
-              <strong className="text-white">Регламент ОДС и 149-ФЗ:</strong> Отмена выезда ТОЛЬКО после личной верификации диспетчером с уровнем доступа Level-2+.
+              <strong className="text-white">Локальное демо:</strong> ИД и PIN проверяются прототипом; личность, роль и решение ОДС не подтверждаются.
             </span>
           </div>
           <div className="text-[#00FF66] font-semibold whitespace-nowrap pl-2">
-            +{cumulativeConfirmedSaved.toLocaleString('ru-RU')} ₽
+            Сценарная сумма: {cumulativeConfirmedSaved.toLocaleString('ru-RU')} ₽
           </div>
         </div>
 
@@ -225,7 +225,7 @@ export const FalseAlarmFilter: React.FC = () => {
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#00FF66]" />
             <span>
-              <strong className="text-white">Журнал аудита:</strong> ГОСТ Р 53195-2014 (SHA-256 Block Chaining)
+              <strong className="text-white">Журнал демо-решений:</strong> цепочка хешей SHA-256
             </span>
           </div>
           <div className="text-[#58A6FF] font-mono text-[11px] truncate max-w-[200px]" title={auditStatus?.head_hash}>
@@ -316,8 +316,8 @@ export const FalseAlarmFilter: React.FC = () => {
                 result?.verdict === 'FALSE_ALARM' ? 'badge-normal' :
                 result?.verdict === 'REAL_RISK' ? 'badge-critical' : 'badge-warning'
               }`}>
-                {result?.verdict === 'FALSE_ALARM' ? 'ЛОЖНАЯ ТРЕВОГА' :
-                 result?.verdict === 'REAL_RISK' ? 'РЕАЛЬНЫЙ РИСК' : 'ДЕГРАДАЦИЯ ОБОРУДОВАНИЯ'}
+                {result?.verdict === 'FALSE_ALARM' ? 'КАНДИДАТ НА ШУМ' :
+                 result?.verdict === 'REAL_RISK' ? 'ВЫСОКИЙ СИГНАЛ • ДЕМО' : 'ДЕГРАДАЦИЯ • ДЕМО'}
               </span>
             </div>
 
@@ -376,7 +376,7 @@ export const FalseAlarmFilter: React.FC = () => {
                           onChange={e => setDispatcherPin(e.target.value)}
                           className="w-16 bg-transparent text-[11px] text-[#00FF66] font-mono text-center focus:outline-none border-b border-white/20 focus:border-[#00FF66]"
                           placeholder="******"
-                          title="Персональный 6-значный PIN-код диспетчера для подтверждения (2FA)"
+                          title="Демо-PIN для локальной записи решения; не корпоративная аутентификация"
                         />
                       </div>
                     </div>
@@ -389,7 +389,7 @@ export const FalseAlarmFilter: React.FC = () => {
                       className="py-2 bg-[#00FF66] hover:bg-[#00FF66]/90 text-black font-semibold text-xs rounded font-mono cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(0,255,102,0.2)]"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Подтвердить ложную (+18 500 ₽)</span>
+                      <span>Пометить кандидата на шум (демо)</span>
                     </button>
 
                     <button
@@ -398,21 +398,21 @@ export const FalseAlarmFilter: React.FC = () => {
                       className="py-2 bg-[#FF3B30]/20 hover:bg-[#FF3B30]/30 border border-[#FF3B30]/40 text-[#FF3B30] font-semibold text-xs rounded font-mono cursor-pointer transition-all flex items-center justify-center gap-1.5"
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>Принудительный выезд бригады</span>
+                      <span>Отметить необходимость выезда (демо)</span>
                     </button>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div className="bg-[#161B22] p-3 rounded border border-white/5">
-                    <div className="text-[11px] text-[#8B949E] font-mono">Уверенность ИИ:</div>
+                    <div className="text-[11px] text-[#8B949E] font-mono">Оценка модели в демо:</div>
                     <div className="text-xl font-bold font-mono text-white mt-1">
                       {(result.confidence * 100).toFixed(1)}%
                     </div>
                   </div>
 
                   <div className="bg-[#161B22] p-3 rounded border border-white/5">
-                    <div className="text-[11px] text-[#8B949E] font-mono">Потенциальная экономия:</div>
+                    <div className="text-[11px] text-[#8B949E] font-mono">Сценарная сумма, не факт экономии:</div>
                     <div className="text-xl font-bold font-mono text-[#00FF66] mt-1 flex items-center">
                       +{result.avoided_callout_cost_rub.toLocaleString('ru-RU')} ₽
                     </div>
@@ -423,7 +423,7 @@ export const FalseAlarmFilter: React.FC = () => {
           </div>
 
           <div className="text-[11px] text-[#8B949E] font-mono pt-3 border-t border-white/10 flex justify-between">
-            <span>• Протокол соответствия: Р ТЭК п. 2.7 (Регистрация переходных сигналов СМВУ)</span>
+            <span>• Локальная демонстрация: запись не отправляется в систему заказчика</span>
             <span>Решений за сессию: {confirmedHistory.length}</span>
           </div>
         </div>
@@ -435,10 +435,10 @@ export const FalseAlarmFilter: React.FC = () => {
           <div className="flex items-center gap-2">
             <FileCheck className="w-4 h-4 text-[#00FF66]" />
             <h3 className="font-semibold text-sm text-white">
-              Криптографический реестр аудита решений (ГОСТ Р 53195-2014)
+              Журнал локальных демо-решений (SHA-256)
             </h3>
             <span className="eng-badge badge-normal font-mono text-[10px]">
-              Неизменяемый реестр SHA-256
+              Хэш-цепочка прототипа
             </span>
           </div>
           <button
@@ -457,7 +457,7 @@ export const FalseAlarmFilter: React.FC = () => {
                 <th className="pb-2">Канал</th>
                 <th className="pb-2">Решение</th>
                 <th className="pb-2">Диспетчер</th>
-                <th className="pb-2">Экономия</th>
+                <th className="pb-2">Сценарная сумма</th>
                 <th className="pb-2">SHA-256 Block Hash</th>
               </tr>
             </thead>
@@ -472,14 +472,14 @@ export const FalseAlarmFilter: React.FC = () => {
                         ? 'bg-[#00FF66]/15 text-[#00FF66] border border-[#00FF66]/30' 
                         : 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/30'
                     }`}>
-                      {rec.decision.includes('FALSE') ? 'Ложная тревога' : 'Принудительный выезд'}
+                      {rec.decision.includes('FALSE') ? 'Кандидат на шум • демо' : 'Нужен выезд • демо'}
                     </span>
                   </td>
                   <td className="py-2.5 text-white">
                     {rec.dispatcher_badge} {rec.dispatcher_name ? `(${rec.dispatcher_name.split(' ')[0]})` : ''}
                   </td>
                   <td className="py-2.5 text-[#00FF66]">
-                    +{rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
+                    {rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
                   </td>
                   <td className="py-2.5 text-[#8B949E] text-[11px] font-mono">
                     {rec.record_hash ? `${rec.record_hash.substring(0, 16)}...` : 'genesis'}

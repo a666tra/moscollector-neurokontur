@@ -30,9 +30,12 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
   const [sandboxModel, setSandboxModel] = useState('champion_lightgbm');
   const [scoringLoading, setScoringLoading] = useState(false);
   const [liveResult, setLiveResult] = useState<RealtimeScoreResult | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   const handleLiveScore = async () => {
     setScoringLoading(true);
+    setLiveError(null);
+    setLiveResult(null);
     try {
       const res = await fetch('/api/predictions/score', {
         method: 'POST',
@@ -49,12 +52,12 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
           model_name: sandboxModel
         })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setLiveResult(data);
-      }
+      if (!res.ok) throw new Error(`Сервис вернул HTTP ${res.status}`);
+      const data = await res.json();
+      setLiveResult(data);
     } catch (e) {
       console.error('Realtime score error', e);
+      setLiveError(e instanceof Error ? e.message : 'Не удалось выполнить скоринг');
     } finally {
       setScoringLoading(false);
     }
@@ -100,7 +103,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
             <span className="eng-badge badge-normal text-[10px]">Горизонт 24–72ч</span>
           </h2>
           <p className="text-[11px] text-[#8B949E] mt-0.5 font-mono">
-            Автоматический расчет вероятности отказа оборудования и формирование предписаний ТО/ППР
+            Ранжирование каналов по баллу модели и proxy-отклонениям телеметрии; решения о ТО принимает специалист
           </p>
         </div>
 
@@ -120,7 +123,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
           <div className="flex justify-between items-center border-b border-white/10 pb-2">
             <div className="flex items-center gap-2 text-white font-bold">
               <Zap className="w-4 h-4 text-[#00FF66]" />
-              <span>Динамический расчет вероятности отказа (On-Demand LightGBM Inference)</span>
+              <span>Динамический балл модели и proxy-вероятность (локальное демо)</span>
             </div>
             <span className="text-[10px] text-[#8B949E]">
               Прямой вызов C-ядра модели без кэша
@@ -214,8 +217,19 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
             {liveResult && (
               <div className="flex items-center gap-4 bg-[#07090E] p-2.5 rounded border border-white/10 text-xs">
                 <div>
-                  <span className="text-[#8B949E]">Вероятность отказа: </span>
-                  <span className="text-[#00FF66] font-bold">{(liveResult.failure_probability * 100).toFixed(1)}%</span>
+                  <span className="text-[#8B949E]">Балл риска: </span>
+                  <span className="text-[#00FF66] font-bold">
+                    {(liveResult.raw_model_score ?? liveResult.failure_probability).toFixed(3)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8B949E]">Proxy-вер-ть: </span>
+                  <span className="text-[#38BDF8] font-bold">
+                    {liveResult.calibrated_proxy_probability !== null && liveResult.calibrated_proxy_probability !== undefined
+                      ? `${(liveResult.calibrated_proxy_probability * 100).toFixed(2)}%`
+                      : '—'}
+                  </span>
+                  <span className="text-[9px] text-[#8B949E] block">Beta 24–72ч</span>
                 </div>
                 <div>
                   <span className="text-[#8B949E]">Уровень: </span>
@@ -232,6 +246,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
                 </div>
               </div>
             )}
+            {liveError && <p role="alert" className="text-xs text-[#FF6B6B]">{liveError}</p>}
           </div>
         </div>
       )}
@@ -256,10 +271,10 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
             className="bg-[#161B22] text-white border border-white/10 rounded px-2.5 py-1.5 font-mono text-xs focus:outline-none focus:border-[#00FF66]"
           >
             <option value="ALL">Все уровни риска ({predictions.length})</option>
-            <option value="CRITICAL">🔴 Критические (&ge;70%)</option>
-            <option value="WARNING">🟡 Предупреждение (Порог tau)</option>
-            <option value="ATTENTION">🔵 Внимание (&ge;25%)</option>
-            <option value="NORMAL">🟢 Штатные</option>
+            <option value="CRITICAL">🔴 Критический риск (балл &ge; 0.70)</option>
+            <option value="WARNING">🟡 Предупреждение (балл &ge; tau)</option>
+            <option value="ATTENTION">🔵 Внимание (балл &ge; 0.20)</option>
+            <option value="NORMAL">🟢 Штатный мониторинг</option>
           </select>
 
           <select
@@ -285,7 +300,8 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
                 <th className="p-3">Канал / Тег</th>
                 <th className="p-3">Объект и Пикет</th>
                 <th className="p-3">Тип оборудования</th>
-                <th className="p-3">Вероятность отказа</th>
+                <th className="p-3">Балл риска модели [0, 1]</th>
+                <th className="p-3">Proxy-вероятность</th>
                 <th className="p-3">Факторы риска (Explainability)</th>
                 <th className="p-3 text-right">Действие</th>
               </tr>
@@ -302,7 +318,7 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
 
                     <td className="p-3">
                       <div className="text-white font-medium">{p.object_name}</div>
-                      <div className="text-[10px] text-[#00FF66]">{p.tag.includes('ПК') ? p.tag.split(' ').pop() : 'ПК28'}</div>
+                      <div className="text-[10px] text-[#00FF66]">{p.tag.includes('ПК') ? p.tag.split(' ').pop() : 'Пикет не указан'}</div>
                     </td>
 
                     <td className="p-3">
@@ -318,11 +334,24 @@ export const RiskDashboard: React.FC<RiskDashboardProps> = ({
                           p.risk_level === 'WARNING' ? 'badge-warning' :
                           p.risk_level === 'ATTENTION' ? 'badge-cyan' : 'badge-normal'
                         }`}>
-                          {(p.failure_probability * 100).toFixed(1)}%
+                          {(p.raw_model_score ?? p.failure_probability).toFixed(3)}
                         </span>
                         <span className="text-[10px] text-[#8B949E]">
                           {p.risk_level === 'CRITICAL' ? 'Критично' :
                            p.risk_level === 'WARNING' ? 'ППР' : 'Норма'}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="p-3">
+                      <div className="flex flex-col">
+                        <span className="text-white font-medium">
+                          {p.calibrated_proxy_probability !== null && p.calibrated_proxy_probability !== undefined
+                            ? `${(p.calibrated_proxy_probability * 100).toFixed(1)}%`
+                            : '—'}
+                        </span>
+                        <span className="text-[9px] text-[#8B949E]">
+                          {p.is_calibrated && p.calibrated_proxy_probability != null ? 'Beta proxy 24–72ч' : 'Калибровка недоступна'}
                         </span>
                       </div>
                     </td>

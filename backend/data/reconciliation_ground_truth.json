@@ -1,8 +1,17 @@
 {
-  "audit_standard": "ГОСТ Р 53195-2014 / §18.3 ТЗ Департамента ЖКХ г. Москвы",
-  "methodology": "Сравнение предиктивных оценок ML-моделей за 24–72 часа с фактическими физическими инцидентами в телеметрии SCADA/СМВУ в отложенном временном окне (Held-out Test: 22–28 января 2026, 11 485 каналов). В выданном открытом датасете внешние акты ремонтов CMMS/1С:ТОИР отсутствуют, поэтому разметка целевых физических отказов выполнена строго алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее (загазованность CH4 >= 5.0%, температура >= 45°C или <= -10°C, сброс часов контроллера в 1970г, аппаратный обрыв/КЗ шлейфа).",
+  "evidence_type": "algorithmic_telemetry_proxy",
+  "methodology": "Прогноз по истории до 28.01.2026 00:00; целевая метка определяется функцией is_failure_value по телеметрии 29–31.01.2026. Это алгоритмическая аномалия, а не подтвержденный акт ремонта, предотвращенная авария или экономия.",
+  "source_journal": "dataset/extracted/ext-journal-2026.csv",
+  "source_journal_sha256": "3ecdc8fcc5b08c8238fa74fadb35e9b6439bce3f2f8fe8697da5e483aae55880",
+  "source_journal_bytes": 1497523553,
+  "source_csv_committed": false,
+  "source_rows_scanned": 7000000,
+  "source_row_limit": 7000000,
+  "prediction_cutoff": "2026-01-28 00:00:00",
+  "target_window_start": "2026-01-29 00:00:00",
+  "target_window_end_inclusive": "2026-01-31 00:00:00",
   "dataset_channels_total": 11485,
-  "actual_incidents_recorded": 174,
+  "proxy_positive_channels": 174,
   "operational_matrix_tau_0_42": {
     "threshold": 0.42,
     "true_positives": 55,
@@ -12,10 +21,9 @@
     "precision": 0.0823,
     "recall": 0.3161,
     "f1_score": 0.1306,
-    "lift_vs_baseline": 5.45,
-    "operating_mode": "Штатный балансный режим диспетчерской ОДС"
+    "lift_vs_baseline": 5.43
   },
-  "optimal_matrix_tau_0_845": {
+  "high_precision_matrix_tau_0_845": {
     "threshold": 0.845,
     "true_positives": 33,
     "false_positives": 109,
@@ -24,48 +32,30 @@
     "precision": 0.2324,
     "recall": 0.1897,
     "f1_score": 0.2089,
-    "roc_auc": 0.771,
-    "pr_auc": 0.1679,
-    "lift_vs_baseline": 15.39,
-    "operating_mode": "Режим жесткого таргетирования выездов (High-Precision)"
+    "lift_vs_baseline": 15.34
   },
-  "recommendation_vs_ground_truth_policy": [
-    {
-      "ai_verdict": "SENSOR_DEGRADATION",
-      "ai_action": "Автоматическое формирование наряд-заказа на плановое ТО/ППР (3 200 ₽)",
-      "baseline_scada_reaction": "Аварийный выезд АВР по факту отказа датчика (18 500 ₽)",
-      "reconciliation_outcome": "Экономия 15 300 ₽ на инцидент за счет упреждающего обслуживания",
-      "safety_impact": "Исключение ослепления диспетчера при реальной аварии на коллекторе",
-      "tariff_basis": "ТСН-2001.4-8 и МРР-3.2.05.08-20 (Москомэкспертиза)"
-    },
-    {
-      "ai_verdict": "FALSE_ALARM",
-      "ai_action": "Подавление тревоги дребезга геркона люка с подтверждением 2FA диспетчера ОДС",
-      "baseline_scada_reaction": "Ложный срочный выезд аварийной бригады (18 500 ₽)",
-      "reconciliation_outcome": "Экономия 18 500 ₽, высвобождение бригады для реальных инцидентов",
-      "safety_impact": "Снижение ложной нагрузки на дежурную смену ОДС на 78–82%",
-      "tariff_basis": "Распоряжение Департамента экономической политики г. Москвы № 18-Р"
-    },
-    {
-      "ai_verdict": "REAL_RISK",
-      "ai_action": "Экстренный наряд ОДС, автоматический пуск вентиляции шахты, оповещение РТС",
-      "baseline_scada_reaction": "Срабатывание порога загазованности/температуры постфактум",
-      "reconciliation_outcome": "Упреждение аварии на 24–72 часа",
-      "safety_impact": "Предотвращение взрыва метана или термического разрушения силовых кабелей",
-      "tariff_basis": "Регламент Р ТЭК АО 'Москоллектор'"
-    }
-  ],
-  "sample_verified_cases": [
+  "ranking_metrics_from_report": {
+    "roc_auc": 0.771,
+    "pr_auc": 0.1679
+  },
+  "sample_cases": [
     {
       "channel_id": "113980",
       "sensor_name": "[Охранная зона]ДП Мосрентген",
       "sensor_type": "Состояние охраны",
       "object_name": "ДП объект Сигма",
       "predicted_prob": 0.9979,
-      "predicted_verdict": "SENSOR_DEGRADATION",
-      "actual_scada_event": "Фактический аппаратный отказ в тесте (y_test=1): сброс RTC в 1970г, просадка питания",
-      "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-      "economic_outcome": "+15 300 ₽ экономии за счёт планового ТО"
+      "proxy_label": 1,
+      "classification_at_tau_0_42": "TP",
+      "target_window_rows": 12,
+      "first_proxy_event": {
+        "source_csv_line": 4095915,
+        "event_id": "4266098382",
+        "event_timestamp": "2026-01-29 11:42:57",
+        "alarm_flag": "f",
+        "raw_sensor_value": "01.01.1970 03:00:00",
+        "label_rule": "is_failure_value in backend/ml/train_validated_model.py"
+      }
     },
     {
       "channel_id": "103937",
@@ -73,10 +63,17 @@
       "sensor_type": "Состояние насоса",
       "object_name": "ДУ объект Омикрон",
       "predicted_prob": 0.9665,
-      "predicted_verdict": "SENSOR_DEGRADATION",
-      "actual_scada_event": "Фактический сбой концевика в тесте (y_test=1): серия микропереключений и обрыв шлейфа",
-      "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-      "economic_outcome": "+15 300 ₽ экономии за счёт ревизии геркона"
+      "proxy_label": 1,
+      "classification_at_tau_0_42": "TP",
+      "target_window_rows": 14,
+      "first_proxy_event": {
+        "source_csv_line": 4110260,
+        "event_id": "3298983388",
+        "event_timestamp": "2026-01-29 13:40:14",
+        "alarm_flag": "t",
+        "raw_sensor_value": "Неисправен",
+        "label_rule": "is_failure_value in backend/ml/train_validated_model.py"
+      }
     },
     {
       "channel_id": "104014",
@@ -84,10 +81,17 @@
       "sensor_type": "Состояние фазы",
       "object_name": "ДУ объект Омикрон",
       "predicted_prob": 0.531,
-      "predicted_verdict": "SENSOR_DEGRADATION",
-      "actual_scada_event": "Фактический отказ в тесте (y_test=1): деградация контакта с фиксацией обрыва через 48ч",
-      "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-      "economic_outcome": "+15 300 ₽ экономии за счёт планового ТО"
+      "proxy_label": 1,
+      "classification_at_tau_0_42": "TP",
+      "target_window_rows": 6,
+      "first_proxy_event": {
+        "source_csv_line": 4110250,
+        "event_id": "3298983381",
+        "event_timestamp": "2026-01-29 13:40:13",
+        "alarm_flag": "t",
+        "raw_sensor_value": "Неисправен",
+        "label_rule": "is_failure_value in backend/ml/train_validated_model.py"
+      }
     },
     {
       "channel_id": "115574",
@@ -95,43 +99,56 @@
       "sensor_type": "Состояние фазы",
       "object_name": "ДП объект Эпсилон",
       "predicted_prob": 0.4934,
-      "predicted_verdict": "SENSOR_DEGRADATION",
-      "actual_scada_event": "Фактический сбой шлейфа в тесте (y_test=1): аномальные интервалы телеметрии",
-      "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-      "economic_outcome": "+15 300 ₽ экономии за счёт планового ТО"
+      "proxy_label": 1,
+      "classification_at_tau_0_42": "TP",
+      "target_window_rows": 4,
+      "first_proxy_event": {
+        "source_csv_line": 4110093,
+        "event_id": "3298982603",
+        "event_timestamp": "2026-01-29 13:39:06",
+        "alarm_flag": "t",
+        "raw_sensor_value": "Неисправен",
+        "label_rule": "is_failure_value in backend/ml/train_validated_model.py"
+      }
     },
     {
-      "channel_id": "103954",
-      "sensor_name": "Н1 ПК205",
-      "sensor_type": "Состояние насоса",
+      "channel_id": "120500",
+      "sensor_name": "Темп. ПК87 в/к2",
+      "sensor_type": "Датчик температуры",
+      "object_name": "объект Фита",
+      "predicted_prob": 0.9811,
+      "proxy_label": 0,
+      "classification_at_tau_0_42": "FP",
+      "target_window_rows": 28,
+      "first_proxy_event": null
+    },
+    {
+      "channel_id": "212218",
+      "sensor_name": "ОД ВШ ПК73",
+      "sensor_type": "Датчик движения",
+      "object_name": "объект Дельта",
+      "predicted_prob": 0.0,
+      "proxy_label": 0,
+      "classification_at_tau_0_42": "TN",
+      "target_window_rows": 502,
+      "first_proxy_event": null
+    },
+    {
+      "channel_id": "104040",
+      "sensor_name": "ГАЗ Д15 ПК110",
+      "sensor_type": "Газовый датчик",
       "object_name": "ДУ объект Омикрон",
-      "predicted_prob": 0.6234,
-      "predicted_verdict": "FALSE_ALARM",
-      "actual_scada_event": "Затяжной микрошум без аварийного отказа (y_test=0): ранняя сигнализация дребезга",
-      "reconciliation_status": "EARLY_WARNING_FALSE_ALARM_AVOIDED",
-      "economic_outcome": "+18 500 ₽ предотвращения ложного выезда"
-    },
-    {
-      "channel_id": "120504",
-      "sensor_name": "ТД ПК86-85",
-      "sensor_type": "Тепловой датчик",
-      "object_name": "объект Фита",
-      "predicted_prob": 0.002,
-      "predicted_verdict": "NORMAL",
-      "actual_scada_event": "Стабильное тепловое состояние без перегревов (y_test=0)",
-      "reconciliation_status": "TRUE_NEGATIVE_NORMAL",
-      "economic_outcome": "Штатная эксплуатация, ложный вызов исключен"
-    },
-    {
-      "channel_id": "120578",
-      "sensor_name": "КД АВ ПК28",
-      "sensor_type": "КД АВ",
-      "object_name": "объект Фита",
-      "predicted_prob": 0.0001,
-      "predicted_verdict": "NORMAL",
-      "actual_scada_event": "Штатный контроль закрытия люка шахты (y_test=0)",
-      "reconciliation_status": "TRUE_NEGATIVE_NORMAL",
-      "economic_outcome": "Штатная эксплуатация, ложный вызов исключен"
+      "predicted_prob": 0.0,
+      "proxy_label": 0,
+      "classification_at_tau_0_42": "TN",
+      "target_window_rows": 16,
+      "first_proxy_event": null
     }
+  ],
+  "limitations": [
+    "Метка выводится из будущей телеметрии и не сверена с журналом ремонтных работ или CMMS.",
+    "Отсутствие прокси-события в ограниченном окне не доказывает исправность датчика.",
+    "Прогнозы в поставляемом JSON округлены; матрицы по ним могут немного отличаться от метрик модели полного разрешения.",
+    "Исходный CSV не включен в репозиторий; номера строк и ID событий позволяют сверить примеры при наличии датасета."
   ]
 }

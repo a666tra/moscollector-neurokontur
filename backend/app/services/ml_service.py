@@ -2,6 +2,11 @@ import os
 import json
 import time
 import hashlib
+import hmac
+import re
+import secrets
+import threading
+import tempfile
 import joblib
 import numpy as np
 from datetime import datetime
@@ -10,24 +15,45 @@ from backend.app.core.config import settings
 from backend.app.services.data_service import data_service
 from backend.app.api.settings import get_current_settings
 
-CONFIRMED_ALARMS_PATH = os.path.join(settings.DATA_DIR, "confirmed_alarms.json")
-AUTH_DISPATCHERS_PATH = os.path.join(settings.DATA_DIR, "authorized_dispatchers.json")
+CONFIRMED_ALARMS_PATH = os.environ.get(
+    "LCT_CONFIRMED_ALARMS_PATH",
+    os.path.join(settings.DATA_DIR, "confirmed_alarms.json"),
+)
+AUTH_DISPATCHERS_PATH = os.environ.get(
+    "LCT_DISPATCHER_REGISTRY_PATH",
+    os.path.join(settings.DATA_DIR, "authorized_dispatchers.json"),
+)
+PIN_HASH_SCHEME = "pbkdf2_sha256"
+PIN_HASH_ITERATIONS = 600_000
+PIN_SALT_BYTES = 16
+PIN_HASH_BYTES = 32
+
+class DispatcherAuthenticationError(ValueError):
+    """Raised when dispatcher credentials cannot be verified."""
+
+
+class DispatcherAuthorizationError(ValueError):
+    """Raised when an authenticated dispatcher lacks the required clearance."""
+
 
 class MLService:
     def __init__(self):
+        self._audit_lock = threading.RLock()
         self.model = None
         self.model_lgbm = None
         self.model_lr = None
         self.model_rf = None
         self.scaler = None
+        self.calibrator = None
+        self.calibrator_method = None
         self.confirmed_alarms: List[Dict[str, Any]] = []
         self.stype_map: Dict[str, int] = {}
         self.sys_map: Dict[str, int] = {}
         self.authorized_dispatchers: Dict[str, Dict[str, Any]] = {}
         self.optimal_thresholds: Dict[str, float] = {
-            "champion_lightgbm": 0.8147,
+            "champion_lightgbm": 0.845,
             "logistic_regression": 0.8000,
-            "random_forest": 0.7797
+            "random_forest": 0.7695
         }
         self.load_model()
         self.load_metadata()
@@ -39,6 +65,8 @@ class MLService:
         lr_path = os.path.join(settings.MODELS_DIR, "logistic_regression.joblib")
         rf_path = os.path.join(settings.MODELS_DIR, "random_forest.joblib")
         scaler_path = os.path.join(settings.MODELS_DIR, "feature_scaler.joblib")
+        beta_calibrator_path = os.path.join(settings.MODELS_DIR, "champion_calibrator_beta.joblib")
+        platt_calibrator_path = os.path.join(settings.MODELS_DIR, "champion_calibrator.joblib")
 
         try:
             if os.path.exists(lgbm_path):
@@ -50,6 +78,12 @@ class MLService:
                 self.model_rf = joblib.load(rf_path)
             if os.path.exists(scaler_path):
                 self.scaler = joblib.load(scaler_path)
+            if os.path.exists(beta_calibrator_path):
+                self.calibrator = joblib.load(beta_calibrator_path)
+                self.calibrator_method = "beta"
+            elif os.path.exists(platt_calibrator_path):
+                self.calibrator = joblib.load(platt_calibrator_path)
+                self.calibrator_method = "platt_legacy"
         except Exception as e:
             print(f"Error loading models: {e}")
 
@@ -67,67 +101,143 @@ class MLService:
                 print(f"Error loading metadata: {e}")
 
     def load_authorized_dispatchers(self):
-        if os.path.exists(AUTH_DISPATCHERS_PATH):
-            try:
-                with open(AUTH_DISPATCHERS_PATH, 'r', encoding='utf-8') as f:
-                    self.authorized_dispatchers = json.load(f)
-            except Exception as e:
-                print(f"Error loading dispatchers: {e}")
+        self.authorized_dispatchers = {}
+        if not os.path.exists(AUTH_DISPATCHERS_PATH):
+            return
+
+        try:
+            with open(AUTH_DISPATCHERS_PATH, 'r', encoding='utf-8') as f:
+                loaded = json.load(f)
+            if not isinstance(loaded, dict):
+                raise ValueError("Реестр сотрудников должен быть JSON-объектом")
+            for badge, dispatcher in loaded.items():
+                if not self._valid_dispatcher_record(badge, dispatcher):
+                    raise ValueError("Реестр содержит запись с недопустимой схемой")
+            self.authorized_dispatchers = loaded
+        except Exception as e:
+            self.authorized_dispatchers = {}
+            print(f"Error loading dispatchers: {e}")
+
+    @staticmethod
+    def _valid_pin_hash(encoded_hash: Any) -> bool:
+        if not isinstance(encoded_hash, str) or not re.fullmatch(
+            r"pbkdf2_sha256\$\d{6,7}\$[0-9a-f]{32}\$[0-9a-f]{64}", encoded_hash
+        ):
+            return False
+        parts = encoded_hash.split("$")
+        if len(parts) != 4 or parts[0] != PIN_HASH_SCHEME:
+            return False
+        try:
+            iterations = int(parts[1])
+            salt = bytes.fromhex(parts[2])
+            digest = bytes.fromhex(parts[3])
+        except (TypeError, ValueError):
+            return False
+        return (
+            PIN_HASH_ITERATIONS <= iterations <= 2_000_000
+            and len(salt) >= PIN_SALT_BYTES
+            and len(digest) == PIN_HASH_BYTES
+        )
+
+    @classmethod
+    def _valid_dispatcher_record(cls, badge: Any, dispatcher: Any) -> bool:
+        if not isinstance(badge, str) or not re.fullmatch(r"(?:ДИСП-\d{4}|\d{4}-ОДС)", badge):
+            return False
+        if not isinstance(dispatcher, dict) or dispatcher.get("badge") != badge:
+            return False
+        if not all(isinstance(dispatcher.get(key), str) and dispatcher[key].strip()
+                   for key in ("full_name", "role")):
+            return False
+        if type(dispatcher.get("clearance_level")) is not int or dispatcher["clearance_level"] not in (1, 2, 3):
+            return False
+        if type(dispatcher.get("can_confirm_false_alarm")) is not bool:
+            return False
+        if type(dispatcher.get("can_force_dispatch")) is not bool:
+            return False
+        return cls._valid_pin_hash(dispatcher.get("pin_hash"))
+
+    @staticmethod
+    def _verify_pin(pin: str, encoded_hash: Any) -> bool:
+        if not MLService._valid_pin_hash(encoded_hash):
+            return False
+        scheme, raw_iterations, salt_hex, expected_hex = encoded_hash.split("$")
+        iterations = int(raw_iterations)
+        candidate = hashlib.pbkdf2_hmac(
+            "sha256", pin.encode("utf-8"), bytes.fromhex(salt_hex), iterations, dklen=PIN_HASH_BYTES
+        )
+        return hmac.compare_digest(candidate, bytes.fromhex(expected_hex))
+
+    def authenticate_dispatcher(
+        self,
+        dispatcher_badge: Optional[str],
+        dispatcher_pin: Optional[str],
+        min_clearance_level: int = 1,
+    ) -> tuple[str, Dict[str, Any]]:
+        """Verify an employee badge, six-digit PIN and minimum clearance."""
         if not self.authorized_dispatchers:
-            self.authorized_dispatchers = {
-                "ДИСП-7041": {
-                    "badge": "ДИСП-7041",
-                    "full_name": "Кузнецов Артем Дмитриевич",
-                    "role": "Главный инженер смены ОДС",
-                    "clearance_level": "Level-3 (Главный диспетчер)",
-                    "pin_hash": hashlib.sha256("704192".encode('utf-8')).hexdigest(),
-                    "can_confirm_false_alarm": True,
-                    "can_force_dispatch": True
-                },
-                "ДИСП-0482": {
-                    "badge": "ДИСП-0482",
-                    "full_name": "Иванов Илья Сергеевич",
-                    "role": "Старший диспетчер ОДС №1",
-                    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
-                    "pin_hash": hashlib.sha256("048251".encode('utf-8')).hexdigest(),
-                    "can_confirm_false_alarm": True,
-                    "can_force_dispatch": True
-                },
-                "ДИСП-3318": {
-                    "badge": "ДИСП-3318",
-                    "full_name": "Смирнова Елена Михайловна",
-                    "role": "Ведущий диспетчер ОДС",
-                    "clearance_level": "Level-2 (КИИ/ГОСТ Р 53195)",
-                    "pin_hash": hashlib.sha256("331844".encode('utf-8')).hexdigest(),
-                    "can_confirm_false_alarm": True,
-                    "can_force_dispatch": True
-                },
-                "ДИСП-1094": {
-                    "badge": "ДИСП-1094",
-                    "full_name": "Петров Сергей Владимирович",
-                    "role": "Инженер-диспетчер телеметрии",
-                    "clearance_level": "Level-1 (Оператор СМВУ)",
-                    "pin_hash": hashlib.sha256("109407".encode('utf-8')).hexdigest(),
-                    "can_confirm_false_alarm": False,
-                    "can_force_dispatch": True
-                }
-            }
+            raise DispatcherAuthenticationError(
+                "Ошибка аутентификации: реестр сотрудников отсутствует или не загружен."
+            )
+
+        badge = (dispatcher_badge or "").strip()
+        dispatcher = self.authorized_dispatchers.get(badge)
+        if not dispatcher:
+            raise DispatcherAuthenticationError(
+                "Отказ в аутентификации: табельный номер не зарегистрирован."
+            )
+
+        pin = (dispatcher_pin or "").strip()
+        stored_hash = dispatcher.get("pin_hash")
+        if (
+            not re.fullmatch(r"\d{6}", pin)
+            or not self._verify_pin(pin, stored_hash)
+        ):
+            raise DispatcherAuthenticationError(
+                "Отказ в аутентификации: неверный badge или 6-значный PIN-код."
+            )
+
+        clearance = dispatcher.get("clearance_level")
+        if type(min_clearance_level) is not int or min_clearance_level not in (1, 2, 3):
+            raise DispatcherAuthorizationError("Недопустимый требуемый уровень доступа.")
+        if type(clearance) is not int or clearance not in (1, 2, 3) or clearance < min_clearance_level:
+            raise DispatcherAuthorizationError(
+                f"Недостаточный уровень доступа (RBAC): требуется Level-{min_clearance_level}."
+            )
+        return badge, dispatcher
 
     def load_confirmed_alarms(self):
-        if os.path.exists(CONFIRMED_ALARMS_PATH):
-            try:
-                with open(CONFIRMED_ALARMS_PATH, 'r', encoding='utf-8') as f:
-                    self.confirmed_alarms = json.load(f)
-            except Exception:
-                self.confirmed_alarms = []
+        if not os.path.exists(CONFIRMED_ALARMS_PATH):
+            self.confirmed_alarms = []
+            return
+        try:
+            with open(CONFIRMED_ALARMS_PATH, 'r', encoding='utf-8') as f:
+                loaded = json.load(f)
+            if not isinstance(loaded, list) or not all(isinstance(item, dict) for item in loaded):
+                raise ValueError("Журнал аудита должен содержать список записей")
+            self.confirmed_alarms = loaded
+        except Exception as exc:
+            raise RuntimeError("Не удалось безопасно загрузить журнал аудита; запуск остановлен") from exc
 
     def save_confirmed_alarms(self):
+        data_dir = os.path.dirname(os.path.abspath(CONFIRMED_ALARMS_PATH))
+        temp_path = None
         try:
-            os.makedirs(os.path.dirname(CONFIRMED_ALARMS_PATH), exist_ok=True)
-            with open(CONFIRMED_ALARMS_PATH, 'w', encoding='utf-8') as f:
+            os.makedirs(data_dir, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=data_dir, delete=False
+            ) as f:
+                temp_path = f.name
                 json.dump(self.confirmed_alarms, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, CONFIRMED_ALARMS_PATH)
         except Exception as e:
-            print(f"Error saving confirmed alarms: {e}")
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+            raise RuntimeError("Не удалось атомарно сохранить журнал аудита") from e
 
     def get_confirmed_saved_opex(self) -> float:
         return sum(a.get("avoided_cost_rub", 0.0) for a in self.confirmed_alarms if a.get("decision") == "CONFIRM_FALSE_ALARM")
@@ -160,7 +270,7 @@ class MLService:
         obj = data_service.objects.get(oid, {})
         coords = data_service.object_coords.get(oid, {})
         
-        picket = coords.get("picket", "ПК28")
+        picket = coords.get("picket") or "Не определён"
         obj_name = obj.get("name", "Коллекторный узел")
         s_name = s_info.get("sensor_name", f"Датчик {channel_id}")
 
@@ -223,7 +333,7 @@ class MLService:
             if self.model_lr is None:
                 raise RuntimeError(
                     f"Критический отказ ML-контура: затребованная модель 'logistic_regression' не инициализирована "
-                    f"или файл весов отсутствует. Автоматическая подмена другой моделью заблокирована (ГОСТ Р 53195)."
+                    f"или файл весов отсутствует. Автоматическая подмена другой моделью заблокирована."
                 )
             try:
                 scaled = self.scaler.transform(feature_vec) if self.scaler is not None else feature_vec
@@ -237,7 +347,7 @@ class MLService:
             if self.model_rf is None:
                 raise RuntimeError(
                     f"Критический отказ ML-контура: затребованная модель 'random_forest' не инициализирована "
-                    f"или файл весов отсутствует. Автоматическая подмена другой моделью заблокирована (ГОСТ Р 53195)."
+                    f"или файл весов отсутствует. Автоматическая подмена другой моделью заблокирована."
                 )
             try:
                 probs = self.model_rf.predict_proba(feature_vec)
@@ -268,7 +378,7 @@ class MLService:
         if not model_executed:
             raise RuntimeError(
                 f"Критический отказ ML-контура: модель '{selected_mod}' не смогла завершить расчёт вероятности. "
-                f"Автоматический возврат ложно-безопасного статуса NORMAL заблокирован согласно требованиям ГОСТ Р 53195."
+                f"Автоматический возврат ложно-безопасного статуса NORMAL заблокирован."
             )
         
         latency_ms = (time.perf_counter() - t_start) * 1000
@@ -308,20 +418,71 @@ class MLService:
         if not factors:
             factors.append("Штатные параметры телеметрии")
 
+        # Strict Calibrator handling: fail-closed without silent fallback
+        calibrated_prob = None
+        is_calibrated = False
+        calibration_status = "NOT_APPLICABLE"
+
+        if model_used == "champion_lightgbm":
+            if self.calibrator is not None:
+                try:
+                    clipped_prob = float(np.clip(prob, 1e-6, 1.0 - 1e-6))
+                    if int(getattr(self.calibrator, "n_features_in_", 1)) == 2:
+                        cal_features = [[np.log(clipped_prob), -np.log1p(-clipped_prob)]]
+                    else:
+                        cal_features = [[prob]]
+                    cal_val = float(self.calibrator.predict_proba(cal_features)[0][1])
+                    calibrated_prob = round(cal_val, 4)
+                    is_calibrated = True
+                    calibration_status = (
+                        "CALIBRATED_BETA" if getattr(self, "calibrator_method", "platt_legacy") == "beta"
+                        else "CALIBRATED_PLATT"
+                    )
+                except Exception as e:
+                    calibrated_prob = None
+                    is_calibrated = False
+                    calibration_status = f"CALIBRATION_ERROR: {str(e)}"
+            else:
+                calibrated_prob = None
+                is_calibrated = False
+                calibration_status = "CALIBRATOR_UNAVAILABLE"
+        else:
+            calibration_status = f"NO_CALIBRATOR_FOR_{model_used.upper()}"
+
         return {
             "channel_id": channel_id,
             "sensor_name": s_name,
             "object_name": obj_name,
             "picket": picket,
-            "failure_probability": round(prob, 4),
+            "raw_model_score": round(prob, 4),
+            "calibrated_proxy_probability": calibrated_prob,
+            "is_calibrated": is_calibrated,
+            "calibration_status": calibration_status,
+            "failure_probability": round(prob, 4),  # Deprecated alias to raw_model_score for backward compatibility
+            "risk_score": round(prob, 4),           # Explicit alias to raw_model_score
+            "calibrated_probability": calibrated_prob,
             "risk_level": risk,
             "threshold_used": threshold,
+            "raw_threshold": threshold,
             "calibrated_threshold": calibrated_threshold,
             "is_degradation_detected": is_degradation,
             "top_factors": factors,
             "recommended_action": action,
             "inference_latency_ms": round(latency_ms, 3),
-            "model_used": model_used
+            "model_used": model_used,
+            "score_semantics": (
+                "raw_model_score: безразмерный балл риска модели [0,1] для ранжирования каналов в очереди разбора. "
+                "calibrated_proxy_probability: "
+                + (
+                    "beta-калиброванная" if self.calibrator_method == "beta"
+                    else "legacy Platt-калиброванная" if self.calibrator_method == "platt_legacy"
+                    else "недоступная без калибратора"
+                )
+                + " оценка вероятности алгоритмической proxy-аномалии телеметрии "
+                "в заданном окне 24–72 ч. Proxy включает события качества данных, например сброс RTC; это не вероятность "
+                "физической аварии. Калибровочная неопределённость оценивается агрегатно по cohort и не является интервалом "
+                "для отдельного канала."
+            )
         }
 
     def classify_alarm(
@@ -405,7 +566,7 @@ class MLService:
                 "verdict": "SENSOR_DEGRADATION",
                 "is_false_alarm": False,
                 "confidence": round(max(0.75, base_fail_prob), 3),
-                "diagnosis": f"Аппаратный сбой канала: деградация сенсорного узла ({current_value}). Вероятность отказа: {int(base_fail_prob*100)}%.",
+                "diagnosis": f"Аппаратный сбой канала: деградация сенсорного узла ({current_value}). Балл риска модели: {base_fail_prob:.2f} (порог {active_settings.decision_threshold}).",
                 "recommended_action": "Автоматическое создание наряд-заказа на превентивную замену датчика (ППР) до аварии.",
                 "avoided_callout_cost_rub": active_settings.callout_cost_rub - active_settings.preventive_cost_rub
             }
@@ -429,7 +590,24 @@ class MLService:
         dispatcher_pin: str = "",
         notes: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Human-in-the-loop decision confirmation by ODS dispatcher with 2FA (Badge + PIN), RBAC & SHA-256 ledger chaining."""
+        with self._audit_lock:
+            return self._confirm_alarm_locked(
+                channel_id=channel_id,
+                decision=decision,
+                dispatcher_badge=dispatcher_badge,
+                dispatcher_pin=dispatcher_pin,
+                notes=notes,
+            )
+
+    def _confirm_alarm_locked(
+        self,
+        channel_id: str,
+        decision: str,
+        dispatcher_badge: str,
+        dispatcher_pin: str = "",
+        notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Confirm a dispatcher decision after badge/PIN checks and RBAC validation."""
         active_settings = get_current_settings()
         now = datetime.now()
 
@@ -443,37 +621,18 @@ class MLService:
         is_suppress = (decision == "CONFIRM_FALSE_ALARM")
         avoided = active_settings.callout_cost_rub if is_suppress else 0.0
 
-        # Normalization and RBAC verification
-        norm_badge = dispatcher_badge.strip()
-        if norm_badge == "7041-ОДС":
-            norm_badge = "ДИСП-7041"
-        
-        if norm_badge not in self.authorized_dispatchers:
-            raise ValueError(
-                f"Отказ в авторизации: табельный номер '{dispatcher_badge}' не зарегистрирован "
-                f"в реестре уполномоченного персонала ОДС АО 'Москоллектор'. "
-                f"Операция отклонена согласно ГОСТ Р 53195 / 187-ФЗ."
-            )
-
-        disp = self.authorized_dispatchers[norm_badge]
-
-        # Authenticate dispatcher via PIN hash check (Fail-Closed security)
-        clean_pin = (dispatcher_pin or "").strip()
-        pin_hash = hashlib.sha256(clean_pin.encode('utf-8')).hexdigest()
-        stored_hash = disp.get("pin_hash")
-        if not stored_hash or pin_hash != stored_hash:
-            raise ValueError(
-                f"Отказ в аутентификации: неверный PIN-код для табельного номера '{norm_badge}'. "
-                f"Операция подтверждения решения заблокирована согласно регламенту ИБ ОДС."
-            )
+        # Verify identity, explicit clearance, and capability through one strict code path.
+        norm_badge, disp = self.authenticate_dispatcher(
+            dispatcher_badge, dispatcher_pin, min_clearance_level=2
+        )
 
         # Enforce RBAC permissions
-        if is_suppress and not disp.get("can_confirm_false_alarm", True):
+        if is_suppress and disp.get("can_confirm_false_alarm") is not True:
             raise ValueError(
                 f"Отказ в доступе (RBAC): сотрудник с табельным номером '{norm_badge}' ({disp.get('role')}) "
                 f"не наделен полномочиями отмены аварийного выезда бригады."
             )
-        if (not is_suppress) and not disp.get("can_force_dispatch", True):
+        if (not is_suppress) and disp.get("can_force_dispatch") is not True:
             raise ValueError(
                 f"Отказ в доступе (RBAC): сотрудник с табельным номером '{norm_badge}' ({disp.get('role')}) "
                 f"не наделен полномочиями принудительного вызова аварийной бригады."
@@ -485,7 +644,7 @@ class MLService:
             if audit_check.get("tamper_detected", False):
                 raise RuntimeError(
                     "Отказ в проведении операции: обнаружена компрометация целостности криптографического "
-                    "реестра аудита (ГОСТ Р 53195-2014). Запись новых решений заблокирована до устранения несоответствия."
+                    "журнала аудита. Запись новых решений заблокирована до устранения несоответствия."
                 )
 
         timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -508,21 +667,25 @@ class MLService:
             "dispatcher_badge": norm_badge,
             "dispatcher_name": disp.get("full_name", "Не указан"),
             "dispatcher_role": disp.get("role", "Диспетчер ОДС"),
-            "clearance_level": disp.get("clearance_level", "Level-2"),
+            "clearance_level": f"Level-{disp.get('clearance_level', 2)}",
             "timestamp": timestamp_str,
             "notes": note_text,
             "prev_hash": prev_hash,
             "record_hash": record_hash,
-            "signature_standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger"
+            "signature_standard": None
         }
         self.confirmed_alarms.insert(0, record)
-        self.save_confirmed_alarms()
+        try:
+            self.save_confirmed_alarms()
+        except Exception as exc:
+            self.confirmed_alarms.pop(0)
+            raise RuntimeError("Операция отменена: запись аудита не сохранена") from exc
 
         msg = (
             f"Решение диспетчера [{norm_badge} {disp.get('full_name')}]: ложная тревога подтверждена. "
-            f"Выезд отменен. Предотвращен ущерб: {avoided:,.0f} ₽. Запись заверена в криптографическом реестре аудита."
+            f"В демо отмечена отмена выезда; расчетная стоимость вызова: {avoided:,.0f} ₽. Решение записано в локальный журнал."
             if is_suppress else
-            f"Решение диспетчера [{norm_badge} {disp.get('full_name')}]: аварийная бригада направлена на объект. Запись заверена."
+            f"Решение диспетчера [{norm_badge} {disp.get('full_name')}] записано локально; отправка бригады требует действия диспетчера."
         )
 
         return {
@@ -533,7 +696,7 @@ class MLService:
             "dispatcher_badge": norm_badge,
             "dispatcher_name": disp.get("full_name"),
             "dispatcher_role": disp.get("role"),
-            "clearance_level": disp.get("clearance_level"),
+            "clearance_level": f"Level-{disp.get('clearance_level')}",
             "timestamp": record["timestamp"],
             "message": msg,
             "prev_hash": prev_hash,
@@ -550,7 +713,7 @@ class MLService:
                 "chain_length": 0,
                 "head_hash": "0" * 64,
                 "tamper_detected": False,
-                "standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger",
+                "standard": "SHA-256 hash chain; integrity check only, no digital signature",
                 "verified_at": datetime.now().isoformat(),
                 "details": []
             }
@@ -570,14 +733,16 @@ class MLService:
             notes = rec.get("notes", "")
             avoided = float(rec.get("avoided_cost_rub", 0.0))
 
-            badge_ok = badge in self.authorized_dispatchers
             link_ok = (idx == 0 and rec_prev == "0" * 64) or (idx > 0 and rec_prev == expected_prev)
 
             payload = f"{rec_prev}|{channel_id}|{decision}|{badge}|{ts}|{avoided:.2f}|{notes}".encode('utf-8')
             computed_hash = hashlib.sha256(payload).hexdigest()
             hash_ok = (computed_hash == rec_hash)
 
-            record_ok = link_ok and hash_ok and badge_ok
+            # Historical badges remain verifiable after account rotation/removal.
+            # This check validates chain structure; the hash is not a dispatcher signature.
+            badge_registered = badge in self.authorized_dispatchers
+            record_ok = link_ok and hash_ok
             if not record_ok:
                 is_valid = False
 
@@ -587,7 +752,7 @@ class MLService:
                 "dispatcher_badge": badge,
                 "link_valid": link_ok,
                 "hash_valid": hash_ok,
-                "badge_authorized": badge_ok,
+                "badge_registered_at_verification": badge_registered,
                 "block_hash": (rec_hash[:16] + "...") if rec_hash else "None"
             })
             expected_prev = rec_hash
@@ -599,7 +764,7 @@ class MLService:
             "chain_length": len(self.confirmed_alarms),
             "head_hash": head_hash,
             "tamper_detected": not is_valid,
-            "standard": "ГОСТ Р 53195-2014 / SHA-256 Ledger",
+            "standard": "SHA-256 hash chain; integrity check only, no digital signature",
             "verified_at": datetime.now().isoformat(),
             "details": details
         }

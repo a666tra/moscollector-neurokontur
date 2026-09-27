@@ -1,161 +1,143 @@
+"""Rebuild telemetry-proxy evidence from the supplied journal (run at repo root)."""
+
+import csv
+import hashlib
 import json
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 
-# Load cache, sensors, objects, predictions
-cache = np.load('backend/data/extracted_features_cache.npz', allow_pickle=True)
-channels_list = list(cache['channels_list'])
-y_test = cache['y_test']
+from backend.ml.train_validated_model import is_failure_value
 
-with open('backend/data/predictions_cache.json', 'r', encoding='utf-8') as f:
-    preds = json.load(f)
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "dataset/extracted/ext-journal-2026.csv"
+OUTPUT = ROOT / "backend/data/reconciliation_ground_truth.json"
+SAMPLES = ("113980", "103937", "104014", "115574", "120500", "212218", "104040")
+ROW_LIMIT = 7_000_000  # Same as train_validated_model.py.
+START = datetime(2026, 1, 29)
+END = datetime(2026, 1, 31)
 
-with open('backend/data/sensors_ref.json', 'r', encoding='utf-8') as f:
-    sensors = json.load(f)
 
-with open('backend/data/objects_ref.json', 'r', encoding='utf-8') as f:
-    objects = json.load(f)
+def confusion(labels, scores, threshold):
+    positive = scores >= threshold
+    tp = int(np.sum(positive & labels))
+    fp = int(np.sum(positive & ~labels))
+    fn = int(np.sum(~positive & labels))
+    tn = int(np.sum(~positive & ~labels))
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    prevalence = float(np.mean(labels))
+    return {"threshold": threshold, "true_positives": tp, "false_positives": fp,
+            "false_negatives": fn, "true_negatives": tn,
+            "precision": round(precision, 4), "recall": round(recall, 4),
+            "f1_score": round(2 * precision * recall / (precision + recall), 4) if precision + recall else 0.0,
+            "lift_vs_baseline": round(precision / prevalence, 2) if prevalence else 0.0}
 
-pred_dict = {p['channel_id']: p for p in preds}
 
-reconciliation_data = {
-    "audit_standard": "ГОСТ Р 53195-2014 / §18.3 ТЗ Департамента ЖКХ г. Москвы",
-    "methodology": "Сравнение предиктивных оценок ML-моделей за 24–72 часа с фактическими физическими инцидентами в телеметрии SCADA/СМВУ в отложенном временном окне (Held-out Test: 22–28 января 2026, 11 485 каналов). В выданном открытом датасете внешние акты ремонтов CMMS/1С:ТОИР отсутствуют, поэтому разметка целевых физических отказов выполнена строго алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее (загазованность CH4 >= 5.0%, температура >= 45°C или <= -10°C, сброс часов контроллера в 1970г, аппаратный обрыв/КЗ шлейфа).",
-    "dataset_channels_total": len(channels_list),
-    "actual_incidents_recorded": int(sum(y_test)),
-    "operational_matrix_tau_0_42": {
-        "threshold": 0.42,
-        "true_positives": 55,
-        "false_positives": 613,
-        "false_negatives": 119,
-        "true_negatives": 10698,
-        "precision": 0.0823,
-        "recall": 0.3161,
-        "f1_score": 0.1306,
-        "lift_vs_baseline": 5.45,
-        "operating_mode": "Штатный балансный режим диспетчерской ОДС"
-    },
-    "optimal_matrix_tau_0_845": {
-        "threshold": 0.845,
-        "true_positives": 33,
-        "false_positives": 109,
-        "false_negatives": 141,
-        "true_negatives": 11202,
-        "precision": 0.2324,
-        "recall": 0.1897,
-        "f1_score": 0.2089,
-        "roc_auc": 0.7710,
-        "pr_auc": 0.1679,
-        "lift_vs_baseline": 15.39,
-        "operating_mode": "Режим жесткого таргетирования выездов (High-Precision)"
-    },
-    "recommendation_vs_ground_truth_policy": [
-        {
-            "ai_verdict": "SENSOR_DEGRADATION",
-            "ai_action": "Автоматическое формирование наряд-заказа на плановое ТО/ППР (3 200 ₽)",
-            "baseline_scada_reaction": "Аварийный выезд АВР по факту отказа датчика (18 500 ₽)",
-            "reconciliation_outcome": "Экономия 15 300 ₽ на инцидент за счет упреждающего обслуживания",
-            "safety_impact": "Исключение ослепления диспетчера при реальной аварии на коллекторе",
-            "tariff_basis": "ТСН-2001.4-8 и МРР-3.2.05.08-20 (Москомэкспертиза)"
-        },
-        {
-            "ai_verdict": "FALSE_ALARM",
-            "ai_action": "Подавление тревоги дребезга геркона люка с подтверждением 2FA диспетчера ОДС",
-            "baseline_scada_reaction": "Ложный срочный выезд аварийной бригады (18 500 ₽)",
-            "reconciliation_outcome": "Экономия 18 500 ₽, высвобождение бригады для реальных инцидентов",
-            "safety_impact": "Снижение ложной нагрузки на дежурную смену ОДС на 78–82%",
-            "tariff_basis": "Распоряжение Департамента экономической политики г. Москвы № 18-Р"
-        },
-        {
-            "ai_verdict": "REAL_RISK",
-            "ai_action": "Экстренный наряд ОДС, автоматический пуск вентиляции шахты, оповещение РТС",
-            "baseline_scada_reaction": "Срабатывание порога загазованности/температуры постфактум",
-            "reconciliation_outcome": "Упреждение аварии на 24–72 часа",
-            "safety_impact": "Предотвращение взрыва метана или термического разрушения силовых кабелей",
-            "tariff_basis": "Регламент Р ТЭК АО 'Москоллектор'"
-        }
-    ],
-    "sample_verified_cases": [
-        {
-            "channel_id": "113980",
-            "sensor_name": sensors.get("113980", {}).get("sensor_name", "ТД ПК80"),
-            "sensor_type": sensors.get("113980", {}).get("sensor_type", "Тепловой датчик"),
-            "object_name": objects.get(sensors.get("113980", {}).get("object_id", ""), {}).get("name", "РК 'Краснопресненский'"),
-            "predicted_prob": pred_dict.get("113980", {}).get("failure_probability", 0.9979),
-            "predicted_verdict": "SENSOR_DEGRADATION",
-            "actual_scada_event": "Фактический аппаратный отказ в тесте (y_test=1): сброс RTC в 1970г, просадка питания",
-            "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-            "economic_outcome": "+15 300 ₽ экономии за счёт планового ТО"
-        },
-        {
-            "channel_id": "103937",
-            "sensor_name": sensors.get("103937", {}).get("sensor_name", "КД1 ПК161"),
-            "sensor_type": sensors.get("103937", {}).get("sensor_type", "КД АВ"),
-            "object_name": objects.get(sensors.get("103937", {}).get("object_id", ""), {}).get("name", "РК 'Автозаводский'"),
-            "predicted_prob": pred_dict.get("103937", {}).get("failure_probability", 0.9665),
-            "predicted_verdict": "SENSOR_DEGRADATION",
-            "actual_scada_event": "Фактический сбой концевика в тесте (y_test=1): серия микропереключений и обрыв шлейфа",
-            "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-            "economic_outcome": "+15 300 ₽ экономии за счёт ревизии геркона"
-        },
-        {
-            "channel_id": "104014",
-            "sensor_name": sensors.get("104014", {}).get("sensor_name", "КД1 ПК20"),
-            "sensor_type": sensors.get("104014", {}).get("sensor_type", "КД АВ"),
-            "object_name": objects.get(sensors.get("104014", {}).get("object_id", ""), {}).get("name", "РК 'Автозаводский'"),
-            "predicted_prob": pred_dict.get("104014", {}).get("failure_probability", 0.5310),
-            "predicted_verdict": "SENSOR_DEGRADATION",
-            "actual_scada_event": "Фактический отказ в тесте (y_test=1): деградация контакта с фиксацией обрыва через 48ч",
-            "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-            "economic_outcome": "+15 300 ₽ экономии за счёт планового ТО"
-        },
-        {
-            "channel_id": "115574",
-            "sensor_name": sensors.get("115574", {}).get("sensor_name", "КД1 (ПК1 - ПК3)"),
-            "sensor_type": sensors.get("115574", {}).get("sensor_type", "КД АВ"),
-            "object_name": objects.get(sensors.get("115574", {}).get("object_id", ""), {}).get("name", "РК 'Краснопресненский'"),
-            "predicted_prob": pred_dict.get("115574", {}).get("failure_probability", 0.4934),
-            "predicted_verdict": "SENSOR_DEGRADATION",
-            "actual_scada_event": "Фактический сбой шлейфа в тесте (y_test=1): аномальные интервалы телеметрии",
-            "reconciliation_status": "TRUE_POSITIVE_PREVENTED",
-            "economic_outcome": "+15 300 ₽ экономии за счёт планового ТО"
-        },
-        {
-            "channel_id": "103954",
-            "sensor_name": sensors.get("103954", {}).get("sensor_name", "КД1 ПК205"),
-            "sensor_type": sensors.get("103954", {}).get("sensor_type", "КД АВ"),
-            "object_name": objects.get(sensors.get("103954", {}).get("object_id", ""), {}).get("name", "РК 'Автозаводский'"),
-            "predicted_prob": pred_dict.get("103954", {}).get("failure_probability", 0.6234),
-            "predicted_verdict": "FALSE_ALARM",
-            "actual_scada_event": "Затяжной микрошум без аварийного отказа (y_test=0): ранняя сигнализация дребезга",
-            "reconciliation_status": "EARLY_WARNING_FALSE_ALARM_AVOIDED",
-            "economic_outcome": "+18 500 ₽ предотвращения ложного выезда"
-        },
-        {
-            "channel_id": "120504",
-            "sensor_name": sensors.get("120504", {}).get("sensor_name", "ТД ПК86-85"),
-            "sensor_type": sensors.get("120504", {}).get("sensor_type", "Тепловой датчик"),
-            "object_name": objects.get(sensors.get("120504", {}).get("object_id", ""), {}).get("name", "РК 'Краснопресненский'"),
-            "predicted_prob": pred_dict.get("120504", {}).get("failure_probability", 0.0020),
-            "predicted_verdict": "NORMAL",
-            "actual_scada_event": "Стабильное тепловое состояние без перегревов (y_test=0)",
-            "reconciliation_status": "TRUE_NEGATIVE_NORMAL",
-            "economic_outcome": "Штатная эксплуатация, ложный вызов исключен"
-        },
-        {
-            "channel_id": "120578",
-            "sensor_name": sensors.get("120578", {}).get("sensor_name", "КД АВ ПК28"),
-            "sensor_type": sensors.get("120578", {}).get("sensor_type", "КД АВ"),
-            "object_name": objects.get(sensors.get("120578", {}).get("object_id", ""), {}).get("name", "РК 'Краснопресненский'"),
-            "predicted_prob": pred_dict.get("120578", {}).get("failure_probability", 0.0015),
-            "predicted_verdict": "NORMAL",
-            "actual_scada_event": "Штатный контроль закрытия люка шахты (y_test=0)",
-            "reconciliation_status": "TRUE_NEGATIVE_NORMAL",
-            "economic_outcome": "Штатная эксплуатация, ложный вызов исключен"
-        }
-    ]
-}
+def witnesses(sensors):
+    if not SOURCE.is_file():
+        raise FileNotFoundError(f"Source journal required: {SOURCE}")
+    found = {cid: {"target_window_rows": 0, "first_proxy_event": None} for cid in SAMPLES}
+    scanned = 0
+    with SOURCE.open("r", encoding="utf-8", errors="replace", newline="") as source:
+        reader = csv.reader(source)
+        next(reader)
+        for index, row in enumerate(reader):
+            if index >= ROW_LIMIT:
+                break
+            scanned += 1
+            if len(row) < 6 or row[1] not in found:
+                continue
+            try:
+                dt = datetime.strptime(f"{row[2]} {row[3]}", "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+            if not START <= dt <= END:
+                continue
+            cid = row[1]
+            item = found[cid]
+            item["target_window_rows"] += 1
+            sensor = sensors[cid]
+            if item["first_proxy_event"] is None and is_failure_value(
+                row[5], row[4] in ("t", "true", "True", "1"),
+                sensor.get("sensor_type", ""), sensor.get("tag", "")):
+                item["first_proxy_event"] = {
+                    "source_csv_line": index + 2, "event_id": row[0],
+                    "event_timestamp": dt.isoformat(sep=" "), "alarm_flag": row[4],
+                    "raw_sensor_value": row[5],
+                    "label_rule": "is_failure_value in backend/ml/train_validated_model.py"}
+    return found, scanned
 
-with open('backend/data/reconciliation_ground_truth.json', 'w', encoding='utf-8') as f:
-    json.dump(reconciliation_data, f, ensure_ascii=False, indent=2)
 
-print('Successfully generated backend/data/reconciliation_ground_truth.json')
+def build():
+    with np.load(ROOT / "backend/data/extracted_features_cache.npz", allow_pickle=True) as cache:
+        channels = [str(cid) for cid in cache["channels_list"]]
+        labels = np.asarray(cache["y_test"], dtype=bool)
+    predictions = json.loads((ROOT / "backend/data/predictions_cache.json").read_text(encoding="utf-8"))
+    sensors = json.loads((ROOT / "backend/data/sensors_ref.json").read_text(encoding="utf-8"))
+    objects = json.loads((ROOT / "backend/data/objects_ref.json").read_text(encoding="utf-8"))
+    report = json.loads((ROOT / "backend/models/metrics_report.json").read_text(encoding="utf-8"))
+    by_channel = {str(p["channel_id"]): p for p in predictions}
+    if set(channels) != set(by_channel) or len(channels) != len(labels):
+        raise ValueError("Prediction and feature caches cover different channels")
+    scores = np.array([float(by_channel[cid]["failure_probability"]) for cid in channels])
+    for threshold, expected in (
+        (0.42, report["active_threshold_evaluation_0_42"]["champion_lightgbm"]["confusion_matrix"]),
+        (0.845, report["test_metrics"]["confusion_matrix"]),
+    ):
+        measured = confusion(labels, scores, threshold)
+        if any(measured[name] != expected[short] for name, short in (
+            ("true_positives", "tp"), ("false_positives", "fp"),
+            ("false_negatives", "fn"), ("true_negatives", "tn"),
+        )):
+            raise ValueError(f"Cached scores disagree with model report at threshold {threshold}")
+    evidence, scanned = witnesses(sensors)
+    digest = hashlib.sha256()
+    with SOURCE.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    cases = []
+    for cid in SAMPLES:
+        index = channels.index(cid)
+        label = bool(labels[index])
+        witness = evidence[cid]
+        if label != (witness["first_proxy_event"] is not None):
+            raise ValueError(f"Journal and cached proxy label disagree for {cid}")
+        sensor = sensors[cid]
+        score = float(scores[index])
+        classified = score >= 0.42
+        cases.append({
+            "channel_id": cid, "sensor_name": sensor.get("sensor_name", ""),
+            "sensor_type": sensor.get("sensor_type", ""),
+            "object_name": objects.get(str(sensor.get("object_id", "")), {}).get("name", ""),
+            "predicted_prob": score, "proxy_label": int(label),
+            "classification_at_tau_0_42": "TP" if label and classified else "FP" if classified else "FN" if label else "TN",
+            "target_window_rows": witness["target_window_rows"],
+            "first_proxy_event": witness["first_proxy_event"]})
+    payload = {
+        "evidence_type": "algorithmic_telemetry_proxy",
+        "methodology": "Прогноз по истории до 28.01.2026 00:00; целевая метка определяется функцией is_failure_value по телеметрии 29–31.01.2026. Это алгоритмическая аномалия, а не подтвержденный акт ремонта, предотвращенная авария или экономия.",
+        "source_journal": "dataset/extracted/ext-journal-2026.csv",
+        "source_journal_sha256": digest.hexdigest(),
+        "source_journal_bytes": SOURCE.stat().st_size,
+        "source_csv_committed": False, "source_rows_scanned": scanned, "source_row_limit": ROW_LIMIT,
+        "prediction_cutoff": "2026-01-28 00:00:00", "target_window_start": "2026-01-29 00:00:00",
+        "target_window_end_inclusive": "2026-01-31 00:00:00",
+        "dataset_channels_total": len(channels), "proxy_positive_channels": int(np.sum(labels)),
+        "operational_matrix_tau_0_42": confusion(labels, scores, 0.42),
+        "high_precision_matrix_tau_0_845": confusion(labels, scores, 0.845),
+        "ranking_metrics_from_report": {"roc_auc": report["test_metrics"]["roc_auc"],
+                                        "pr_auc": report["test_metrics"]["pr_auc"]},
+        "sample_cases": cases,
+        "limitations": [
+            "Метка выводится из будущей телеметрии и не сверена с журналом ремонтных работ или CMMS.",
+            "Отсутствие прокси-события в ограниченном окне не доказывает исправность датчика.",
+            "Прогнозы в поставляемом JSON округлены; матрицы по ним могут немного отличаться от метрик модели полного разрешения.",
+            "Исходный CSV не включен в репозиторий; номера строк и ID событий позволяют сверить примеры при наличии датасета."]}
+    OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Generated {OUTPUT}; scanned {scanned:,} source rows")
+
+
+if __name__ == "__main__":
+    build()

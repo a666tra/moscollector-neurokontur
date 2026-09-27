@@ -10,7 +10,7 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSaved }) => {
   const [settings, setSettings] = useState<SystemSettings>({
-    decision_threshold: 0.40,
+    decision_threshold: 0.42,
     chatter_window_seconds: 60,
     chatter_min_flips: 4,
     gas_warning_threshold_vol_pct: 1.0,
@@ -22,8 +22,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   });
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [dispatcherBadge, setDispatcherBadge] = useState('ДИСП-7041');
-  const [dispatcherPin, setDispatcherPin] = useState('704192');
+  const [dispatcherBadge, setDispatcherBadge] = useState('');
+  const [dispatcherPin, setDispatcherPin] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +36,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   }, [isOpen]);
 
   const handleSave = async () => {
+    if (!dispatcherBadge.trim() || !/^\d{6}$/.test(dispatcherPin)) {
+      setErrorMessage('Введите табельный номер и действующий 6-значный PIN. Без учётных данных изменить настройки нельзя.');
+      return;
+    }
     setLoading(true);
     setErrorMessage(null);
     try {
@@ -50,6 +54,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       });
       if (res.ok) {
         setSavedSuccess(true);
+        setDispatcherPin('');
         setTimeout(() => setSavedSuccess(false), 2500);
         onSaved();
       } else {
@@ -66,7 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
   const handleReset = () => {
     setSettings({
-      decision_threshold: 0.40,
+      decision_threshold: 0.42,
       chatter_window_seconds: 60,
       chatter_min_flips: 4,
       gas_warning_threshold_vol_pct: 1.0,
@@ -109,8 +114,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 <span>Архитектура ML-модели (Multi-Model):</span>
               </div>
               <span className="eng-badge badge-normal font-mono text-[10px]">
-                {settings.selected_model === 'logistic_regression' ? 'High-Recall (68.2%)' :
-                 settings.selected_model === 'random_forest' ? 'High-Precision (51.0%)' : 'Champion (LightGBM)'}
+                {settings.selected_model === 'logistic_regression' ? 'Logistic Regression' :
+                 settings.selected_model === 'random_forest' ? 'Random Forest' : 'Champion (LightGBM)'}
               </span>
             </div>
             
@@ -136,7 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                     <span className="text-[#00FF66] text-[10px] font-mono">ROC-AUC 0.77 • 1.5 мс</span>
                   </div>
                   <p className="text-[10px] text-[#8B949E] mt-0.5">
-                    Сбалансированный градиентный бустинг по 20 инженерным факторам. Базовая модель промышленной эксплуатации.
+                    Градиентный бустинг по инженерным признакам. Базовая модель локального прототипа; промышленная валидация ещё не проведена.
                   </p>
                 </div>
               </label>
@@ -159,10 +164,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-xs">Logistic Regression (Balanced L2)</span>
-                    <span className="text-[#58A6FF] text-[10px] font-mono">Recall 68.2% • ROC-AUC 0.84</span>
+                    <span className="text-[#58A6FF] text-[10px] font-mono">Recall 67.82% • ROC-AUC 0.8247</span>
                   </div>
                   <p className="text-[10px] text-[#8B949E] mt-0.5">
-                    Режим максимальной полноты (High-Recall). Выявляет 68.2% деградаций, эффективен в период сезонных нагрузок.
+                    Полнота 67.82% на отложенных proxy-метках при собственном пороге 0.80. Для рабочего порога показатели другие; сезонный эффект не проверен.
                   </p>
                 </div>
               </label>
@@ -185,10 +190,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-xs">Random Forest (100 деревьев)</span>
-                    <span className="text-[#FFB800] text-[10px] font-mono">Precision 51.0% • 10.3x Lift</span>
+                    <span className="text-[#FFB800] text-[10px] font-mono">Precision 45.0% • ROC-AUC 0.7335</span>
                   </div>
                   <p className="text-[10px] text-[#8B949E] mt-0.5">
-                    Режим высокой точности (High-Precision). Достигает точности 51.0%, минимизируя ложные выезды ремонтных бригад.
+                    Точность 45.0% на отложенных proxy-метках при собственном пороге 0.7695. Снижение реальных выездов не измерено.
                   </p>
                 </div>
               </label>
@@ -199,20 +204,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           <div className="space-y-2 bg-[#07090E] p-4 rounded border border-white/5">
             <div className="flex justify-between items-center">
               <span className="text-white font-semibold">
-                Порог классификации деградации датчика (tau):
+                Порог балла модели для очереди диспетчера (tau):
               </span>
               <span className="text-[#00FF66] font-bold text-sm bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                {settings.decision_threshold.toFixed(2)}
+                {settings.decision_threshold.toFixed(4)}
               </span>
             </div>
             <p className="text-[11px] text-[#8B949E]">
-              Значение вероятности, выше которого датчик отмечается как требующий ППР (по умолчанию 0.40).
+              Порог безразмерного балла модели, а не вероятности отказа. Рабочее значение по умолчанию — 0.42.
             </p>
             <input 
               type="range"
               min="0.10"
               max="0.90"
-              step="0.02"
+              step="0.0005"
               value={settings.decision_threshold}
               onChange={e => setSettings({ ...settings, decision_threshold: parseFloat(e.target.value) })}
               className="w-full accent-[#00FF66] cursor-pointer"
@@ -222,13 +227,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               <span>0.90 (Высокий Precision)</span>
             </div>
             <div className="pt-2 flex items-center gap-2">
-              <span className="text-[10px] text-[#8B949E]">Оптимальные пороги валидации:</span>
+              <span className="text-[10px] text-[#8B949E]">Пороги из отчёта моделей:</span>
               <button
                 type="button"
-                onClick={() => setSettings({ ...settings, decision_threshold: 0.8147 })}
+                onClick={() => setSettings({ ...settings, decision_threshold: 0.845 })}
                 className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-[#00FF66] border border-white/10"
               >
-                LGBM: 0.81
+                LGBM: 0.845
               </button>
               <button
                 type="button"
@@ -239,10 +244,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               </button>
               <button
                 type="button"
-                onClick={() => setSettings({ ...settings, decision_threshold: 0.7797 })}
+                onClick={() => setSettings({ ...settings, decision_threshold: 0.7695 })}
                 className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-[#FFB800] border border-white/10"
               >
-                RF: 0.78
+                RF: 0.7695
               </button>
               <button
                 type="button"
@@ -291,7 +296,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
           {/* 3. Gas & Economics */}
           <div className="space-y-3 bg-[#07090E] p-4 rounded border border-white/5">
-            <div className="text-white font-semibold">Нормативы затрат и безопасности (Р ТЭК)</div>
+            <div className="text-white font-semibold">Нормативы сценарных затрат и безопасности</div>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -326,7 +331,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           <div className="bg-[#FFB800]/5 border border-[#FFB800]/20 p-4 rounded space-y-2">
             <div className="flex items-center gap-2 text-[#FFB800] font-semibold">
               <Shield className="w-4 h-4" />
-              <span>Регламент безопасности ОДС (ГОСТ Р 53195 / КИИ 149-ФЗ)</span>
+              <span>Ограничение действий в локальном демо</span>
             </div>
             <p className="text-[11px] text-[#8B949E] leading-relaxed">
               Автоматическая блокировка выездов аварийных служб без подтверждения оператором запрещена. Система генерирует обоснованную рекомендацию, но окончательное решение об отмене выезда принимает диспетчер с фиксацией личного табельного номера.
@@ -342,12 +347,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
           </div>
 
-          {/* 5. Level-3 RBAC Authorization & 2FA */}
+          {/* 5. Level-3 RBAC authorization */}
           <div className="bg-[#1F2937]/50 border border-blue-500/30 p-4 rounded space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-blue-400 font-semibold">
                 <Shield className="w-4 h-4 text-blue-400" />
-                <span>Авторизация изменений конфигурации (Level-3 RBAC / ГОСТ Р 53195)</span>
+              <span>Авторизация изменений конфигурации (локальный Level-3)</span>
               </div>
               <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded font-mono">
                 Уровень доступа: Главный инженер
@@ -355,7 +360,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             </div>
             
             <p className="text-[11px] text-[#8B949E]">
-              Для внесения изменений в пороговые коэффициенты и выбор активной модели требуется 2FA-подтверждение должностным лицом уровня не ниже Главного инженера ОДС.
+              Для внесения изменений в пороговые коэффициенты и выбор активной модели требуется табельный номер и PIN должностного лица уровня не ниже Главного инженера ОДС.
             </p>
 
             <div className="grid grid-cols-2 gap-4 pt-1">
@@ -363,26 +368,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 <label className="text-[11px] text-[#8B949E] block mb-1">
                   Табельный номер (Level-3):
                 </label>
-                <select
+                <input
+                  type="text"
                   value={dispatcherBadge}
                   onChange={e => setDispatcherBadge(e.target.value)}
+                  autoComplete="off"
+                  placeholder="Введите табельный номер"
                   className="w-full bg-[#12161F] border border-white/10 rounded px-2.5 py-1.5 text-white"
-                >
-                  <option value="ДИСП-7041">ДИСП-7041 (Главный инженер В. С. Соколов)</option>
-                  <option value="ДИСП-1094">ДИСП-1094 (Дежурный диспетчер — Level 1 / Доступ заблокирован)</option>
-                </select>
+                />
               </div>
 
               <div>
                 <label className="text-[11px] text-[#8B949E] block mb-1">
-                  6-значный PIN-код 2FA:
+                  6-значный PIN-код:
                 </label>
                 <input
                   type="password"
                   maxLength={6}
+                  inputMode="numeric"
+                  autoComplete="new-password"
                   value={dispatcherPin}
                   onChange={e => setDispatcherPin(e.target.value)}
-                  placeholder="704192"
+                  placeholder="6 цифр"
                   className="w-full bg-[#12161F] border border-white/10 rounded px-2.5 py-1.5 text-white tracking-widest font-mono"
                 />
               </div>

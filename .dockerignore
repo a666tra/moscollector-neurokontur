@@ -9,6 +9,7 @@ __pycache__
 .pytest_cache
 .git
 .gitignore
+backend/data/authorized_dispatchers.json
 *.pptx
 *.txt
 *.zip

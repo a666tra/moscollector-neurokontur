@@ -35,12 +35,22 @@ class PredictionItem(BaseModel):
     sensor_type: str
     system_type: str
     tag: str
-    failure_probability: float
+    raw_model_score: float = Field(0.0, description="Балл риска модели в диапазоне [0,1] для ранжирования каналов в очереди диспетчера")
+    calibrated_proxy_probability: Optional[float] = Field(None, description="Beta-калиброванная вероятность proxy-отклонения телеметрии в окне 24–72 ч; не вероятность физического отказа")
+    is_calibrated: bool = Field(False, description="Флаг подтверждённой калибровки; отсутствие данных не означает успешную калибровку")
+    calibration_status: str = Field("CALIBRATION_UNAVAILABLE", description="Статус калибровки")
+    failure_probability: float = Field(0.0, description="DEPRECATED alias: совпадает с raw_model_score для обратной совместимости")
     risk_level: str  # NORMAL, ATTENTION, WARNING, CRITICAL
-    is_predicted_failure_24h: bool
+    is_predicted_failure_24h: bool = Field(..., description="Устаревший псевдоним порогового флага; не означает подтверждённый отказ за 24 часа")
+    is_proxy_alert_24_72h: bool = Field(..., description="Пороговый флаг балла модели для proxy-отклонения телеметрии в окне 24–72 ч")
     recommended_action: str
     explanation_factors: List[str]
     horizon_hours: int = 24
+    score_semantics: Optional[str] = (
+        "raw_model_score: безразмерный балл риска [0,1] для ранжирования; "
+        "calibrated_proxy_probability: beta-калиброванная вероятность proxy-отклонения телеметрии 24–72 ч. "
+        "Не является вероятностью реальной аварии."
+    )
 
 class PredictionListResponse(BaseModel):
     total: int
@@ -101,7 +111,7 @@ class AlarmConfirmationResponse(BaseModel):
     message: str
     prev_hash: Optional[str] = None
     record_hash: Optional[str] = None
-    signature_standard: Optional[str] = "ГОСТ Р 53195-2014 / SHA-256 Ledger"
+    signature_standard: Optional[str] = "SHA-256 hash chain; integrity check only, no digital signature"
 
 class AuditVerificationResponse(BaseModel):
     is_valid: bool
@@ -138,42 +148,61 @@ class RealtimeScoreResponse(BaseModel):
     object_name: str
     picket: str
     failure_probability: float
+    risk_score: Optional[float] = None
+    calibrated_probability: Optional[float] = None
+    raw_model_score: Optional[float] = None
+    calibrated_proxy_probability: Optional[float] = None
+    is_calibrated: Optional[bool] = None
+    calibration_status: Optional[str] = None
     risk_level: str
     threshold_used: float
+    raw_threshold: Optional[float] = None
+    calibrated_threshold: Optional[float] = None
     is_degradation_detected: bool
     top_factors: List[str]
     recommended_action: str
     inference_latency_ms: float
     model_used: Optional[str] = "champion_lightgbm"
+    score_semantics: Optional[str] = None
 
 class MaintenanceTicket(BaseModel):
     ticket_id: str
     created_at: str
     object_id: str
     object_name: str
-    channel_id: str
+    channel_id: str = Field(..., min_length=1, max_length=32, pattern=r"^\d+$")
     sensor_name: str
     sensor_type: str
     picket: str
     corridor: str
-    priority: str  # ВЫСОКИЙ, СРЕДНИЙ, НИЗКИЙ
+    priority: Literal["ВЫСОКИЙ", "СРЕДНИЙ", "НИЗКИЙ"]
     failure_risk_percent: float
     required_materials: List[str]
     work_description: str
     regulation_reference: str
     assigned_team: str
-    status: str  # ЧЕРНОВИК, НАЗНАЧЕН, В_РАБОТЕ, ВЫПОЛНЕН
+    status: Literal["ЧЕРНОВИК", "НАЗНАЧЕН", "В_РАБОТЕ", "ВЫПОЛНЕН"]
     estimated_cost_rub: float
     saved_opex_rub: float
-    created_by: Optional[str] = "ДИСП-7041"
-    created_by_name: Optional[str] = "Кузнецов Артем Дмитриевич"
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+
+
+TicketPriority = Literal["ВЫСОКИЙ", "СРЕДНИЙ", "НИЗКИЙ"]
+TicketStatus = Literal["ЧЕРНОВИК", "НАЗНАЧЕН", "В_РАБОТЕ", "ВЫПОЛНЕН"]
 
 class CreateTicketRequest(BaseModel):
-    channel_id: str
-    priority: Optional[str] = "ВЫСОКИЙ"
+    channel_id: str = Field(..., min_length=1, max_length=32, pattern=r"^\d+$")
+    priority: TicketPriority = "ВЫСОКИЙ"
     notes: Optional[str] = None
-    dispatcher_badge: Optional[str] = Field("ДИСП-7041", description="Табельный номер диспетчера ОДС")
-    dispatcher_pin: Optional[str] = Field("704192", pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера ОДС (2FA)")
+    dispatcher_badge: Optional[str] = Field(None, min_length=1, max_length=32, description="Табельный номер диспетчера ОДС")
+    dispatcher_pin: Optional[str] = Field(None, pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера ОДС")
+
+
+class UpdateTicketStatusRequest(BaseModel):
+    new_status: TicketStatus
+    dispatcher_badge: Optional[str] = Field(None, min_length=1, max_length=32)
+    dispatcher_pin: Optional[str] = Field(None, pattern=r"^\d{6}$")
 
 class SystemStatsResponse(BaseModel):
     monitored_km: float
@@ -185,9 +214,10 @@ class SystemStatsResponse(BaseModel):
     model_roc_auc: float
     prediction_horizon_hours: int
     inference_sla_seconds: int
-    false_alarms_filtered_ratio: float
-    total_saved_opex_rub: float
-    annual_projected_opex_rub: float
+    false_alarms_filtered_ratio: Optional[float] = Field(None, description="Доля отсева на подтверждённой выборке; null, пока журнал исходов заказчика недоступен")
+    total_saved_opex_rub: float = Field(..., description="Устаревшее имя: сумма условной разницы затрат в локальном демо, не подтверждённая экономия")
+    annual_projected_opex_rub: float = Field(..., description="Годовой сценарный потенциал при заданных допущениях, не достигнутый эффект")
+    financial_evidence_status: str = "SCENARIO_ONLY_NO_VERIFIED_SAVINGS"
     tickets_count: int
     critical_sensors_count: int
     confirmed_false_alarms_count: int

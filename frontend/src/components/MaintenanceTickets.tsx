@@ -18,6 +18,10 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
   const [selectedTicket, setSelectedTicket] = useState<MaintenanceTicket | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [dispatcherBadge, setDispatcherBadge] = useState('');
+  const [dispatcherPin, setDispatcherPin] = useState('');
+  const hasCredentials = Boolean(dispatcherBadge.trim() && /^\d{6}$/.test(dispatcherPin));
 
   const fetchTickets = async () => {
     try {
@@ -41,9 +45,20 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
   }, []);
 
   const handleStatusChange = async (ticketId: string, newStatus: string) => {
+    if (!hasCredentials) {
+      setErrorMessage('Для изменения статуса введите табельный номер и 6-значный PIN. Без них доступен только просмотр нарядов.');
+      return;
+    }
     try {
-      const res = await fetch(`/api/tickets/${ticketId}/status?new_status=${encodeURIComponent(newStatus)}`, {
-        method: 'PATCH'
+      setErrorMessage(null);
+      const res = await fetch(`/api/tickets/${ticketId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          new_status: newStatus,
+          dispatcher_badge: dispatcherBadge,
+          dispatcher_pin: dispatcherPin
+        })
       });
       if (res.ok) {
         const updated = await res.json();
@@ -54,14 +69,23 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
         setNotice(`Статус наряда ${ticketId} изменен на "${newStatus}"`);
         setTimeout(() => setNotice(null), 3000);
         onRefreshStats?.();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setErrorMessage(err.detail || 'Не удалось изменить статус наряда.');
       }
     } catch (e) {
       console.error('Failed to update status', e);
+      setErrorMessage('Сетевая ошибка при изменении статуса наряда.');
     }
   };
 
   const handleGenerateTicket = async () => {
+    if (!hasCredentials) {
+      setErrorMessage('Для создания наряда введите табельный номер и 6-значный PIN. Без них доступен только просмотр нарядов.');
+      return;
+    }
     setIsGenerating(true);
+    setErrorMessage(null);
     try {
       // Create ticket for random or first critical sensor
       const res = await fetch('/api/tickets/generate', {
@@ -70,7 +94,9 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
         body: JSON.stringify({
           channel_id: '120466',
           priority: 'ВЫСОКИЙ',
-          notes: 'Автоматическая генерация по факту прогнозирования предаварийного состояния (горизонт 24ч).'
+          notes: 'Автоматическая генерация по факту прогнозирования предаварийного состояния (горизонт 24ч).',
+          dispatcher_badge: dispatcherBadge,
+          dispatcher_pin: dispatcherPin
         })
       });
       if (res.ok) {
@@ -80,9 +106,13 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
         setNotice(`Сформирован новый наряд-заказ ${newTicket.ticket_id}`);
         setTimeout(() => setNotice(null), 3500);
         onRefreshStats?.();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setErrorMessage(err.detail || 'Не удалось создать наряд.');
       }
     } catch (e) {
       console.error('Failed to generate ticket', e);
+      setErrorMessage('Сетевая ошибка при создании наряда.');
     } finally {
       setIsGenerating(false);
     }
@@ -91,8 +121,8 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
   const handleExportPrint = (ticket: MaintenanceTicket) => {
     const content = `
 ================================================================================
-АО «МОСКОЛЛЕКТОР» — СЛУЖБА ДИСПЕТЧЕРИЗАЦИИ И НАДЗОРА
-НАРЯД-ЗАКАЗ НА ПЛАНОВО-ПРЕДУПРЕДИТЕЛЬНЫЙ РЕМОНТ (ППР / ТО)
+МОСКОЛЛЕКТОР.НЕЙРОКОНТУР — ЛОКАЛЬНОЕ ДЕМО
+ДЕМОНСТРАЦИОННЫЙ ЧЕРНОВИК НАРЯДА (НЕ ДОКУМЕНТ ЗАКАЗЧИКА)
 № ${ticket.ticket_id} от ${ticket.created_at}
 ================================================================================
 ОБЪЕКТ: ${ticket.object_name} (ID: ${ticket.object_id})
@@ -100,7 +130,8 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefres
 ПИКЕТ (ПК): ${ticket.picket}
 ДАТЧИК: ${ticket.sensor_name} (Канал ID: ${ticket.channel_id})
 ТИП ОБОРУДОВАНИЯ: ${ticket.sensor_type}
-ВЕРОЯТНОСТЬ ОТКАЗА (ML): ${ticket.failure_risk_percent}%
+БАЛЛ МОДЕЛИ ДЛЯ РАНЖИРОВАНИЯ: ${(ticket.failure_risk_percent / 100).toFixed(3)} из 1
+Модель прогнозирует proxy-отклонение телеметрии, а не подтверждённый отказ.
 ПРИОРИТЕТ: ${ticket.priority}
 ТЕКУЩИЙ СТАТУС: ${ticket.status}
 
@@ -116,13 +147,13 @@ ${ticket.required_materials.map(m => ` - ${m}`).join('\n')}
 ОТВЕТСТВЕННАЯ БРИГАДА:
 ${ticket.assigned_team}
 
-ЭКОНОМИЧЕСКИЙ ЭФФЕКТ:
+СЦЕНАРНАЯ ОЦЕНКА (НЕ ПОДТВЕРЖДЁННАЯ ЭКОНОМИЯ):
 Расчетная стоимость ТО: ${ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
-Предотвращенный ущерб аварийного выезда: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
-ЧИСТАЯ ЭКОНОМИЯ OPEX: ${ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
+Условная стоимость аварийного выезда: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
+Условная разница затрат: ${ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
+Для подтверждения эффекта нужны исходы выездов ОДС и фактические затраты ТОиР.
 ================================================================================
-Подпись диспетчера ОДС: __________________ (Шифр оператора: 7041-СМВУ)
-Подпись производителя работ: ____________
+Для использования как рабочего наряда нужны проверка специалистом и оформление в системе заказчика.
     `.trim();
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -164,6 +195,45 @@ ${ticket.assigned_team}
           <button onClick={() => setNotice(null)} className="text-white hover:text-[#00FF66]">✕</button>
         </div>
       )}
+      {errorMessage && (
+        <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-300 font-mono text-xs rounded flex items-center gap-2" role="alert">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Dispatcher authentication */}
+      <div className="eng-panel p-3 flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="flex-1">
+          <label className="text-[11px] text-[#8B949E] block mb-1">Табельный номер</label>
+          <input
+            type="text"
+            value={dispatcherBadge}
+            onChange={e => setDispatcherBadge(e.target.value)}
+            autoComplete="off"
+            placeholder="Введите табельный номер"
+            className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white text-xs font-mono"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-[11px] text-[#8B949E] block mb-1">PIN-код (6 цифр)</label>
+          <input
+            type="password"
+            value={dispatcherPin}
+            onChange={e => setDispatcherPin(e.target.value)}
+            maxLength={6}
+            inputMode="numeric"
+            autoComplete="new-password"
+            placeholder="Введите PIN"
+            className="w-full bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white text-xs font-mono tracking-widest"
+          />
+        </div>
+        {!hasCredentials && (
+          <p className="text-[11px] text-[#8B949E] sm:max-w-56">
+            Режим чтения: для создания нарядов и смены статусов нужна учётная запись диспетчера.
+          </p>
+        )}
+      </div>
 
       {/* Top Header & Metrics */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
@@ -172,17 +242,17 @@ ${ticket.assigned_team}
             <h2 className="text-xl font-bold text-white tracking-wide">
               Управление нарядами ТО и ППР
             </h2>
-            <span className="eng-badge badge-cyan font-mono">Регламент Р ТЭК</span>
+            <span className="eng-badge badge-cyan font-mono">Регламент ТОиР</span>
           </div>
           <p className="text-xs text-[#8B949E] mt-1">
-            Автоматическое формирование заказ-нарядов на превентивный ремонт до наступления аварийных отказов
+            Демонстрационный реестр нарядов по proxy-отклонениям телеметрии; фактические ремонты и экономия не подтверждены
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={handleGenerateTicket}
-            disabled={isGenerating}
+            disabled={isGenerating || !hasCredentials}
             className="px-4 py-2 bg-[#00FF66] hover:bg-[#00FF66]/90 disabled:opacity-50 text-black font-semibold text-xs rounded flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_16px_rgba(0,255,102,0.2)]"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -202,21 +272,21 @@ ${ticket.assigned_team}
         <div className="eng-panel p-4">
           <div className="text-[11px] text-[#8B949E] uppercase font-mono">В работе бригад</div>
           <div className="text-2xl font-bold font-mono text-[#FFB800] mt-1">{activeCount}</div>
-          <div className="text-[11px] text-[#FFB800]/80 mt-1 font-mono">Назначены на трассы</div>
+          <div className="text-[11px] text-[#FFB800]/80 mt-1 font-mono">Демо-статусы</div>
         </div>
 
         <div className="eng-panel p-4">
-          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Успешно закрыто</div>
+          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Закрыто в демо</div>
           <div className="text-2xl font-bold font-mono text-[#00FF66] mt-1">{completedCount}</div>
-          <div className="text-[11px] text-[#00FF66]/80 mt-1 font-mono">Отказ устранен</div>
+          <div className="text-[11px] text-[#00FF66]/80 mt-1 font-mono">Без акта ТОиР</div>
         </div>
 
         <div className="eng-panel p-4">
-          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Сбереженный OPEX</div>
+          <div className="text-[11px] text-[#8B949E] uppercase font-mono">Сценарный потенциал</div>
           <div className="text-2xl font-bold font-mono text-[#58A6FF] mt-1">
             {(totalSaved / 1000).toFixed(1)} <span className="text-xs text-[#8B949E]">тыс ₽</span>
           </div>
-          <div className="text-[11px] text-[#58A6FF]/80 mt-1 font-mono">Без холостых выездов</div>
+          <div className="text-[11px] text-[#58A6FF]/80 mt-1 font-mono">Не подтверждён рублями</div>
         </div>
       </div>
 
@@ -312,10 +382,10 @@ ${ticket.assigned_team}
 
                       <div className="text-right">
                         <div className="text-xs font-mono text-[#00FF66]">
-                          +{ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
+                          Условно +{ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
                         </div>
                         <div className="text-[10px] text-[#8B949E] font-mono mt-1">
-                          Риск {ticket.failure_risk_percent}%
+                          Балл модели {(ticket.failure_risk_percent / 100).toFixed(3)}
                         </div>
                       </div>
                     </div>
@@ -360,7 +430,8 @@ ${ticket.assigned_team}
                     <button
                       key={st}
                       onClick={() => handleStatusChange(selectedTicket.ticket_id, st)}
-                      className={`py-1.5 text-[11px] font-mono rounded border transition-all cursor-pointer ${
+                      disabled={!hasCredentials || selectedTicket.status === st}
+                      className={`py-1.5 text-[11px] font-mono rounded border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                         selectedTicket.status === st
                           ? 'bg-[#00FF66]/20 text-[#00FF66] border-[#00FF66]/50 font-semibold'
                           : 'text-[#8B949E] border-white/10 hover:text-white hover:bg-white/5'
@@ -434,14 +505,14 @@ ${ticket.assigned_team}
               {/* Financial Box */}
               <div className="bg-[#00FF66]/5 border border-[#00FF66]/20 p-3 rounded text-xs flex justify-between items-center">
                 <div>
-                  <div className="text-[#8B949E] text-[11px]">Чистая экономия наряда</div>
+                  <div className="text-[#8B949E] text-[11px]">Условная разница затрат</div>
                   <div className="text-lg font-bold font-mono text-[#00FF66]">
                     +{selectedTicket.saved_opex_rub.toLocaleString('ru-RU')} ₽
                   </div>
                 </div>
                 <div className="text-right text-[11px] text-[#8B949E] font-mono">
                   Затраты на ТО: {selectedTicket.estimated_cost_rub.toLocaleString('ru-RU')} ₽<br />
-                  Авария избегнута: 18 500 ₽
+                  Сценарный выезд: {(selectedTicket.estimated_cost_rub + selectedTicket.saved_opex_rub).toLocaleString('ru-RU')} ₽
                 </div>
               </div>
             </div>

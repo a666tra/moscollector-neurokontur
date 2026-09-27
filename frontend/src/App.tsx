@@ -30,6 +30,10 @@ export const App: React.FC = () => {
   const [predictions, setPredictions] = useState<any[]>([]);
   const [selectedObjectId, setSelectedObjectId] = useState<string | undefined>(undefined);
   const [createdTicketIds, setCreatedTicketIds] = useState<Set<string>>(new Set());
+  const [dispatcherBadge, setDispatcherBadge] = useState('');
+  const [dispatcherPin, setDispatcherPin] = useState('');
+  const [ticketActionError, setTicketActionError] = useState('');
+  const [ticketActionNotice, setTicketActionNotice] = useState('');
 
 
   const fetchStats = async () => {
@@ -71,6 +75,14 @@ export const App: React.FC = () => {
   }, []);
 
   const handleCreateTicket = async (channelId: string) => {
+    if (!dispatcherBadge.trim() || !/^\d{6}$/.test(dispatcherPin)) {
+      setTicketActionNotice('');
+      setTicketActionError('Введите demo-ИД и шестизначный PIN, чтобы создать черновик заявки.');
+      return;
+    }
+
+    setTicketActionError('');
+    setTicketActionNotice('');
     try {
       const res = await fetch('/api/tickets/generate', {
         method: 'POST',
@@ -78,15 +90,27 @@ export const App: React.FC = () => {
         body: JSON.stringify({
           channel_id: channelId,
           priority: 'ВЫСОКИЙ',
-          notes: 'Сформировано по прогнозу деградации датчика (горизонт 24ч).'
+          notes: 'Черновик локального демо по proxy-оценке; требуется проверка специалистом.',
+          dispatcher_badge: dispatcherBadge.trim(),
+          dispatcher_pin: dispatcherPin
         })
       });
       if (res.ok) {
         setCreatedTicketIds(prev => new Set([...prev, channelId]));
+        setTicketActionNotice('Черновик создан в локальном демо. Это не подтверждённый ремонт.');
         fetchStats();
+        return;
       }
+      const body = await res.json().catch(() => null);
+      const detail = typeof body?.detail === 'string' ? body.detail : '';
+      setTicketActionError(res.status === 401
+        ? 'Demo-учётка не распознана. Проверьте локальную настройку ИД и PIN по README.'
+        : res.status === 403
+          ? 'Эта demo-учётка не разрешает создать черновик заявки.'
+          : detail || `Не удалось создать черновик заявки (HTTP ${res.status}).`);
     } catch (e) {
-      console.error('Failed to create ticket', e);
+      console.error('Failed to create demo ticket', e);
+      setTicketActionError('Не удалось связаться с локальным API. Проверьте, что сервер запущен.');
     }
   };
 
@@ -215,7 +239,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Play className="w-3.5 h-3.5 text-[#00FF66]" />
-              <span>Live-Симулятор</span>
+              <span>Симулятор (демо)</span>
             </button>
 
             <button
@@ -268,11 +292,46 @@ export const App: React.FC = () => {
           />
         )}
         {activeTab === 'risks' && (
-          <RiskDashboard 
-            predictions={predictions} 
-            onCreateTicket={handleCreateTicket} 
-            createdTicketIds={createdTicketIds} 
-          />
+          <div className="space-y-4">
+            <section className="bg-[#0D1117] p-3.5 rounded border border-white/10" aria-label="Демо-учётные данные">
+              <div className="text-xs font-semibold text-white mb-1">Демо-учётка для черновика заявки</div>
+              <p className="text-[11px] text-[#8B949E] mb-3">Сначала настройте demo-учётки локально по README: готовые рабочие учётные данные не поставляются. Поля не сохраняются в браузере; здесь нет корпоративной аутентификации.</p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                <label className="text-[11px] text-[#8B949E]">
+                  ИД demo-учётки
+                  <input
+                    type="text"
+                    value={dispatcherBadge}
+                    onChange={event => { setDispatcherBadge(event.target.value); setTicketActionError(''); setTicketActionNotice(''); }}
+                    placeholder="ДИСП-0000"
+                    autoComplete="off"
+                    className="block w-full sm:w-44 mt-1 bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                  />
+                </label>
+                <label className="text-[11px] text-[#8B949E]">
+                  PIN (6 цифр)
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={dispatcherPin}
+                    onChange={event => { setDispatcherPin(event.target.value.replace(/\D/g, '').slice(0, 6)); setTicketActionError(''); setTicketActionNotice(''); }}
+                    placeholder="••••••"
+                    autoComplete="off"
+                    className="block w-full sm:w-36 mt-1 bg-[#07090E] border border-white/10 rounded px-2.5 py-1.5 text-white"
+                  />
+                </label>
+              </div>
+              {ticketActionError && <p role="alert" className="text-xs text-[#FF8A80] mt-2">{ticketActionError}</p>}
+              {ticketActionNotice && <p role="status" className="text-xs text-[#8B949E] mt-2">{ticketActionNotice}</p>}
+            </section>
+            <RiskDashboard
+              predictions={predictions}
+              onCreateTicket={handleCreateTicket}
+              createdTicketIds={createdTicketIds}
+            />
+          </div>
         )}
         {activeTab === 'alarms' && <FalseAlarmFilter />}
         {activeTab === 'tickets' && <MaintenanceTickets onRefreshStats={fetchStats} />}
@@ -296,18 +355,16 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-4 flex-wrap">
             <span className="flex items-center gap-1.5 text-[#00FF66]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00FF66] animate-pulse"></span>
-              ML СМВУ: АКТИВЕН (3-Way Split)
+              ML: локальный эксперимент на proxy-метках
             </span>
             <span>•</span>
-            <span>Инференс сети: <strong className="text-[#00FF66]">{stats?.inference_latency_ms || 57.45} мс</strong></span>
+            <span>Скоринг набора: <strong className="text-[#00FF66]">62,86 мс</strong></span>
             <span>•</span>
-            <span>Прямая подтвержденная экономия: <strong className="text-white">{(stats?.total_saved_opex_rub || 0).toLocaleString('ru-RU')} ₽</strong></span>
-            <span>•</span>
-            <span>Прогноз OPEX / год: <strong className="text-[#FFB800]">{((stats?.annual_projected_opex_rub || 57102000) / 1000000).toFixed(1)} млн ₽</strong></span>
+            <span>Экономика: сценарные вводные не подтверждены</span>
           </div>
 
           <div className="text-[10px] text-[#8B949E]">
-            ЛЦТ 2026 • Кейс 8 (АО «Москоллектор») • 152-ФЗ / 149-ФЗ • ГОСТ Р 53195
+            ЛЦТ 2026 • Кейс 8 • Локальный прототип, без подключения к SCADA/CMMS
           </div>
         </div>
       </footer>

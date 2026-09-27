@@ -21,18 +21,14 @@ class Settings(BaseModel):
         else os.path.join(BASE_DIR, "frontend", "dist")
     )
     
-    # Enterprise Database & SCADA integration readiness
-    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL", "postgresql://moscollector:sec_pass@localhost:5432/smvu_db")
-    STORAGE_BACKEND: str = os.getenv("STORAGE_BACKEND", "JSON_FILE")  # "JSON_FILE" or "POSTGRES"
-    SCADA_OPC_HOST: str = os.getenv("SCADA_OPC_HOST", "opc.tcp://10.20.12.10:4840")
-    SCADA_READ_ONLY: bool = True  # 149-ФЗ: strict read-only access to critical infrastructure
+    # Optional configuration placeholders; no SCADA or PostgreSQL integration is active.
+    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
+    STORAGE_BACKEND: str = "JSON_FILE"
+    SCADA_OPC_HOST: Optional[str] = os.getenv("SCADA_OPC_HOST")
+    SCADA_READ_ONLY: bool = True
     
-    REGULATION_NAME: str = "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК)"
-    COMPLIANCE_STANDARDS: List[str] = [
-        "152-ФЗ «О персональных данных» (Деперсонализация телеметрии)",
-        "149-ФЗ «Об информации, информтехнологиях и защите информации» (Read-only АСУ ТП)",
-        "ГОСТ Р 53195.1-2008 (Функциональная безопасность критических систем ЖКХ)"
-    ]
+    REGULATION_NAME: str = "Регламент технической эксплуатации коммуникационных коллекторов (РТЭК)"
+    COMPLIANCE_STANDARDS: List[str] = []  # No formal compliance assessment was performed.
     
     AVERAGE_CALLOUT_COST_RUB: float = 18500.0
     PREVENTIVE_MAINTENANCE_COST_RUB: float = 3200.0

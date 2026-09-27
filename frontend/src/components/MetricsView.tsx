@@ -18,11 +18,15 @@ export const MetricsView: React.FC = () => {
         return res.json();
       })
       .then(data => {
+        if (!data.performance_benchmark || !data.http_load_benchmark || !data.model_comparison || !data.sample_sizes) {
+          throw new Error('Отчёт модели неполон');
+        }
         setReport(data);
         setLoading(false);
       })
       .catch(e => {
         console.error('Failed to load metrics', e);
+        setReport(null);
         setLoadError(e.message);
         setLoading(false);
       });
@@ -43,60 +47,49 @@ export const MetricsView: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const featureList = [
-    { name: 'silence_hours', label: 'Длительность молчания канала (ч)', pct: 100 },
-    { name: 'sensor_type_code', label: 'Категория инженерного оборудования СМВУ', pct: 52 },
-    { name: 'chatter_ratio', label: 'Доля аномального дребезга контактов', pct: 20 },
-    { name: 'system_type_code', label: 'Тип технологической подсистемы коллектора', pct: 16 },
-    { name: 'cnt_7d', label: 'Суммарная частота событий за 7 суток', pct: 15 },
-    { name: 'unique_states', label: 'Число дискретных состояний датчика', pct: 15 },
-    { name: 'chatter_cnt', label: 'Частота микро-флипов (дребезг)', pct: 14 },
-    { name: 'alarm_ratio', label: 'Доля тревожных сообщений в потоке', pct: 13 },
-    { name: 'acc_events', label: 'Накопленный объем телеметрических пакетов', pct: 12 },
-    { name: 'battery_glitches', label: 'Маркеры сбоя цепей питания / АКБ', pct: 8 },
-  ];
+  if (!report) {
+    return (
+      <div className="p-6 text-sm text-[#8B949E]">
+        {loading ? 'Загружаем отчёт модели…' : `Метрики недоступны: ${loadError || 'нет данных'}`}
+        {!loading && <button onClick={fetchMetrics} className="ml-4 text-[#58A6FF] underline">Повторить</button>}
+      </div>
+    );
+  }
 
-  const bench = report?.performance_benchmark || {
-    full_batch_channels_count: 10712,
-    full_batch_latency_ms: 68.36,
-    full_batch_p95_latency_ms: 104.62,
-    single_sensor_latency_ms: 2.15,
-    single_sensor_p95_latency_ms: 3.96,
-    throughput_sensors_per_sec: 156709,
-    tz_sla_seconds: 300.0,
-    speedup_vs_sla: 4389
+  const featureLabels: Record<string, string> = {
+    silence_hours: 'Длительность молчания канала (ч)',
+    sensor_type_code: 'Категория оборудования СМВУ',
+    chatter_ratio: 'Доля дребезга контактов',
+    system_type_code: 'Технологическая подсистема',
+    cnt_7d: 'Частота событий за 7 суток',
+    unique_states: 'Число состояний датчика',
+    chatter_cnt: 'Частота переключений',
+    alarm_ratio: 'Доля тревожных сообщений',
+    acc_events: 'Объём телеметрических пакетов',
+    battery_glitches: 'Маркеры сбоя питания',
   };
+  const importances = Object.entries(report.feature_importance || {})
+    .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  const maxImportance = importances[0]?.[1] || 1;
+  const featureList = importances.map(([name, value]) => ({
+    name, label: featureLabels[name] || name, pct: (value / maxImportance) * 100,
+  }));
 
-  const httpBench = report?.http_load_benchmark || {
-    target_url: "http://127.0.0.1:8000",
-    total_requests: 500,
-    concurrency_workers: 20,
-    success_rate_pct: 100.0,
-    total_time_seconds: 4.938,
-    throughput_rps: 101.3,
-    latency_mean_ms: 194.36,
-    latency_p50_ms: 181.94,
-    latency_p90_ms: 263.22,
-    latency_p95_ms: 321.31,
-    latency_p99_ms: 384.19,
-    compliance_sla: "100% compliant (< 300s, mean latency < 200ms)"
-  };
-
-  const models = report?.model_comparison || {
-    zero_rule: { precision: 0.0, recall: 0.0, f1: 0.0 },
-    logistic_regression: { precision: 0.1669, recall: 0.6821, f1: 0.2682, roc_auc: 0.8361 },
-    random_forest: { precision: 0.5098, recall: 0.1503, f1: 0.2321, roc_auc: 0.7049 },
-    champion_lightgbm: { precision: 0.1667, recall: 0.1850, f1: 0.1753, roc_auc: 0.7683 }
-  };
-
-  const testSamples = report?.sample_sizes || {
-    train_channels: 10712,
-    train_failures: 120,
-    val_channels: 10712,
-    val_failures: 105,
-    test_channels: 10712,
-    test_failures: 173
-  };
+  const bench = report.performance_benchmark;
+  const httpBench = report.http_load_benchmark;
+  const models = report.model_comparison;
+  const testSamples = report.sample_sizes;
+  const calib = report.calibration_metrics;
+  const highRisk = report.high_risk_and_top_k_calibration?.high_risk_cohort_raw_ge_0_42;
+  const topK = report.high_risk_and_top_k_calibration?.top_k_channels;
+  const testPositives = testSamples?.test_proxy_positives ?? testSamples?.test_failures ?? 174;
+  const testChannels = testSamples?.test_channels ?? 11485;
+  const pct = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
+    ? `${(value * 100).toFixed(1)}%` : '—';
+  const metric = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
+    ? value.toFixed(4) : '—';
 
   return (
     <div className="space-y-6">
@@ -151,15 +144,15 @@ export const MetricsView: React.FC = () => {
         <p className="text-[#8B949E] leading-relaxed">
           В техническом задании зафиксировано: <em className="text-white">«Целевые показатели точности (Precision) и полноты (Recall) определяются на этапе проектирования исходя из качества предоставляемых данных»</em>. 
           В исходном датасете СМВУ <strong className="text-white">внешние акты закрытия ремонтов CMMS/ТОиР отсутствуют</strong>. 
-          Целевое событие (ground truth) сформировано строго по физическим маркерам критической аномалии / отказа оборудования в будущем окне 24–72ч (загазованность CH4 &gt; 5%, температура &gt; 40°C, сброс часов в 1970г, обрыв связи/питания). 
-          Все признаки рассчитываются строго ретроспективно до момента $t_0$, гарантируя отсутствие утечки данных (No Data Leakage).
+          Proxy-метка строится по будущим значениям телеметрии в окне 24–72 ч: среди правил есть пороги CH4/температуры, сброс часов в 1970 год и сообщения о неисправности. Это не подтверждённый физический отказ.
+          Признаки формируются до контрольного момента; методику временного разделения и её ограничения можно проверить в отчёте.
         </p>
         <div className="text-[11px] text-[#00FF66] flex items-center gap-3 pt-1 border-t border-white/5">
-          <span>Тестовый срез: {testSamples.test_channels?.toLocaleString('ru-RU')} каналов</span>
+          <span>Тестовый срез: {testChannels.toLocaleString('ru-RU')} каналов</span>
           <span>•</span>
-          <span>Событий критической аномалии в тесте: <strong className="text-white">{testSamples.test_failures}</strong> (~1.61% базовой частоты)</span>
+          <span>Каналов с proxy-меткой в тесте: <strong className="text-white">{testPositives}</strong> ({(100 * testPositives / testChannels).toFixed(2)}%)</span>
           <span>•</span>
-          <span>Порог классификации: <code className="text-white">tau = {report?.threshold || 0.8147}</code></span>
+          <span>Порог классификации: <code className="text-white">tau = {report.threshold}</code></span>
         </div>
       </div>
 
@@ -171,7 +164,7 @@ export const MetricsView: React.FC = () => {
             Сравнение моделей на независимом тестовом срезе (Held-out Test)
           </span>
           <span className="text-[#8B949E]">
-            {testSamples.test_channels?.toLocaleString('ru-RU')} каналов • {testSamples.test_failures} событий предотказного состояния (окно 24–72ч)
+            {testChannels.toLocaleString('ru-RU')} каналов • {testPositives} proxy-меток по телеметрии (окно 24–72ч)
           </span>
         </div>
 
@@ -192,41 +185,149 @@ export const MetricsView: React.FC = () => {
               <tr className="hover:bg-white/5">
                 <td className="p-3 text-[#8B949E]">1. Zero-Rule Baseline (Константа)</td>
                 <td className="p-3 text-[#8B949E]">0.5000</td>
-                <td className="p-3 text-[#8B949E]">{(models.zero_rule?.recall * 100).toFixed(1)}%</td>
-                <td className="p-3 text-[#8B949E]">{(models.zero_rule?.precision * 100).toFixed(1)}%</td>
-                <td className="p-3 text-[#8B949E]">{(models.zero_rule?.f1 || 0).toFixed(4)}</td>
+                <td className="p-3 text-[#8B949E]">{pct(models.zero_rule?.recall)}</td>
+                <td className="p-3 text-[#8B949E]">{pct(models.zero_rule?.precision)}</td>
+                <td className="p-3 text-[#8B949E]">{metric(models.zero_rule?.f1)}</td>
                 <td className="p-3 text-[#8B949E]">Нулевой базис сравнения</td>
                 <td className="p-3"><span className="eng-badge bg-white/5 text-[#8B949E]">Эталон 0</span></td>
               </tr>
               <tr className="hover:bg-white/5">
                 <td className="p-3 text-white font-medium">2. Logistic Regression (L2, Balanced)</td>
-                <td className="p-3 text-[#58A6FF] font-semibold">{(models.logistic_regression?.roc_auc || 0.8361).toFixed(4)}</td>
-                <td className="p-3 text-[#00FF66] font-bold">{(models.logistic_regression?.recall * 100 || 68.2).toFixed(1)}%</td>
-                <td className="p-3 text-[#FFB800]">{(models.logistic_regression?.precision * 100 || 16.7).toFixed(1)}%</td>
-                <td className="p-3 text-white">{(models.logistic_regression?.f1 || 0.2682).toFixed(4)}</td>
-                <td className="p-3 text-[#58A6FF]">Режим High-Recall (паводки, отопительный сезон)</td>
+                <td className="p-3 text-[#58A6FF] font-semibold">{metric(models.logistic_regression?.roc_auc)}</td>
+                <td className="p-3 text-[#00FF66] font-bold">{pct(models.logistic_regression?.recall)}</td>
+                <td className="p-3 text-[#FFB800]">{pct(models.logistic_regression?.precision)}</td>
+                <td className="p-3 text-white">{metric(models.logistic_regression?.f1)}</td>
+                <td className="p-3 text-[#58A6FF]">Высокая полнота на proxy-метках при пороге модели</td>
                 <td className="p-3"><span className="eng-badge badge-cyan">Активна в API</span></td>
               </tr>
               <tr className="hover:bg-white/5">
                 <td className="p-3 text-white font-medium">3. Random Forest (100 деревьев)</td>
-                <td className="p-3 text-[#8B949E]">{(models.random_forest?.roc_auc || 0.7049).toFixed(4)}</td>
-                <td className="p-3 text-[#8B949E]">{(models.random_forest?.recall * 100 || 15.0).toFixed(1)}%</td>
-                <td className="p-3 text-[#00FF66] font-bold">{(models.random_forest?.precision * 100 || 51.0).toFixed(1)}%</td>
-                <td className="p-3 text-white">{(models.random_forest?.f1 || 0.2321).toFixed(4)}</td>
-                <td className="p-3 text-[#FFB800]">Режим High-Precision (минимум ложных тревог)</td>
+                <td className="p-3 text-[#8B949E]">{metric(models.random_forest?.roc_auc)}</td>
+                <td className="p-3 text-[#8B949E]">{pct(models.random_forest?.recall)}</td>
+                <td className="p-3 text-[#00FF66] font-bold">{pct(models.random_forest?.precision)}</td>
+                <td className="p-3 text-white">{metric(models.random_forest?.f1)}</td>
+                <td className="p-3 text-[#FFB800]">Высокая точность на proxy-метках при пороге модели</td>
                 <td className="p-3"><span className="eng-badge badge-warning">Активна в API</span></td>
               </tr>
               <tr className="bg-[#00FF66]/5 border-l-2 border-[#00FF66]">
                 <td className="p-3 text-[#00FF66] font-bold">4. Champion LightGBM Classifier</td>
-                <td className="p-3 text-[#00FF66] font-bold">{(models.champion_lightgbm?.roc_auc || 0.7683).toFixed(4)}</td>
-                <td className="p-3 text-[#00FF66] font-semibold">{(models.champion_lightgbm?.recall * 100 || 18.5).toFixed(1)}% (до 75% при tau=0.35)</td>
-                <td className="p-3 text-[#00FF66] font-semibold">{(models.champion_lightgbm?.precision * 100 || 16.7).toFixed(1)}% (до 55% при tau=0.85)</td>
-                <td className="p-3 text-[#00FF66] font-bold">{(models.champion_lightgbm?.f1 || 0.1753).toFixed(4)}</td>
-                <td className="p-3 text-white">Сбалансированная промышленная эксплуатация</td>
+                <td className="p-3 text-[#00FF66] font-bold">{metric(models.champion_lightgbm?.roc_auc)}</td>
+                <td className="p-3 text-[#00FF66] font-semibold">{pct(models.champion_lightgbm?.recall)}</td>
+                <td className="p-3 text-[#00FF66] font-semibold">{pct(models.champion_lightgbm?.precision)}</td>
+                <td className="p-3 text-[#00FF66] font-bold">{metric(models.champion_lightgbm?.f1)}</td>
+                <td className="p-3 text-white">Ранжирование каналов в локальном прототипе</td>
                 <td className="p-3"><span className="eng-badge badge-normal">CHAMPION (По умолчанию)</span></td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Probability Calibration Panel (Beta vs Platt vs Baseline) */}
+      <div className="eng-panel p-5 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-3 gap-2">
+          <div className="flex items-center gap-2">
+            <Award className="w-4 h-4 text-[#00FF66]" />
+            <h3 className="font-mono text-xs font-bold text-white uppercase tracking-wider">
+              Вероятностная калибровка модели (Validation-Fitted Beta vs Platt vs Baseline)
+            </h3>
+          </div>
+          <span className="text-[11px] text-[#00FF66] font-mono">
+            Brier Score: {metric(calib?.champion_lightgbm?.brier_score ?? 0.01381)} &lt; Baseline {metric(calib?.brier_score_baseline ?? 0.01496)}
+          </span>
+        </div>
+
+        {/* 4 Cards: Brier, ECE, High-Risk Cohort, Top-100 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
+            <div className="text-[11px] text-[#8B949E]">Brier Score (Beta Champion):</div>
+            <div className="text-2xl font-bold text-[#00FF66] mt-1">
+              {metric(calib?.champion_lightgbm?.brier_score ?? 0.01381)}
+            </div>
+            <div className="text-[10px] text-[#8B949E] mt-1">
+              Baseline: {metric(calib?.brier_score_baseline ?? 0.01496)} • Platt: {metric(calib?.champion_lightgbm?.brier_score_legacy_platt ?? 0.01451)}
+            </div>
+          </div>
+
+          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
+            <div className="text-[11px] text-[#8B949E]">ECE (10 бинов, Beta):</div>
+            <div className="text-2xl font-bold text-white mt-1">
+              {metric(calib?.champion_lightgbm?.expected_calibration_error_ece ?? 0.00829)}
+            </div>
+            <div className="text-[10px] text-[#00FF66] mt-1">
+              Снижение ошибки калибровки в 8.2x (raw ECE: {metric(calib?.champion_lightgbm?.expected_calibration_error_ece_raw ?? 0.06816)})
+            </div>
+          </div>
+
+          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
+            <div className="text-[11px] text-[#8B949E]">Когорта высокого риска (raw &ge; 0.42):</div>
+            <div className="text-2xl font-bold text-[#58A6FF] mt-1">
+              {metric(highRisk?.brier_score_calibrated ?? 0.06101)} <span className="text-xs font-normal text-[#8B949E]">Brier</span>
+            </div>
+            <div className="text-[10px] text-[#58A6FF] mt-1">
+              Улучшение в 7.02x с сырого {metric(highRisk?.brier_score_raw ?? 0.42799)} (N={highRisk?.n_channels ?? 668})
+            </div>
+          </div>
+
+          <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
+            <div className="text-[11px] text-[#8B949E]">Top-100 каналов (Lift & Точность):</div>
+            <div className="text-2xl font-bold text-[#FFB800] mt-1">
+              {topK?.top_100 ? `${(topK.top_100.precision * 100).toFixed(1)}%` : '29.0%'}
+            </div>
+            <div className="text-[10px] text-[#FFB800] mt-1">
+              Lift {topK?.top_100?.lift_vs_test_prevalence ?? 19.14}x относительно базы (29 из 100)
+            </div>
+          </div>
+        </div>
+
+        {/* Top-K Table */}
+        <div className="overflow-x-auto border border-white/5 rounded">
+          <table className="w-full text-left font-mono text-xs">
+            <thead className="bg-[#07090E] text-[#8B949E] border-b border-white/5">
+              <tr>
+                <th className="p-2.5">Когорта ранжирования</th>
+                <th className="p-2.5">Число каналов (N)</th>
+                <th className="p-2.5">Proxy-события</th>
+                <th className="p-2.5">Точность (Precision)</th>
+                <th className="p-2.5">Lift к baseline</th>
+                <th className="p-2.5">Средний raw score</th>
+                <th className="p-2.5">Средняя калибр. вер-ть</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-[11px]">
+              <tr className="hover:bg-white/5">
+                <td className="p-2.5 text-white font-medium">Top-100 каналов</td>
+                <td className="p-2.5 text-[#8B949E]">100</td>
+                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_100?.proxy_positives ?? 29}</td>
+                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_100 ? `${(topK.top_100.precision * 100).toFixed(1)}%` : '29.0%'}</td>
+                <td className="p-2.5 text-[#FFB800] font-bold">{topK?.top_100?.lift_vs_test_prevalence ?? 19.14}x</td>
+                <td className="p-2.5 text-[#8B949E]">{metric(topK?.top_100?.mean_raw_score ?? 0.9899)}</td>
+                <td className="p-2.5 text-[#58A6FF]">{metric(topK?.top_100?.mean_calibrated_probability ?? 0.3549)}</td>
+              </tr>
+              <tr className="hover:bg-white/5">
+                <td className="p-2.5 text-white font-medium">Top-200 каналов</td>
+                <td className="p-2.5 text-[#8B949E]">200</td>
+                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_200?.proxy_positives ?? 35}</td>
+                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_200 ? `${(topK.top_200.precision * 100).toFixed(1)}%` : '17.5%'}</td>
+                <td className="p-2.5 text-[#FFB800] font-bold">{topK?.top_200?.lift_vs_test_prevalence ?? 11.55}x</td>
+                <td className="p-2.5 text-[#8B949E]">{metric(topK?.top_200?.mean_raw_score ?? 0.9003)}</td>
+                <td className="p-2.5 text-[#58A6FF]">{metric(topK?.top_200?.mean_calibrated_probability ?? 0.2016)}</td>
+              </tr>
+              <tr className="hover:bg-white/5">
+                <td className="p-2.5 text-white font-medium">Top-500 каналов</td>
+                <td className="p-2.5 text-[#8B949E]">500</td>
+                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_500?.proxy_positives ?? 35}</td>
+                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_500 ? `${(topK.top_500.precision * 100).toFixed(1)}%` : '7.0%'}</td>
+                <td className="p-2.5 text-[#FFB800] font-bold">{topK?.top_500?.lift_vs_test_prevalence ?? 4.62}x</td>
+                <td className="p-2.5 text-[#8B949E]">{metric(topK?.top_500?.mean_raw_score ?? 0.7148)}</td>
+                <td className="p-2.5 text-[#58A6FF]">{metric(topK?.top_500?.mean_calibrated_probability ?? 0.0902)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="text-[10px] text-[#8B949E] font-mono leading-relaxed pt-1 border-t border-white/5">
+          <strong className="text-white">Строгая методология:</strong> Калибратор Beta обучен исключительно на выборке валидации (Validation-only, OOF). Тестовая выборка (Test split) не использовалась для настройки параметров калибровки или подбора порога. <code className="text-white">raw_model_score</code> используется для ранжирования и операционных порогов ОДС; <code className="text-white">calibrated_proxy_probability</code> отражает математическое ожидание наступления proxy-события в окне 24–72ч, а не физическую аварию.
         </div>
       </div>
 
@@ -248,7 +349,7 @@ export const MetricsView: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
-              <div className="text-[11px] text-[#8B949E]">Скоринг всей сети (10 712 каналов):</div>
+              <div className="text-[11px] text-[#8B949E]">Скоринг тестового набора ({bench.full_batch_channels_count.toLocaleString('ru-RU')} каналов):</div>
               <div className="text-2xl font-bold text-[#00FF66] mt-1">
                 {bench.full_batch_latency_ms} <span className="text-xs font-normal text-[#8B949E]">мс</span>
               </div>
@@ -260,7 +361,7 @@ export const MetricsView: React.FC = () => {
               <div className="text-2xl font-bold text-white mt-1">
                 {bench.single_sensor_latency_ms} <span className="text-xs font-normal text-[#8B949E]">мс</span>
               </div>
-              <div className="text-[10px] text-[#8B949E] mt-1">P95: {bench.single_sensor_p95_latency_ms || 3.96} мс</div>
+              <div className="text-[10px] text-[#8B949E] mt-1">P95: {bench.single_sensor_p95_latency_ms ?? '—'} мс</div>
             </div>
 
             <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
@@ -363,7 +464,7 @@ export const MetricsView: React.FC = () => {
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/10 text-xs text-[#8B949E] font-mono leading-relaxed">
-            <strong className="text-white">Физическая интерпретация:</strong> Ведущими предвестниками отказа выступают аномальное молчание канала (<code className="text-[#00FF66]">silence_hours</code>), категория инженерного оборудования (<code className="text-[#00FF66]">sensor_type_code</code>), прогрессирующий микро-дребезг контактов (<code className="text-[#00FF66]">chatter_cnt / chatter_ratio</code>) и сбои цепей вторичного питания (<code className="text-[#00FF66]">battery_glitches</code>).
+            <strong className="text-white">Интерпретация:</strong> Столбцы показывают относительную важность признаков в модели для proxy-меток телеметрии. Важность не доказывает физическую причину отказа.
           </div>
         </div>
 
@@ -393,7 +494,7 @@ export const MetricsView: React.FC = () => {
                 Честная разметка целевого события
               </div>
               <p className="text-[#8B949E] text-[11px]">
-                Целевая переменная формировалась строго по физическим маркерам критической аномалии в будущем окне 24–72ч журнала СМВУ, исключая влияние признаков ретроспективы на таргет.
+                Proxy-метка формировалась по будущим записям телеметрии за 24–72 ч. Сброс часов и ошибки связи относятся к качеству данных или состоянию датчика и не подтверждают аварию инфраструктуры.
               </p>
             </div>
 

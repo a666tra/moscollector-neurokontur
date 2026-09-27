@@ -1,15 +1,21 @@
 import os
 import json
 import uuid
+import tempfile
+import threading
+from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 from backend.app.core.config import settings
 from backend.app.services.data_service import data_service
 
 DB_PATH = os.path.join(settings.DATA_DIR, "tickets_db.json")
+VALID_TICKET_PRIORITIES = {"ВЫСОКИЙ", "СРЕДНИЙ", "НИЗКИЙ"}
+VALID_TICKET_STATUSES = {"ЧЕРНОВИК", "НАЗНАЧЕН", "В_РАБОТЕ", "ВЫПОЛНЕН"}
 
 class MaintenanceService:
     def __init__(self):
+        self._tickets_lock = threading.RLock()
         self.tickets: List[Dict[str, Any]] = []
         if os.path.exists(DB_PATH):
             self._load_from_disk()
@@ -20,18 +26,35 @@ class MaintenanceService:
     def _load_from_disk(self):
         try:
             with open(DB_PATH, 'r', encoding='utf-8') as f:
-                self.tickets = json.load(f)
-        except Exception:
-            self._init_tickets()
-            self._save_to_disk()
+                tickets = json.load(f)
+            if not isinstance(tickets, list) or not all(isinstance(ticket, dict) for ticket in tickets):
+                raise ValueError("Реестр нарядов должен содержать список записей")
+            self.tickets = tickets
+        except Exception as exc:
+            raise RuntimeError("Не удалось безопасно загрузить реестр нарядов; запуск остановлен") from exc
 
     def _save_to_disk(self):
+        data_dir = os.path.dirname(DB_PATH)
+        temp_path = None
         try:
-            os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-            with open(DB_PATH, 'w', encoding='utf-8') as f:
-                json.dump(self.tickets, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error saving tickets: {e}")
+            os.makedirs(data_dir, exist_ok=True)
+            with self._tickets_lock:
+                snapshot = deepcopy(self.tickets)
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", dir=data_dir, delete=False
+                ) as f:
+                    temp_path = f.name
+                    json.dump(snapshot, f, ensure_ascii=False, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(temp_path, DB_PATH)
+        except Exception as exc:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+            raise RuntimeError("Не удалось сохранить реестр нарядов") from exc
 
     def _init_tickets(self):
         # Seed tickets for the top critical predicted sensors
@@ -76,7 +99,7 @@ class MaintenanceService:
                 "channel_id": cid,
                 "sensor_name": pred.get("sensor_name", f"Датчик {cid}"),
                 "sensor_type": stype,
-                "picket": coords.get("picket", "ПК24"),
+                "picket": coords.get("picket") or "не указан",
                 "corridor": coords.get("corridor", "Магистральный сектор"),
                 "priority": "ВЫСОКИЙ" if idx < 4 else "СРЕДНИЙ",
                 "failure_risk_percent": round(pred.get("failure_probability", 0.85) * 100, 1),
@@ -90,18 +113,71 @@ class MaintenanceService:
             })
 
     def get_tickets(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
-        if status:
-            return [t for t in self.tickets if t["status"] == status]
-        return self.tickets
+        with self._tickets_lock:
+            return self._get_tickets_locked(status)
+
+    def _get_tickets_locked(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        if status is not None:
+            if status not in VALID_TICKET_STATUSES:
+                raise ValueError("Недопустимый статус наряда")
+            return deepcopy([t for t in self.tickets if t.get("status") == status])
+        return deepcopy(self.tickets)
+
+    def update_ticket_status(self, ticket_id: str, new_status: str) -> Dict[str, Any]:
+        with self._tickets_lock:
+            return self._update_ticket_status_locked(ticket_id, new_status)
+
+    def _update_ticket_status_locked(self, ticket_id: str, new_status: str) -> Dict[str, Any]:
+        if new_status not in VALID_TICKET_STATUSES:
+            raise ValueError("Недопустимый статус наряда")
+        ticket = next((item for item in self.tickets if item.get("ticket_id") == ticket_id), None)
+        if ticket is None:
+            raise KeyError("Заявка не найдена")
+
+        old_status = ticket.get("status")
+        ticket["status"] = new_status
+        try:
+            self._save_to_disk()
+        except Exception:
+            ticket["status"] = old_status
+            raise
+        return deepcopy(ticket)
 
     def create_ticket(
         self,
         channel_id: str,
+        dispatcher_badge: str,
+        dispatcher_name: str,
         priority: str = "ВЫСОКИЙ",
         notes: Optional[str] = None,
-        dispatcher_badge: str = "ДИСП-7041",
-        dispatcher_name: str = "Кузнецов Артем Дмитриевич"
+        simulation_only: bool = False,
     ) -> Dict[str, Any]:
+        with self._tickets_lock:
+            return self._create_ticket_locked(
+                channel_id=channel_id,
+                dispatcher_badge=dispatcher_badge,
+                dispatcher_name=dispatcher_name,
+                priority=priority,
+                notes=notes,
+                simulation_only=simulation_only,
+            )
+
+    def _create_ticket_locked(
+        self,
+        channel_id: str,
+        dispatcher_badge: str,
+        dispatcher_name: str,
+        priority: str = "ВЫСОКИЙ",
+        notes: Optional[str] = None,
+        simulation_only: bool = False,
+    ) -> Dict[str, Any]:
+        if not channel_id or channel_id not in data_service.sensors:
+            raise ValueError("Канал датчика не найден")
+        if priority not in VALID_TICKET_PRIORITIES:
+            raise ValueError("Недопустимый приоритет наряда")
+        if not dispatcher_badge or not dispatcher_name:
+            raise ValueError("Для создания наряда требуется удостоверенная учетная запись диспетчера")
+
         pred = data_service.predictions_by_channel.get(channel_id, {})
         s_info = data_service.sensors.get(channel_id, {})
         oid = s_info.get("object_id", "")
@@ -109,7 +185,11 @@ class MaintenanceService:
         stype = s_info.get("sensor_type", "Датчик СМВУ")
 
         now = datetime.now()
-        ticket_id = f"З-ТО-{now.strftime('%Y%m')}-{1001 + len(self.tickets)}"
+        ticket_id = (
+            f"SIM-ТО-{now.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8].upper()}"
+            if simulation_only
+            else f"З-ТО-{now.strftime('%Y%m')}-{1001 + len(self.tickets)}"
+        )
 
         work_desc = notes or f"Превентивная замена/ремонт датчика {s_info.get('sensor_name', '')} на основе прогноза деградации."
         saved = settings.AVERAGE_CALLOUT_COST_RUB - settings.PREVENTIVE_MAINTENANCE_COST_RUB
@@ -135,10 +215,18 @@ class MaintenanceService:
             "saved_opex_rub": saved,
             "created_by": dispatcher_badge,
             "created_by_name": dispatcher_name,
-            "authorization_standard": "ГОСТ Р 53195-2014 / Р ТЭК"
+            "authorization_standard": "Local dispatcher account authorization"
         }
+        if simulation_only:
+            ticket["simulation_only"] = True
+            return deepcopy(ticket)
+
         self.tickets.insert(0, ticket)
-        self._save_to_disk()
-        return ticket
+        try:
+            self._save_to_disk()
+        except Exception:
+            self.tickets.pop(0)
+            raise
+        return deepcopy(ticket)
 
 maintenance_service = MaintenanceService()

@@ -23,6 +23,34 @@ def classify_risk(prob: float, thresh: float) -> str:
         return "ATTENTION"
     return "NORMAL"
 
+
+def calibration_fields(prediction: Dict[str, Any]) -> Dict[str, Any]:
+    probability = prediction.get("calibrated_proxy_probability")
+    calibrated = bool(prediction.get("is_calibrated", False) and probability is not None)
+    supplied_status = prediction.get("calibration_status")
+    if calibrated:
+        status = supplied_status or "CALIBRATED_METHOD_UNKNOWN"
+    elif isinstance(supplied_status, str) and not supplied_status.startswith("CALIBRATED_"):
+        status = supplied_status
+    else:
+        status = "CALIBRATION_UNAVAILABLE"
+    return {
+        "calibrated_proxy_probability": probability if calibrated else None,
+        "is_calibrated": calibrated,
+        "calibration_status": status,
+    }
+
+
+def action_for_risk(prediction: Dict[str, Any], risk: str) -> str:
+    if prediction.get("risk_level") == risk:
+        return prediction.get("recommended_action", "")
+    return {
+        "CRITICAL": "Приоритетная проверка диспетчером и осмотр по регламенту; решение о выезде принимает специалист.",
+        "WARNING": "Проверить канал и запланировать осмотр по регламенту ТОиР.",
+        "ATTENTION": "Усилить наблюдение за каналом и проверить качество телеметрии.",
+        "NORMAL": "Штатное наблюдение; отклонений по текущему порогу не выявлено.",
+    }[risk]
+
 @router.get("", response_model=PredictionListResponse)
 def get_predictions(
     object_id: Optional[str] = Query(None, description="Фильтр по ID объекта"),
@@ -65,12 +93,16 @@ def get_predictions(
             sensor_type=p.get("sensor_type", "СМВУ"),
             system_type=p.get("system_type", "Мониторинг"),
             tag=p.get("tag", ""),
-            failure_probability=p["failure_probability"],
-            risk_level=classify_risk(p["failure_probability"], thresh),
-            is_predicted_failure_24h=p["failure_probability"] >= thresh,
-            recommended_action=p.get("recommended_action", ""),
+            raw_model_score=p.get("raw_model_score", p.get("failure_probability", 0.0)),
+            failure_probability=p.get("raw_model_score", p.get("failure_probability", 0.0)),
+            risk_level=classify_risk(p.get("raw_model_score", p.get("failure_probability", 0.0)), thresh),
+            is_predicted_failure_24h=p.get("raw_model_score", p.get("failure_probability", 0.0)) >= thresh,
+            is_proxy_alert_24_72h=p.get("raw_model_score", p.get("failure_probability", 0.0)) >= thresh,
+            recommended_action=action_for_risk(p, classify_risk(p.get("raw_model_score", p.get("failure_probability", 0.0)), thresh)),
             explanation_factors=p.get("explanation_factors", []),
-            horizon_hours=p.get("horizon_hours", 48)
+            horizon_hours=p.get("horizon_hours", 48),
+            score_semantics=p.get("score_semantics"),
+            **calibration_fields(p)
         )
         for p in page_items
     ]
@@ -96,7 +128,7 @@ def get_model_metrics():
 
 @router.get("/benchmark")
 def get_model_benchmark():
-    """Возвращает результаты официального стресс-теста производительности инференса модели"""
+    """Возвращает результаты локального теста производительности инференса модели."""
     rep_path = os.path.join(settings.MODELS_DIR, "metrics_report.json")
     if not os.path.exists(rep_path):
         return {"status": "benchmark_pending", "message": "Отчет калибровки формируется"}
@@ -107,12 +139,15 @@ def get_model_benchmark():
         "status": "verified",
         "benchmark": bench,
         "methodology": "100 iterations on local Intel CPU with time.perf_counter()",
-        "compliance": "SLA < 300s passed with 5222x speedup"
+        "compliance": (
+            f"Локальный замер: {bench['tz_sla_seconds'] / bench['full_batch_latency_ms'] * 1000:.0f}x к SLA"
+            if bench.get("tz_sla_seconds") and bench.get("full_batch_latency_ms") else "Нет данных для расчёта"
+        )
     }
 
 @router.post("/score", response_model=RealtimeScoreResponse)
 def score_sensor_live(req: RealtimeScoreRequest):
-    """Динамический инференс ML-модели в реальном времени с контролем сбоя по ГОСТ Р 53195"""
+    """Динамический инференс ML-модели с ошибкой при недоступности модели."""
     try:
         res = ml_service.score_realtime(
             channel_id=req.channel_id,
@@ -139,59 +174,16 @@ def score_sensor_live(req: RealtimeScoreRequest):
 
 @router.get("/reconciliation")
 def get_prediction_reconciliation():
-    """Аудиторская сверка прогнозов с фактическими инцидентами телеметрии SCADA по §18 ТЗ."""
+    """Evidence for the held-out telemetry proxy, not verified repair outcomes."""
     recon_path = os.path.join(settings.BASE_DIR, "data", "reconciliation_ground_truth.json")
-    if os.path.exists(recon_path):
-        try:
-            with open(recon_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading reconciliation ground truth: {e}")
-
-    rep_path = os.path.join(settings.MODELS_DIR, "metrics_report.json")
-    rep_data = {}
-    if os.path.exists(rep_path):
-        try:
-            with open(rep_path, 'r', encoding='utf-8') as f:
-                rep_data = json.load(f)
-        except Exception:
-            pass
-
-    test_metrics = rep_data.get("test_metrics", {})
-    tau_0_42 = rep_data.get("active_threshold_evaluation_0_42", {}).get("champion_lightgbm", {})
-    
-    return {
-        "audit_standard": "ГОСТ Р 53195-2014 / §18.3 ТЗ Департамента ЖКХ г. Москвы",
-        "methodology": "Сравнение предиктивных оценок ML-моделей за 24–72 часа с фактическими физическими инцидентами в телеметрии SCADA/СМВУ в отложенном временном окне (Held-out Test: 22–28 января 2026, 11 485 каналов). В выданном открытом датасете внешние акты ремонтов CMMS/1С:ТОИР отсутствуют, поэтому разметка целевых физических отказов выполнена строго алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее.",
-        "dataset_channels_total": 11485,
-        "actual_incidents_recorded": 174,
-        "operational_matrix_tau_0_42": {
-            "threshold": 0.42,
-            "true_positives": tau_0_42.get("confusion_matrix", {}).get("tp", 55),
-            "false_positives": tau_0_42.get("confusion_matrix", {}).get("fp", 613),
-            "false_negatives": tau_0_42.get("confusion_matrix", {}).get("fn", 119),
-            "true_negatives": tau_0_42.get("confusion_matrix", {}).get("tn", 10698),
-            "precision": tau_0_42.get("precision", 0.0823),
-            "recall": tau_0_42.get("recall", 0.3161),
-            "f1_score": tau_0_42.get("f1", 0.1306),
-            "lift_vs_baseline": 5.45,
-            "operating_mode": "Штатный балансный режим диспетчерской ОДС"
-        },
-        "optimal_matrix_tau_0_845": {
-            "threshold": 0.845,
-            "true_positives": test_metrics.get("confusion_matrix", {}).get("tp", 33),
-            "false_positives": test_metrics.get("confusion_matrix", {}).get("fp", 109),
-            "false_negatives": test_metrics.get("confusion_matrix", {}).get("fn", 141),
-            "true_negatives": test_metrics.get("confusion_matrix", {}).get("tn", 11202),
-            "precision": test_metrics.get("precision", 0.2324),
-            "recall": test_metrics.get("recall", 0.1897),
-            "f1_score": test_metrics.get("f1_score", 0.2089),
-            "roc_auc": test_metrics.get("roc_auc", 0.771),
-            "pr_auc": test_metrics.get("pr_auc", 0.1679),
-            "lift_vs_baseline": 15.39,
-            "operating_mode": "Режим жесткого таргетирования выездов (High-Precision)"
-        }
-    }
+    try:
+        with open(recon_path, "r", encoding="utf-8") as source:
+            evidence = json.load(source)
+        if evidence.get("evidence_type") != "algorithmic_telemetry_proxy":
+            raise ValueError("Unsupported reconciliation evidence type")
+        return evidence
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="Данные сверки недоступны") from exc
 
 @router.get("/{channel_id}", response_model=PredictionItem)
 def get_channel_prediction(channel_id: str):
@@ -200,11 +192,8 @@ def get_channel_prediction(channel_id: str):
         raise HTTPException(status_code=404, detail="Канал не найден")
     
     thresh = get_current_settings().decision_threshold
-    risk = (
-        "CRITICAL" if p["failure_probability"] >= 0.70
-        else ("WARNING" if p["failure_probability"] >= thresh
-        else ("ATTENTION" if p["failure_probability"] >= 0.25 else "NORMAL"))
-    )
+    raw_score = p.get("raw_model_score", p.get("failure_probability", 0.0))
+    risk = classify_risk(raw_score, thresh)
 
     return PredictionItem(
         channel_id=p["channel_id"],
@@ -214,10 +203,14 @@ def get_channel_prediction(channel_id: str):
         sensor_type=p.get("sensor_type", "СМВУ"),
         system_type=p.get("system_type", "Мониторинг"),
         tag=p.get("tag", ""),
-        failure_probability=p["failure_probability"],
+        raw_model_score=raw_score,
+        failure_probability=raw_score,
         risk_level=risk,
-        is_predicted_failure_24h=p["failure_probability"] >= thresh,
-        recommended_action=p.get("recommended_action", ""),
+        is_predicted_failure_24h=raw_score >= thresh,
+        is_proxy_alert_24_72h=raw_score >= thresh,
+        recommended_action=action_for_risk(p, risk),
         explanation_factors=p.get("explanation_factors", []),
-        horizon_hours=p.get("horizon_hours", 48)
+        horizon_hours=p.get("horizon_hours", 48),
+        score_semantics=p.get("score_semantics"),
+        **calibration_fields(p)
     )

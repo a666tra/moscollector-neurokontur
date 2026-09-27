@@ -20,9 +20,10 @@ export interface SystemStats {
   model_roc_auc: number;
   prediction_horizon_hours: number;
   inference_sla_seconds: number;
-  false_alarms_filtered_ratio: number;
+  false_alarms_filtered_ratio: number | null;
   total_saved_opex_rub: number;
   annual_projected_opex_rub: number;
+  financial_evidence_status?: string;
   tickets_count: number;
   critical_sensors_count: number;
   confirmed_false_alarms_count: number;
@@ -54,12 +55,18 @@ export interface PredictionItem {
   sensor_type: string;
   system_type: string;
   tag: string;
+  raw_model_score?: number;
+  calibrated_proxy_probability?: number | null;
+  is_calibrated?: boolean;
+  calibration_status?: string;
   failure_probability: number;
   risk_level: 'NORMAL' | 'ATTENTION' | 'WARNING' | 'CRITICAL';
   is_predicted_failure_24h: boolean;
+  is_proxy_alert_24_72h?: boolean;
   recommended_action: string;
   explanation_factors: string[];
   horizon_hours: number;
+  score_semantics?: string;
 }
 
 export interface PredictionListResponse {
@@ -77,12 +84,19 @@ export interface RealtimeScoreResult {
   object_name: string;
   picket: string;
   failure_probability: number;
+  raw_model_score?: number;
+  calibrated_proxy_probability?: number | null;
+  is_calibrated?: boolean;
+  calibration_status?: string;
+  risk_score?: number;
+  calibrated_probability?: number | null;
   risk_level: 'NORMAL' | 'ATTENTION' | 'WARNING' | 'CRITICAL';
   threshold_used: number;
   is_degradation_detected: boolean;
   top_factors: string[];
   recommended_action: string;
   inference_latency_ms: number;
+  score_semantics?: string;
 }
 
 export interface AlarmClassificationResponse {
@@ -173,4 +187,5 @@ export interface SimulationResult {
   ticket_created: boolean;
   ticket_id?: string;
   avoided_callout_rub: number;
+  scenario_potential_rub?: number;
 }

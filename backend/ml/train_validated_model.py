@@ -28,15 +28,9 @@ FAILURE_VALUES = {
 
 def is_failure_value(val_str: str, is_alarm: bool, sensor_type: str = "", tag: str = "") -> bool:
     """
-    Физически обоснованная разметка целевого события (предотказного состояния / критической аномалии).
-    Учитывает специфику датчиков СМВУ коллекторов:
-    1. Явные аппаратные неисправности и обрывы связи/питания.
-    2. Сброс аппаратных часов контроллера (RTC epoch 1970, перезагрузка/зависание).
-    3. Предельная загазованность метаном (CH4 >= 5.0% об., порог НКПР взрывоопасности).
-    4. Критический перегрев силовых и кабельных линий (температура >= 45°C) или аварийная разморозка (<= -10°C).
-    5. Выход аналоговых сигналов за допустимые диапазоны (out-of-bounds).
-    Обычные штатные сработки (открытие дверей, проход персонала, предупредительная концентрация метана 1.0%)
-    отсекаются и НЕ считаются отказом оборудования.
+    Rule-based telemetry-anomaly proxy label, not a confirmed equipment-failure label.
+    Rules include hardware/communication markers, RTC resets, and sensor-specific thresholds;
+    source rows do not include CMMS/1C maintenance confirmations.
     """
     v = str(val_str).strip().lower()
     st = str(sensor_type).lower()
@@ -80,6 +74,13 @@ def is_failure_value(val_str: str, is_alarm: bool, sensor_type: str = "", tag: s
         pass
 
     return False
+
+
+def beta_calibration_features(probabilities: np.ndarray) -> np.ndarray:
+    """Map probabilities to beta-calibration features with finite endpoint handling."""
+    probs = np.asarray(probabilities, dtype=float).reshape(-1)
+    probs = np.clip(probs, 1e-6, 1.0 - 1e-6)
+    return np.column_stack((np.log(probs), -np.log1p(-probs)))
 
 def run_leakage_free_pipeline():
     print("=" * 60)
@@ -411,6 +412,18 @@ def run_leakage_free_pipeline():
 
     # STRICT THRESHOLD SELECTION ON VALIDATION SET ONLY
     champ_val_probs = champ_lgbm.predict_proba(X_val)[:, 1]
+
+    # Fit beta calibration on validation predictions only. Test labels remain untouched
+    # until the independent evaluation below. Positive coefficients keep the map monotone.
+    beta_calibrator = LogisticRegression(C=1e6, solver="lbfgs", max_iter=2000)
+    beta_calibrator.fit(beta_calibration_features(champ_val_probs), y_val)
+    if np.any(beta_calibrator.coef_[0] < 0):
+        raise RuntimeError("Beta calibration is not monotone; refusing to save it")
+    print(
+        "Beta-калибратор обучен только на Validation: "
+        f"coef={beta_calibrator.coef_[0].round(4).tolist()}"
+    )
+
     best_threshold = 0.5
     best_val_f1 = -1.0
     val_prec_at_best, val_rec_at_best = 0.0, 0.0
@@ -506,16 +519,18 @@ def run_leakage_free_pipeline():
     # Save models
     os.makedirs('backend/models', exist_ok=True)
     joblib.dump(champ_lgbm, 'backend/models/champion_lgbm.joblib')
+    joblib.dump(beta_calibrator, 'backend/models/champion_calibrator_beta.joblib')
     joblib.dump(scaler, 'backend/models/feature_scaler.joblib')
     joblib.dump(lr_model, 'backend/models/logistic_regression.joblib')
     joblib.dump(rf_model, 'backend/models/random_forest.joblib')
 
     metrics_report = {
         "timestamp": datetime.now().isoformat(),
-        "methodology": "Strict 3-Way Temporal Split (Train -> Validation -> Test). No data leakage. Target defined strictly by future physical events in horizon 24-72h.",
+        "methodology": "Temporal Train/Validation/Test windows. The label is an algorithmic future telemetry-anomaly proxy, not a verified failure. Beta calibration is fitted only on validation predictions; test labels are used for final evaluation only.",
         "random_seed": 42,
         "prediction_horizon_hours": "24–72h",
         "threshold": round(best_threshold, 4),
+        "threshold_semantics": "raw_model_score; not a beta-calibrated probability cutoff",
         "validation_metrics": {
             "val_f1": round(best_val_f1, 4),
             "val_precision": round(val_prec_at_best, 4),
@@ -531,7 +546,7 @@ def run_leakage_free_pipeline():
                 "tp": int(tp), "fp": int(fp), "fn": int(fn), "tn": int(tn)
             }
         },
-        "target_definition": "Целевая переменная: физическое предотказное состояние / критическая аномалия телеметрии СМВУ в окне упреждения 24–72 часа (концентрация метана CH4 >= 5.0%, температура >= 45°C, сброс часов контроллера в 1970г, аппаратный обрыв/КЗ). В выданном организаторами датасете АО «Москоллектор» внешние акты аварийного ремонта CMMS/1С:ТОИР отсутствуют, поэтому разметка выполнена алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее. Метрики (PR-AUC 0.168–0.190, ROC-AUC 0.771–0.825) валидируют алгоритмическое выявление предаварийных состояний оборудования СМВУ (Lift до 11.7x над базовой частотой 1.51%). Расчетная экономия (42.2–56.9 млн ₽/год) является нормативной проектной оценкой по регламентам Р ТЭК (базовая аварийность 230–310 событий/мес на 825 км сети, предотвращение повторных ложных выездов АВР стоимостью 18 500 ₽ за счет планового ТО за 3 200 ₽ с дельтой 15 300 ₽), а не фактическим бухгалтерским отчетом за прошедший год.",
+        "target_definition": "Целевая метка — алгоритмический proxy аномалии телеметрии в окне 24–72 часа (в том числе сброс RTC, обрыв/КЗ и пороговые газовые/температурные события). В источнике нет подтверждающих актов CMMS/1С:ТОИР; пример сброса RTC при alarm_flag=false показывает, что часть positives является событием качества данных/часов, а не подтверждённым физическим отказом. Метрики оценивают только совпадение с этим proxy и не подтверждают предотвращённые аварии, надежность физического оборудования или экономию.",
         "active_threshold_evaluation_0_42": {
             "description": "Фактические воспроизводимые метрики моделей на отложенном тесте (11 485 каналов) при едином рабочем пороге ОДС tau = 0.42",
             "champion_lightgbm": {
@@ -574,7 +589,7 @@ def run_leakage_free_pipeline():
                     "recall": round(rec_42_lr, 4),
                     "f1": round(f1_42_lr, 4)
                 },
-                "mode_description": "High-Recall режим (максимальная чувствительность к предаварийным состояниям)"
+                "mode_description": "High-Recall режим относительно алгоритмических proxy-positive меток"
             },
             "random_forest": {
                 "precision": round(rf_prec, 4), "recall": round(rf_rec, 4), "f1": round(rf_f1, 4),
@@ -616,11 +631,11 @@ def run_leakage_free_pipeline():
         "feature_importance": sorted_fi,
         "sample_sizes": {
             "train_channels": len(X_train),
-            "train_failures": int(sum(y_train)),
+            "train_proxy_positives": int(sum(y_train)),
             "val_channels": len(X_val),
-            "val_failures": int(sum(y_val)),
+            "val_proxy_positives": int(sum(y_val)),
             "test_channels": len(X_test),
-            "test_failures": int(sum(y_test))
+            "test_proxy_positives": int(sum(y_test))
         }
     }
 

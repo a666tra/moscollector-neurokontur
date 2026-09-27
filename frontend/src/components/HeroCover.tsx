@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Activity, Compass, Cpu, ArrowRight, Zap, TrendingUp } from 'lucide-react';
+import { ShieldCheck, Activity, Compass, ArrowRight, Zap } from 'lucide-react';
 import { SystemStats } from '../types';
 
 interface HeroCoverProps {
@@ -29,7 +29,7 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
         <div className="flex items-center space-x-4">
           <span className="eng-badge badge-normal flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00FF66] animate-pulse"></span>
-            СМВУ Онлайн
+            ЛОКАЛЬНОЕ ДЕМО
           </span>
           <span className="eng-badge badge-cyan font-mono text-xs">
             ЛЦТ 2026 • КЕЙС #8
@@ -42,15 +42,15 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded border border-[#00FF66]/20 bg-[#00FF66]/5 text-[#00FF66] font-mono text-xs mb-6">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Интеллектуальная предиктивная система инженерной безопасности
+            Демонстрационный прототип анализа телеметрии
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.1] mb-6">
-            Предотвращаем аварии в подземном городе Москвы <span className="text-[#00FF66]">до их возникновения</span>
+            Ранжируем сигналы для проверки диспетчером
           </h1>
 
           <p className="text-lg text-[#8B949E] leading-relaxed mb-8 max-w-2xl">
-            Предиктивная аналитика деградации датчиков СМВУ, фильтрация до 80% ложных тревог и автоматическое формирование наряд-заказов ТО/ППР на 825 км коллекторных трасс.
+            Оценка каналов по proxy-разметке, тестовые сценарии фильтра и черновики заявок. Карта и статусы демонстрационные; подтверждённых ремонтов и действующих интеграций нет.
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -58,12 +58,12 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
               onClick={onEnter}
               className="px-6 py-3.5 bg-[#00FF66] hover:bg-[#00FF66]/90 text-black font-semibold text-sm rounded flex items-center gap-2 transition-all shadow-[0_0_24px_rgba(0,255,102,0.25)] hover:shadow-[0_0_32px_rgba(0,255,102,0.4)] cursor-pointer"
             >
-              <span>Открыть Ситуационный Центр ОДС</span>
+              <span>Открыть демонстрационный центр</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
             <div className="text-xs text-[#8B949E] font-mono flex items-center gap-2 pl-2">
-              <span className="text-white font-medium">Горизонт прогноза:</span> 24–72 часа • <span className="text-white font-medium">Скоринг сети:</span> 81 мс (SLA &lt; 300с)
+              <span className="text-white font-medium">Горизонт эксперимента:</span> 24–72 часа • <span className="text-white font-medium">Скоринг:</span> 62,86 мс на 11 485 каналов
             </div>
           </div>
         </div>
@@ -71,42 +71,42 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
         {/* 4 Key Metric Pillars */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 pt-12 border-t border-white/10">
           <div className="eng-panel p-5">
-            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Сеть коллекторов</div>
+            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Масштаб по ТЗ</div>
             <div className="text-2xl sm:text-3xl font-bold text-white font-mono">
               {stats?.monitored_km || 825} <span className="text-sm font-normal text-[#8B949E]">км</span>
             </div>
             <div className="text-xs text-[#00FF66] mt-2 flex items-center gap-1 font-mono">
-              <Compass className="w-3 h-3" /> 95 диспетчерских узлов
+              <Compass className="w-3 h-3" /> Контекст задачи, не охват пилота
             </div>
           </div>
 
           <div className="eng-panel p-5">
-            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Качество ML (Lift PR-AUC)</div>
+            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">LightGBM • test</div>
             <div className="text-2xl sm:text-3xl font-bold text-[#00FF66] font-mono">
-              11.4x
+              0,1679
             </div>
             <div className="text-xs text-[#8B949E] mt-2 font-mono">
-              PR-AUC 0.185 vs 0.0162 baseline • ROC 0.77–0.83
+              PR-AUC • ROC-AUC 0,7710 • proxy-метки
             </div>
           </div>
 
           <div className="eng-panel p-5">
-            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Фильтрация ложных тревог</div>
+            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Proxy-метки в test</div>
             <div className="text-2xl sm:text-3xl font-bold text-[#58A6FF] font-mono">
-              82.4%
+              174
             </div>
             <div className="text-xs text-[#8B949E] mt-2 font-mono flex items-center gap-1">
-              <Zap className="w-3 h-3 text-[#58A6FF]" /> Отсечение дребезга контактов
+              <Zap className="w-3 h-3 text-[#58A6FF]" /> Не подтверждённые ремонты
             </div>
           </div>
 
           <div className="eng-panel p-5">
-            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Экономия OPEX / год</div>
+            <div className="text-xs text-[#8B949E] uppercase tracking-wider mb-1 font-mono">Экономика</div>
             <div className="text-2xl sm:text-3xl font-bold text-[#FFB800] font-mono">
-              42.2 – 56.9 <span className="text-sm font-normal text-[#8B949E]">млн ₽</span>
+              СЦЕНАРИЙ
             </div>
             <div className="text-xs text-[#00FF66] mt-2 font-mono flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> Расчет по нормам Р ТЭК (15 300 ₽/выезд)
+              <Zap className="w-3 h-3" /> Вводные не подтверждены заказчиком
             </div>
           </div>
         </div>
@@ -115,15 +115,11 @@ export const HeroCover: React.FC<HeroCoverProps> = ({ stats, onEnter }) => {
       {/* Footer / Regulations */}
       <footer className="flex flex-col sm:flex-row justify-between items-center text-xs text-[#8B949E] border-t border-white/5 pt-6 gap-2">
         <div className="flex items-center gap-4">
-          <span>Соответствие стандартам:</span>
-          <span className="text-white">152-ФЗ РФ</span>
-          <span>•</span>
-          <span className="text-white">149-ФЗ РФ</span>
-          <span>•</span>
-          <span className="text-white">Р ТЭК (Регламент эксплуатации)</span>
+          <span>Статус:</span>
+          <span className="text-white">локальный прототип</span>
         </div>
         <div className="font-mono text-[11px]">
-          Версия 1.0.0 (Release Candidate) • Команда Vector
+          SCADA / CMMS не подключены
         </div>
       </footer>
     </div>

@@ -1,8 +1,13 @@
 {
-  "timestamp": "2026-09-25T23:28:33.228107",
-  "methodology": "Strict 3-Way Temporal Split (Train -> Validation -> Test). No data leakage. Target defined strictly by future physical events in horizon 24-72h.",
+  "timestamp": "2026-09-27T16:46:37.015095",
+  "feature_cache_sha256": "65871b3b0f57eb1814b9a5245d8e67db459b7d121ebd8accbb4bb57c455aaa33",
+  "reproduction_command": "python scripts/reproduce_metrics.py",
+  "methodology": "Temporal Train/Validation/Test windows. Features precede their target windows; labels are algorithmic telemetry-anomaly proxies. Beta calibration is fitted on validation predictions only. Test labels are used for final evaluation only and are never used to fit or select calibration parameters.",
   "random_seed": 42,
   "prediction_horizon_hours": "24–72h",
+  "threshold_semantics": "Reported classification thresholds are applied to raw LightGBM scores; they are not probability cutoffs on the beta-calibrated output.",
+  "limitations_disclaimer": "Целевые метки — алгоритмические proxy аномалии телеметрии, найденные в будущем окне 24–72 часа; в источнике нет актов CMMS/1С:ТОИР, подтверждающих отказы или ремонты. Proxy включает сбросы RTC и другие события качества данных: в аудиторском примере RTC=1970 с alarm_flag=false помечен как positive. Поэтому все приведённые метрики относятся только к совпадению с алгоритмической proxy-разметкой и не являются оценкой вероятности физической аварии, предотвращённых ремонтов или бухгалтерской экономии. Интервалы по долям каналов предполагают независимые каналы; дополнительно показан bootstrap по object_id, но малое число кластеров оставляет широкую неопределённость.",
+  "target_definition": "Целевая метка — алгоритмический proxy аномалии телеметрии в будущем окне 24–72 часа (пороговые газовые/температурные события, RTC=1970, аппаратный обрыв/КЗ и маркеры качества данных). Внешние акты CMMS/1С:ТОИР не предоставлены; sample case содержит RTC=1970 при alarm_flag=false, что является событием времени/качества данных, а не подтвержденным физическим отказом. PR-AUC, ROC-AUC и калибровочные оценки описывают только прогноз этой proxy-разметки; они не подтверждают вероятность аварии, эффективность ремонта или экономию.",
   "threshold": 0.845,
   "validation_metrics": {
     "val_f1": 0.2655,
@@ -22,7 +27,6 @@
       "tn": 11202
     }
   },
-  "target_definition": "Целевая переменная: физическое предотказное состояние / критическая аномалия телеметрии СМВУ в окне упреждения 24–72 часа (концентрация метана CH4 >= 5.0%, температура >= 45°C, сброс часов контроллера в 1970г, аппаратный обрыв/КЗ). В выданном организаторами датасете АО «Москоллектор» внешние акты аварийного ремонта CMMS/1С:ТОИР отсутствуют, поэтому разметка выполнена алгоритмически по будущему окну телеметрии как расчетный прокси-таргет без заглядывания в будущее. Метрики (PR-AUC 0.168–0.190, ROC-AUC 0.771–0.825) валидируют алгоритмическое выявление предаварийных состояний оборудования СМВУ (Lift до 11.7x над базовой частотой 1.51%). Расчетная экономия (42.2–56.9 млн ₽/год) является нормативной проектной оценкой по регламентам Р ТЭК (базовая аварийность 230–310 событий/мес на 825 км сети, предотвращение повторных ложных выездов АВР стоимостью 18 500 ₽ за счет планового ТО за 3 200 ₽ с дельтой 15 300 ₽), а не фактическим бухгалтерским отчетом за прошедший год.",
   "active_threshold_evaluation_0_42": {
     "description": "Фактические воспроизводимые метрики моделей на отложенном тесте (11 485 каналов) при едином рабочем пороге ОДС tau = 0.42",
     "champion_lightgbm": {
@@ -62,6 +66,22 @@
       }
     }
   },
+  "calibrated_threshold_evaluation_0_845": {
+    "description": "Метрики Champion LightGBM при пороге raw score tau = 0.845, выбранном на validation; это не порог calibrated probability.",
+    "threshold_semantics": "raw_model_score",
+    "champion_lightgbm": {
+      "threshold": 0.845,
+      "precision": 0.2324,
+      "recall": 0.1897,
+      "f1": 0.2089,
+      "confusion_matrix": {
+        "tp": 33,
+        "fp": 109,
+        "fn": 141,
+        "tn": 11202
+      }
+    }
+  },
   "model_comparison": {
     "zero_rule": {
       "precision": 0.0,
@@ -83,7 +103,7 @@
         "recall": 0.7989,
         "f1": 0.0588
       },
-      "mode_description": "High-Recall режим (максимальная чувствительность к предаварийным состояниям)"
+      "mode_description": "High-Recall режим относительно алгоритмических proxy-positive меток"
     },
     "random_forest": {
       "precision": 0.45,
@@ -98,7 +118,7 @@
         "recall": 0.2701,
         "f1": 0.1033
       },
-      "mode_description": "High-Precision режим (минимизация ложных выездов при жестком лимите бригад)"
+      "mode_description": "High-Precision режим относительно алгоритмических proxy-positive меток"
     },
     "champion_lightgbm": {
       "precision": 0.2324,
@@ -115,7 +135,7 @@
         "f1": 0.1306
       },
       "is_champion": true,
-      "mode_description": "Champion GBDT (штатная сбалансированная промышленная модель комплекса)"
+      "mode_description": "Champion LightGBM, оцененный относительно алгоритмических proxy-positive меток"
     }
   },
   "performance_benchmark": {
@@ -151,13 +171,334 @@
     "temp_spikes": 0,
     "obj_level": 0
   },
+  "calibration_metrics": {
+    "description": "Оценка калибровки алгоритмической proxy-метки на отложенном тесте. Brier/ECE дополнены доверительными интервалами для узких risk cohorts.",
+    "calibrator_artifact": "backend/models/champion_calibrator_beta.joblib",
+    "brier_score_baseline": 0.01496,
+    "brier_score_prevalence_baseline": 0.01496,
+    "baseline_prevalence_source": "validation split",
+    "validation_prevalence": 0.00914,
+    "test_prevalence_descriptive_only": 0.01515,
+    "ece_prevalence_baseline": 0.00601,
+    "champion_lightgbm": {
+      "brier_score": 0.01381,
+      "brier_score_raw": 0.04508,
+      "expected_calibration_error_ece": 0.00829,
+      "expected_calibration_error_ece_raw": 0.06816,
+      "brier_score_legacy_platt": 0.01451,
+      "expected_calibration_error_ece_legacy_platt": 0.00709,
+      "brier_vs_validation_prevalence_baseline": "better",
+      "calibration_method": "Beta calibration: LogisticRegression on [log(p), -log(1-p)], fit only on (X_val, y_val)",
+      "ranking_preserved": true,
+      "pr_auc": 0.1679,
+      "roc_auc": 0.771,
+      "log_loss": 0.072443,
+      "reliability_status": "На untouched test beta снижает Brier относительно старого Platt и baseline по prevalence validation; ECE10 немного выше старого Platt. Top-K/cohort результаты и интервалы приведены отдельно; метрики относятся только к proxy-метке."
+    },
+    "validation_oof_crossfit": {
+      "folds": 5,
+      "splitter": "StratifiedKFold(shuffle=True, random_state=43)",
+      "channels": 11485,
+      "proxy_positives": 105,
+      "selection_note": "Beta was preselected from validation-only out-of-fold results: it has fewer calibration parameters than isotonic, lower OOF Brier/log-loss than Platt, and its OOF top-100 mean tracks the observed rate. Test labels were not used to fit or tune it.",
+      "top_100_raw_ranked": {
+        "channels": 100,
+        "proxy_positives": 29
+      },
+      "platt": {
+        "brier_score_oof": 0.008639,
+        "log_loss_oof": 0.046857,
+        "ece_10_oof": 0.00285,
+        "top_100_mean_probability_oof": 0.12629
+      },
+      "beta": {
+        "brier_score_oof": 0.007771,
+        "log_loss_oof": 0.043185,
+        "ece_10_oof": 0.0009,
+        "top_100_mean_probability_oof": 0.30011
+      }
+    },
+    "calibration_bins_test": [
+      {
+        "lower_probability": 0.0,
+        "upper_probability": 0.1,
+        "channels": 11377,
+        "proxy_positives": 144,
+        "mean_predicted_probability": 0.00584,
+        "observed_proxy_rate": 0.01266,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.01076,
+          "upper": 0.01488
+        }
+      },
+      {
+        "lower_probability": 0.1,
+        "upper_probability": 0.2,
+        "channels": 7,
+        "proxy_positives": 1,
+        "mean_predicted_probability": 0.15271,
+        "observed_proxy_rate": 0.14286,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.02568,
+          "upper": 0.51313
+        }
+      },
+      {
+        "lower_probability": 0.2,
+        "upper_probability": 0.3,
+        "channels": 56,
+        "proxy_positives": 4,
+        "mean_predicted_probability": 0.28808,
+        "observed_proxy_rate": 0.07143,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.02813,
+          "upper": 0.16975
+        }
+      },
+      {
+        "lower_probability": 0.3,
+        "upper_probability": 0.4,
+        "channels": 29,
+        "proxy_positives": 10,
+        "mean_predicted_probability": 0.32167,
+        "observed_proxy_rate": 0.34483,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.19941,
+          "upper": 0.52655
+        }
+      },
+      {
+        "lower_probability": 0.5,
+        "upper_probability": 0.6,
+        "channels": 5,
+        "proxy_positives": 5,
+        "mean_predicted_probability": 0.52032,
+        "observed_proxy_rate": 1.0,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.56552,
+          "upper": 1.0
+        }
+      },
+      {
+        "lower_probability": 0.6,
+        "upper_probability": 0.7,
+        "channels": 6,
+        "proxy_positives": 5,
+        "mean_predicted_probability": 0.68626,
+        "observed_proxy_rate": 0.83333,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.4365,
+          "upper": 0.96995
+        }
+      },
+      {
+        "lower_probability": 0.7,
+        "upper_probability": 0.8,
+        "channels": 5,
+        "proxy_positives": 5,
+        "mean_predicted_probability": 0.70471,
+        "observed_proxy_rate": 1.0,
+        "observed_rate_wilson_95_ci": {
+          "lower": 0.56552,
+          "upper": 1.0
+        }
+      }
+    ],
+    "logistic_regression": {
+      "brier_score": 0.19442,
+      "expected_calibration_error_ece": 0.3674,
+      "reliability_status": "Склонность к завышению хвостов из-за class_weight='balanced' (ECE ~0.367, Brier 0.19442)"
+    },
+    "random_forest": {
+      "brier_score": 0.05681,
+      "expected_calibration_error_ece": 0.15106,
+      "reliability_status": "Некалибрована (ECE ~0.151, Brier 0.05681)"
+    }
+  },
+  "subsystem_error_breakdown": {
+    "description": "Разбивка целевых событий и матрицы ошибок LightGBM по инженерным подсистемам на тестовой выборке строго по sensors_ref.json",
+    "operating_threshold": 0.42,
+    "operating_threshold_semantics": "raw_model_score",
+    "confusion_matrix": {
+      "tp": 55,
+      "fp": 613,
+      "fn": 119,
+      "tn": 10698
+    },
+    "subsystems": {
+      "Водоотлив": {
+        "subsystem_name": "Водоотлив",
+        "channels_count": 205,
+        "target_events": 43,
+        "tp": 9,
+        "fp": 62,
+        "fn": 34,
+        "tn": 100,
+        "precision": 0.1268,
+        "recall": 0.2093
+      },
+      "Газовый контроль": {
+        "subsystem_name": "Газовый контроль",
+        "channels_count": 529,
+        "target_events": 7,
+        "tp": 0,
+        "fp": 0,
+        "fn": 7,
+        "tn": 522,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "Охранный периметр": {
+        "subsystem_name": "Охранный периметр",
+        "channels_count": 2258,
+        "target_events": 22,
+        "tp": 16,
+        "fp": 19,
+        "fn": 6,
+        "tn": 2217,
+        "precision": 0.4571,
+        "recall": 0.7273
+      },
+      "Пожарная сигнализация": {
+        "subsystem_name": "Пожарная сигнализация",
+        "channels_count": 5701,
+        "target_events": 15,
+        "tp": 0,
+        "fp": 406,
+        "fn": 15,
+        "tn": 5280,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "Температура": {
+        "subsystem_name": "Температура",
+        "channels_count": 600,
+        "target_events": 1,
+        "tp": 0,
+        "fp": 17,
+        "fn": 1,
+        "tn": 582,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "Электроснабжение": {
+        "subsystem_name": "Электроснабжение",
+        "channels_count": 1037,
+        "target_events": 27,
+        "tp": 9,
+        "fp": 92,
+        "fn": 18,
+        "tn": 918,
+        "precision": 0.0891,
+        "recall": 0.3333
+      },
+      "Прочие": {
+        "subsystem_name": "Прочие",
+        "channels_count": 1155,
+        "target_events": 59,
+        "tp": 21,
+        "fp": 17,
+        "fn": 38,
+        "tn": 1079,
+        "precision": 0.5526,
+        "recall": 0.3559
+      }
+    },
+    "calibrated_threshold": 0.845,
+    "calibrated_threshold_semantics": "raw_model_score",
+    "confusion_matrix_at_0_845": {
+      "tp": 33,
+      "fp": 109,
+      "fn": 141,
+      "tn": 11202
+    },
+    "subsystems_at_0_845": {
+      "Водоотлив": {
+        "subsystem_name": "Водоотлив",
+        "channels_count": 205,
+        "target_events": 43,
+        "tp": 5,
+        "fp": 5,
+        "fn": 38,
+        "tn": 157,
+        "precision": 0.5,
+        "recall": 0.1163
+      },
+      "Газовый контроль": {
+        "subsystem_name": "Газовый контроль",
+        "channels_count": 529,
+        "target_events": 7,
+        "tp": 0,
+        "fp": 0,
+        "fn": 7,
+        "tn": 522,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "Охранный периметр": {
+        "subsystem_name": "Охранный периметр",
+        "channels_count": 2258,
+        "target_events": 22,
+        "tp": 15,
+        "fp": 9,
+        "fn": 7,
+        "tn": 2227,
+        "precision": 0.625,
+        "recall": 0.6818
+      },
+      "Пожарная сигнализация": {
+        "subsystem_name": "Пожарная сигнализация",
+        "channels_count": 5701,
+        "target_events": 15,
+        "tp": 0,
+        "fp": 34,
+        "fn": 15,
+        "tn": 5652,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "Температура": {
+        "subsystem_name": "Температура",
+        "channels_count": 600,
+        "target_events": 1,
+        "tp": 0,
+        "fp": 4,
+        "fn": 1,
+        "tn": 595,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "Электроснабжение": {
+        "subsystem_name": "Электроснабжение",
+        "channels_count": 1037,
+        "target_events": 27,
+        "tp": 4,
+        "fp": 44,
+        "fn": 23,
+        "tn": 966,
+        "precision": 0.0833,
+        "recall": 0.1481
+      },
+      "Прочие": {
+        "subsystem_name": "Прочие",
+        "channels_count": 1155,
+        "target_events": 59,
+        "tp": 9,
+        "fp": 13,
+        "fn": 50,
+        "tn": 1083,
+        "precision": 0.4091,
+        "recall": 0.1525
+      }
+    }
+  },
   "sample_sizes": {
     "train_channels": 11485,
-    "train_failures": 120,
+    "train_proxy_positives": 120,
     "val_channels": 11485,
-    "val_failures": 105,
+    "val_proxy_positives": 105,
     "test_channels": 11485,
-    "test_failures": 174
+    "test_proxy_positives": 174
   },
   "http_load_benchmark": {
     "benchmark_timestamp": "2026-09-25 12:00:50",
@@ -174,5 +515,117 @@
     "latency_p95_ms": 252.44,
     "tz_sla_target_ms": 300000.0,
     "compliance_sla": "100% compliant (< 300s SLA, mean latency 194.36ms, P50 181.94ms, P95 321.31ms)"
+  },
+  "dataset_provenance": {
+    "evidence_type": "algorithmic_telemetry_proxy",
+    "source_journal": "dataset/extracted/ext-journal-2026.csv",
+    "source_journal_sha256": "3ecdc8fcc5b08c8238fa74fadb35e9b6439bce3f2f8fe8697da5e483aae55880",
+    "source_journal_bytes": 1497523553,
+    "source_csv_committed": false,
+    "source_rows_scanned": 7000000,
+    "source_row_limit": 7000000,
+    "prediction_cutoff": "2026-01-28 00:00:00",
+    "target_window_start": "2026-01-29 00:00:00",
+    "target_window_end_inclusive": "2026-01-31 00:00:00",
+    "dataset_channels_total": 11485,
+    "proxy_positive_channels": 174,
+    "source_hash_verification": "recorded in reconciliation_ground_truth.json; raw CSV is not rehashed by this reproduction run",
+    "label_semantics": "algorithmic_telemetry_anomaly_proxy_not_verified_failure"
+  },
+  "reproducibility_tier": "Tier 2: воспроизводимость от кэша признаков (extracted_features_cache.npz, SHA-256: 65871b3b0f57eb1814b9a5245d8e67db459b7d121ebd8accbb4bb57c455aaa33). Все вычисления выполняются локально без обращения к сети.",
+  "high_risk_and_top_k_calibration": {
+    "description": "Test-диагностика калибровки алгоритмической proxy-метки в high-risk и raw-score Top-K когортах.",
+    "uncertainty_method": "Wilson 95% CI assumes iid channels; object_id cluster bootstrap is conditional on the selected cohort and remains wide when clusters are few.",
+    "calibration_method": "beta",
+    "high_risk_cohort_raw_ge_0_42": {
+      "n_channels": 668,
+      "proxy_positive_events": 55,
+      "empirical_prevalence": 0.0823,
+      "empirical_rate_wilson_95_ci": {
+        "lower": 0.0638,
+        "upper": 0.10565
+      },
+      "empirical_rate_object_cluster_bootstrap_95_ci": {
+        "lower": 0.03926,
+        "upper": 0.16319
+      },
+      "mean_raw_score": 0.6684,
+      "mean_calibrated_probability": 0.0711,
+      "mean_legacy_platt_probability": 0.0478,
+      "brier_score_raw": 0.42799,
+      "brier_score_calibrated": 0.06101,
+      "brier_improvement_ratio": 7.02
+    },
+    "top_k_channels": {
+      "top_100": {
+        "k": 100,
+        "positives": 29,
+        "empirical_rate": 0.29,
+        "empirical_rate_wilson_95_ci": {
+          "lower": 0.21015,
+          "upper": 0.38539
+        },
+        "empirical_rate_object_cluster_bootstrap_95_ci": {
+          "lower": 0.11765,
+          "upper": 0.57522
+        },
+        "object_clusters": 28,
+        "lift_vs_baseline": 19.14,
+        "mean_raw_score": 0.9899,
+        "mean_calibrated_proxy_probability": 0.3549,
+        "mean_legacy_platt_probability": 0.1115,
+        "calibration_gap_percentage_points": 6.49,
+        "calibrated_mean_inside_wilson_interval": true,
+        "calibrated_mean_inside_object_cluster_interval": true
+      },
+      "top_200": {
+        "k": 200,
+        "positives": 35,
+        "empirical_rate": 0.175,
+        "empirical_rate_wilson_95_ci": {
+          "lower": 0.12861,
+          "upper": 0.23364
+        },
+        "empirical_rate_object_cluster_bootstrap_95_ci": {
+          "lower": 0.08212,
+          "upper": 0.32739
+        },
+        "object_clusters": 49,
+        "lift_vs_baseline": 11.55,
+        "mean_raw_score": 0.9003,
+        "mean_calibrated_proxy_probability": 0.2016,
+        "mean_legacy_platt_probability": 0.0896,
+        "calibration_gap_percentage_points": 2.66,
+        "calibrated_mean_inside_wilson_interval": true,
+        "calibrated_mean_inside_object_cluster_interval": true
+      },
+      "top_500": {
+        "k": 500,
+        "positives": 35,
+        "empirical_rate": 0.07,
+        "empirical_rate_wilson_95_ci": {
+          "lower": 0.05076,
+          "upper": 0.0958
+        },
+        "empirical_rate_object_cluster_bootstrap_95_ci": {
+          "lower": 0.03023,
+          "upper": 0.1509
+        },
+        "object_clusters": 53,
+        "lift_vs_baseline": 4.62,
+        "mean_raw_score": 0.7148,
+        "mean_calibrated_proxy_probability": 0.0902,
+        "mean_legacy_platt_probability": 0.055,
+        "calibration_gap_percentage_points": 2.02,
+        "calibrated_mean_inside_wilson_interval": true,
+        "calibrated_mean_inside_object_cluster_interval": true
+      }
+    },
+    "brier_delta_analysis": {
+      "brier_baseline": 0.01496,
+      "brier_calibrated": 0.01381,
+      "delta_brier_absolute": 0.00115,
+      "honest_assessment": "На untouched test Brier beta=0.01381 против legacy Platt=0.01451 и baseline по prevalence validation=0.01496. ECE10 beta=0.00829 против legacy Platt=0.00709; он немного хуже. Top-100: observed=0.2900, beta mean=0.3549, legacy Platt mean=0.1115. Интервалы для выбранных когорт условны и не доказывают калибровку для новых периодов. Все результаты относятся только к алгоритмической proxy-метке."
+    }
   }
 }

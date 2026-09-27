@@ -18,12 +18,13 @@ def get_system_stats():
     thresh = cfg.decision_threshold
     critical_cnt = sum(1 for p in data_service.predictions if p["failure_probability"] >= 0.70)
     
-    # 1. Direct saved OPEX from confirmed dispatcher actions and created tickets
+    # Local demo decisions and drafts do not prove that an actual callout was avoided.
+    # Keep the historical numeric field for clients, but label it scenario-only in the response schema.
     confirmed_alarm_savings = ml_service.get_confirmed_saved_opex()
     ticket_savings = sum(t.get("saved_opex_rub", 0.0) for t in maintenance_service.tickets)
     direct_total = confirmed_alarm_savings + ticket_savings
 
-    # 2. Нормативный расчет годового экономического эффекта OPEX по методике Р ТЭК
+    # 2. Сценарный расчёт годового потенциала OPEX; ставки и число событий не подтверждены заказчиком.
     # Базовый сценарий: 95 участков * ~2.84 инцидента/мес = 270 инцидентов/мес (диапазон 230–310)
     # Чистая удельная экономия = (Выезд АВР 18 500 ₽) - (Плановое ТО 3 200 ₽) = 15 300 ₽
     c_callout = cfg.callout_cost_rub
@@ -43,9 +44,10 @@ def get_system_stats():
         model_roc_auc=test_metrics.get("roc_auc", 0.7710),
         prediction_horizon_hours=48,
         inference_sla_seconds=300,
-        false_alarms_filtered_ratio=0.824,
+        false_alarms_filtered_ratio=None,
         total_saved_opex_rub=round(direct_total, 2),
         annual_projected_opex_rub=round(annual_projected, 2),
+        financial_evidence_status="SCENARIO_ONLY_NO_VERIFIED_SAVINGS",
         tickets_count=len(maintenance_service.tickets),
         critical_sensors_count=critical_cnt,
         confirmed_false_alarms_count=len(ml_service.confirmed_alarms),

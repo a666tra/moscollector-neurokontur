@@ -1,7 +1,11 @@
 # Git ignore for Москоллектор.НейроКонтур
 
 # Heavy raw datasets and exports
-dataset/
+dataset/extracted/
+dataset/dataset/
+dataset/*.zip
+dataset/*.7z
+dataset/*.tar.gz
 tz_pages/
 ChatExport*/
 chat_parsed.txt
@@ -20,6 +24,9 @@ venv/
 .venv/
 .pytest_cache/
 
+# Local authentication registry; provisioned per installation and never committed.
+/backend/data/authorized_dispatchers.json
+
 # Node / Frontend
 node_modules/
 frontend/node_modules/
@@ -30,5 +37,10 @@ frontend/node_modules/
 .DS_Store
 Thumbs.db
 .vscode/
-.idea/
 *.log
+release/
+presentation/slides_png/
+presentation/audit_renders/
+*.bak
+presentation_dump*.txt
+.codex-deck-edit/
