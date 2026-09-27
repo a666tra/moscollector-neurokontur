@@ -84,8 +84,12 @@ export const MetricsView: React.FC = () => {
   const calib = report.calibration_metrics;
   const highRisk = report.high_risk_and_top_k_calibration?.high_risk_cohort_raw_ge_0_42;
   const topK = report.high_risk_and_top_k_calibration?.top_k_channels;
-  const testPositives = testSamples?.test_proxy_positives ?? testSamples?.test_failures ?? 174;
-  const testChannels = testSamples?.test_channels ?? 11485;
+  const testPositives: number = Number(testSamples?.test_proxy_positives ?? testSamples?.test_failures ?? NaN);
+  const testChannels: number = Number(testSamples?.test_channels ?? NaN);
+  const count = (value: number) => Number.isFinite(value) ? value.toLocaleString('ru-RU') : '—';
+  const ratio = (a: unknown, b: unknown) => typeof a === 'number' && typeof b === 'number' && Number.isFinite(a) && Number.isFinite(b) && b > 0
+    ? `${(a / b).toFixed(1)}x` : '—';
+  const topKRows = [100, 200, 500].map(k => ({ k, row: topK?.[`top_${k}`] }));
   const pct = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
     ? `${(value * 100).toFixed(1)}%` : '—';
   const metric = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
@@ -148,9 +152,9 @@ export const MetricsView: React.FC = () => {
           Признаки формируются до контрольного момента; методику временного разделения и её ограничения можно проверить в отчёте.
         </p>
         <div className="text-[11px] text-[#00FF66] flex items-center gap-3 pt-1 border-t border-white/5">
-          <span>Тестовый срез: {testChannels.toLocaleString('ru-RU')} каналов</span>
+          <span>Тестовый срез: {count(testChannels)} каналов</span>
           <span>•</span>
-          <span>Каналов с proxy-меткой в тесте: <strong className="text-white">{testPositives}</strong> ({(100 * testPositives / testChannels).toFixed(2)}%)</span>
+          <span>Каналов с proxy-меткой в тесте: <strong className="text-white">{testPositives}</strong> ({Number.isFinite(testPositives / testChannels) ? (100 * testPositives / testChannels).toFixed(2) : '—'}%)</span>
           <span>•</span>
           <span>Порог классификации: <code className="text-white">tau = {report.threshold}</code></span>
         </div>
@@ -164,7 +168,7 @@ export const MetricsView: React.FC = () => {
             Сравнение моделей на независимом тестовом срезе (Held-out Test)
           </span>
           <span className="text-[#8B949E]">
-            {testChannels.toLocaleString('ru-RU')} каналов • {testPositives} proxy-меток по телеметрии (окно 24–72ч)
+            {count(testChannels)} каналов • {testPositives} proxy-меток по телеметрии (окно 24–72ч)
           </span>
         </div>
 
@@ -233,7 +237,7 @@ export const MetricsView: React.FC = () => {
             </h3>
           </div>
           <span className="text-[11px] text-[#00FF66] font-mono">
-            Brier Score: {metric(calib?.champion_lightgbm?.brier_score ?? 0.01381)} &lt; Baseline {metric(calib?.brier_score_baseline ?? 0.01496)}
+            Brier Score: {metric(calib?.champion_lightgbm?.brier_score)} &lt; Baseline {metric(calib?.brier_score_baseline)}
           </span>
         </div>
 
@@ -242,40 +246,40 @@ export const MetricsView: React.FC = () => {
           <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
             <div className="text-[11px] text-[#8B949E]">Brier Score (Beta Champion):</div>
             <div className="text-2xl font-bold text-[#00FF66] mt-1">
-              {metric(calib?.champion_lightgbm?.brier_score ?? 0.01381)}
+              {metric(calib?.champion_lightgbm?.brier_score)}
             </div>
             <div className="text-[10px] text-[#8B949E] mt-1">
-              Baseline: {metric(calib?.brier_score_baseline ?? 0.01496)} • Platt: {metric(calib?.champion_lightgbm?.brier_score_legacy_platt ?? 0.01451)}
+              Baseline: {metric(calib?.brier_score_baseline)} • Platt: {metric(calib?.champion_lightgbm?.brier_score_legacy_platt)}
             </div>
           </div>
 
           <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
             <div className="text-[11px] text-[#8B949E]">ECE (10 бинов, Beta):</div>
             <div className="text-2xl font-bold text-white mt-1">
-              {metric(calib?.champion_lightgbm?.expected_calibration_error_ece ?? 0.00829)}
+              {metric(calib?.champion_lightgbm?.expected_calibration_error_ece)}
             </div>
             <div className="text-[10px] text-[#00FF66] mt-1">
-              Снижение ошибки калибровки в 8.2x (raw ECE: {metric(calib?.champion_lightgbm?.expected_calibration_error_ece_raw ?? 0.06816)})
+              Снижение ошибки калибровки в {ratio(calib?.champion_lightgbm?.expected_calibration_error_ece_raw, calib?.champion_lightgbm?.expected_calibration_error_ece)} (raw ECE: {metric(calib?.champion_lightgbm?.expected_calibration_error_ece_raw)})
             </div>
           </div>
 
           <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
             <div className="text-[11px] text-[#8B949E]">Когорта высокого риска (raw &ge; 0.42):</div>
             <div className="text-2xl font-bold text-[#58A6FF] mt-1">
-              {metric(highRisk?.brier_score_calibrated ?? 0.06101)} <span className="text-xs font-normal text-[#8B949E]">Brier</span>
+              {metric(highRisk?.brier_score_calibrated)} <span className="text-xs font-normal text-[#8B949E]">Brier</span>
             </div>
             <div className="text-[10px] text-[#58A6FF] mt-1">
-              Улучшение в 7.02x с сырого {metric(highRisk?.brier_score_raw ?? 0.42799)} (N={highRisk?.n_channels ?? 668})
+              Улучшение в {ratio(highRisk?.brier_score_raw, highRisk?.brier_score_calibrated)} с сырого {metric(highRisk?.brier_score_raw)} (N={highRisk?.n_channels ?? '—'})
             </div>
           </div>
 
           <div className="bg-[#07090E] p-3 rounded border border-white/5 font-mono">
             <div className="text-[11px] text-[#8B949E]">Top-100 каналов (Lift & Точность):</div>
             <div className="text-2xl font-bold text-[#FFB800] mt-1">
-              {topK?.top_100 ? `${(topK.top_100.precision * 100).toFixed(1)}%` : '29.0%'}
+              {pct(topK?.top_100?.empirical_rate)}
             </div>
             <div className="text-[10px] text-[#FFB800] mt-1">
-              Lift {topK?.top_100?.lift_vs_test_prevalence ?? 19.14}x относительно базы (29 из 100)
+              Lift {topK?.top_100?.lift_vs_baseline ?? '—'}x относительно базы ({topK?.top_100?.positives ?? '—'} из 100)
             </div>
           </div>
         </div>
@@ -295,33 +299,17 @@ export const MetricsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-[11px]">
-              <tr className="hover:bg-white/5">
-                <td className="p-2.5 text-white font-medium">Top-100 каналов</td>
-                <td className="p-2.5 text-[#8B949E]">100</td>
-                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_100?.proxy_positives ?? 29}</td>
-                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_100 ? `${(topK.top_100.precision * 100).toFixed(1)}%` : '29.0%'}</td>
-                <td className="p-2.5 text-[#FFB800] font-bold">{topK?.top_100?.lift_vs_test_prevalence ?? 19.14}x</td>
-                <td className="p-2.5 text-[#8B949E]">{metric(topK?.top_100?.mean_raw_score ?? 0.9899)}</td>
-                <td className="p-2.5 text-[#58A6FF]">{metric(topK?.top_100?.mean_calibrated_probability ?? 0.3549)}</td>
-              </tr>
-              <tr className="hover:bg-white/5">
-                <td className="p-2.5 text-white font-medium">Top-200 каналов</td>
-                <td className="p-2.5 text-[#8B949E]">200</td>
-                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_200?.proxy_positives ?? 35}</td>
-                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_200 ? `${(topK.top_200.precision * 100).toFixed(1)}%` : '17.5%'}</td>
-                <td className="p-2.5 text-[#FFB800] font-bold">{topK?.top_200?.lift_vs_test_prevalence ?? 11.55}x</td>
-                <td className="p-2.5 text-[#8B949E]">{metric(topK?.top_200?.mean_raw_score ?? 0.9003)}</td>
-                <td className="p-2.5 text-[#58A6FF]">{metric(topK?.top_200?.mean_calibrated_probability ?? 0.2016)}</td>
-              </tr>
-              <tr className="hover:bg-white/5">
-                <td className="p-2.5 text-white font-medium">Top-500 каналов</td>
-                <td className="p-2.5 text-[#8B949E]">500</td>
-                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_500?.proxy_positives ?? 35}</td>
-                <td className="p-2.5 text-[#00FF66] font-bold">{topK?.top_500 ? `${(topK.top_500.precision * 100).toFixed(1)}%` : '7.0%'}</td>
-                <td className="p-2.5 text-[#FFB800] font-bold">{topK?.top_500?.lift_vs_test_prevalence ?? 4.62}x</td>
-                <td className="p-2.5 text-[#8B949E]">{metric(topK?.top_500?.mean_raw_score ?? 0.7148)}</td>
-                <td className="p-2.5 text-[#58A6FF]">{metric(topK?.top_500?.mean_calibrated_probability ?? 0.0902)}</td>
-              </tr>
+              {topKRows.map(({ k, row }) => (
+                <tr key={k} className="hover:bg-white/5">
+                  <td className="p-2.5 text-white font-medium">Top-{k} каналов</td>
+                  <td className="p-2.5 text-[#8B949E]">{row?.k ?? k}</td>
+                  <td className="p-2.5 text-[#00FF66] font-bold">{row?.positives ?? '—'}</td>
+                  <td className="p-2.5 text-[#00FF66] font-bold">{pct(row?.empirical_rate)}</td>
+                  <td className="p-2.5 text-[#FFB800] font-bold">{typeof row?.lift_vs_baseline === 'number' ? `${row.lift_vs_baseline}x` : '—'}</td>
+                  <td className="p-2.5 text-[#8B949E]">{metric(row?.mean_raw_score)}</td>
+                  <td className="p-2.5 text-[#58A6FF]">{metric(row?.mean_calibrated_proxy_probability)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

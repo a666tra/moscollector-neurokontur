@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 import numpy as np
 import joblib
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from sklearn.metrics import (
     precision_score, recall_score, f1_score, roc_auc_score,
     average_precision_score, confusion_matrix
@@ -19,61 +21,8 @@ import lightgbm as lgb
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-FAILURE_VALUES = {
-    'неисправен', 'отключено устройство', 'много неисправных устройств',
-    '01.01.1970 03:00:00', '01.01.1970 03:00:01', 'обрыв датчика',
-    'короткое замыкание', 'ошибка связи', 'нет ответа', 'сбой питания',
-    'обрыв цепи', 'ошибка оборудования', 'нет данных'
-}
-
-def is_failure_value(val_str: str, is_alarm: bool, sensor_type: str = "", tag: str = "") -> bool:
-    """
-    Rule-based telemetry-anomaly proxy label, not a confirmed equipment-failure label.
-    Rules include hardware/communication markers, RTC resets, and sensor-specific thresholds;
-    source rows do not include CMMS/1C maintenance confirmations.
-    """
-    v = str(val_str).strip().lower()
-    st = str(sensor_type).lower()
-    tg = str(tag).lower()
-
-    # 1. Hardware failure and communication disconnect markers
-    if v in FAILURE_VALUES:
-        return True
-    if any(k in v for k in ('неисправ', 'отключ', 'обрыв', 'сбой', 'авар', 'кз', 'нет связи', 'ошибка датчика')):
-        return True
-    if '1970' in v:
-        return True
-
-    try:
-        num = float(v)
-        # Out-of-bounds electrical limits
-        if num < -50.0 or num > 500.0:
-            return True
-
-        # Sensor-specific physical thresholding
-        is_gas = 'газ' in st or 'метан' in st or 'ch4' in tg or 'газ' in tg
-        is_temp = 'темп' in st or 'термо' in st or 't°' in st or 't' in tg or 'темп' in tg
-        is_volt = 'напряж' in st or 'акб' in st or 'питан' in st or 'ввод' in st
-
-        if is_gas:
-            # Physical explosive limit: >= 5.0% vol CH4 (critical hazard / sensor saturation)
-            if num >= 5.0:
-                return True
-        elif is_temp:
-            # Thermal limit: >= 45.0°C in underground collector (danger to 10kV power cables)
-            if num >= 45.0 or num <= -10.0:
-                return True
-        elif is_volt:
-            # Severe voltage loss or overvoltage
-            if (num < 9.0 or num > 30.0) and is_alarm:
-                return True
-        else:
-            # For discrete sensors, numerical values are normal state flips, NOT failure
-            pass
-    except ValueError:
-        pass
-
-    return False
+# Feature and label definitions are shared with the backtest and reconciliation scripts.
+from backend.ml.features import FAILURE_VALUES, is_failure_value, channel_features  # noqa: E402,F401
 
 
 def beta_calibration_features(probabilities: np.ndarray) -> np.ndarray:
@@ -204,103 +153,12 @@ def run_leakage_free_pipeline():
     sys_map = {s: idx for idx, s in enumerate(system_types)}
 
     def extract_features(events_dict, cutoff_dt):
+        """Feature matrix in the fixed channel order of the equipment registry."""
         X = []
         for cid in channels_list:
             s_info = sensors_ref.get(cid, {})
-            oid = s_info.get('object_id', '')
-            o_info = objects_ref.get(oid, {})
-
-            evs = events_dict.get(cid, [])
-            evs.sort(key=lambda x: x[0])
-
-            dt_24h = cutoff_dt - timedelta(hours=24)
-            dt_7d = cutoff_dt - timedelta(days=7)
-
-            evs_24h = [e for e in evs if e[0] >= dt_24h]
-            evs_7d = [e for e in evs if e[0] >= dt_7d]
-
-            cnt_24h = len(evs_24h)
-            cnt_7d = len(evs_7d)
-
-            alarms_24h = sum(1 for e in evs_24h if e[1])
-            alarms_7d = sum(1 for e in evs_7d if e[1])
-            alarm_ratio = alarms_7d / max(1, cnt_7d)
-
-            acc_events = cnt_24h / (cnt_7d / 7.0 + 0.1)
-            acc_alarms = alarms_24h / (alarms_7d / 7.0 + 0.1)
-
-            chatter_cnt = 0
-            prev_dt = None
-            prev_val = None
-            date_corruptions = 0
-            battery_glitches = 0
-            unique_states = set()
-            numeric_vals = []
-            gas_spikes = 0
-            temp_spikes = 0
-
-            for dt, is_al, v in evs_7d:
-                v_str = str(v).strip()
-                unique_states.add(v_str)
-
-                if prev_dt is not None:
-                    gap = (dt - prev_dt).total_seconds()
-                    if gap < 60 and v_str != prev_val:
-                        chatter_cnt += 1
-                prev_dt = dt
-                prev_val = v_str
-
-                if '1970' in v_str:
-                    date_corruptions += 1
-                if 'батаре' in v_str.lower() or 'обесточ' in v_str.lower():
-                    battery_glitches += 1
-
-                try:
-                    num = float(v_str)
-                    numeric_vals.append(num)
-                    stype = s_info.get('sensor_type', '').lower()
-                    if 'газ' in stype and num >= 1.0:
-                        gas_spikes += 1
-                    if 'темп' in stype and num >= 35.0:
-                        temp_spikes += 1
-                except ValueError:
-                    pass
-
-            chatter_ratio = chatter_cnt / max(1, cnt_7d)
-            silence_hours = max(0.0, (cutoff_dt - evs[-1][0]).total_seconds() / 3600.0) if evs else 168.0
-            num_mean = float(np.mean(numeric_vals)) if numeric_vals else 0.0
-            num_std = float(np.std(numeric_vals)) if len(numeric_vals) > 1 else 0.0
-            num_max = float(np.max(numeric_vals)) if numeric_vals else 0.0
-
-            stype_str = s_info.get('sensor_type', '')
-            sys_str = s_info.get('system_type', '')
-            obj_level = int(o_info.get('hierarchy_level', 3)) if o_info else 3
-
-            feat = [
-                cnt_24h,
-                cnt_7d,
-                alarms_24h,
-                alarms_7d,
-                alarm_ratio,
-                acc_events,
-                acc_alarms,
-                chatter_cnt,
-                chatter_ratio,
-                battery_glitches,
-                date_corruptions,
-                len(unique_states),
-                silence_hours,
-                num_mean,
-                num_std,
-                num_max,
-                stype_map.get(stype_str, 0),
-                sys_map.get(sys_str, 0),
-                gas_spikes,
-                temp_spikes,
-                obj_level
-            ]
-            X.append(feat)
-
+            o_info = objects_ref.get(s_info.get('object_id', ''), {})
+            X.append(channel_features(events_dict.get(cid, []), cutoff_dt, s_info, o_info, stype_map, sys_map))
         return np.array(X, dtype=np.float32)
 
     if not cached_mode:

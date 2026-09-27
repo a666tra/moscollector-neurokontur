@@ -126,6 +126,16 @@ def get_model_metrics():
     with open(rep_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
+@router.get("/backtest")
+def get_rolling_backtest():
+    """Weekly out-of-time backtest on the real 2026 СМВУ journal (scripts/rolling_backtest.py)."""
+    rep_path = os.path.join(settings.MODELS_DIR, "rolling_backtest_report.json")
+    if not os.path.exists(rep_path):
+        raise HTTPException(status_code=404, detail="Отчёт rolling_backtest_report.json не найден")
+    with open(rep_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 @router.get("/benchmark")
 def get_model_benchmark():
     """Возвращает результаты локального теста производительности инференса модели."""
