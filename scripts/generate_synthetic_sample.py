@@ -204,7 +204,7 @@ readme_content = f"""# Датасеты проекта «Москоллекто�
 - **Файл:** `dataset/extracted/ext-journal-2026.csv`
 - **Объём:** ~1.49 ГБ (~31 млн строк телеметрии за 2026 г.).
 - **Статус в репозитории:** Исключён из состава Git-репозитория и релизного ZIP-архива в соответствии с регламентом ограничения размера дистрибутива.
-- **Хэш SHA-256:** `4dbbb1068eacdfa896321c17fa0076fe26db8a26b2b73bc36691ec50ef2e09ff` (зафиксирован в `backend/data/reconciliation_ground_truth.json`).
+- **Хэш SHA-256:** `3ecdc8fcc5b08c8238fa74fadb35e9b6439bce3f2f8fe8697da5e483aae55880` (зафиксирован в `backend/data/reconciliation_ground_truth.json`).
 
 ## 2. Авторизованный физически калиброванный синтетический демо-датасет
 - **Файл:** `dataset/sample_synthetic_telemetry.csv`
