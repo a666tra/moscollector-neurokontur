@@ -1,0 +1,11 @@
+# Render Blueprint: New → Blueprint → pick this repository. Free plan, built from Dockerfile.
+services:
+  - type: web
+    name: moscollector-neurokontur
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      - key: LCT_DEMO_DISPATCHER_PIN   # public demo dispatcher (badge ДИСП-0001), shown in the UI
+        value: "135790"
