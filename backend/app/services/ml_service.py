@@ -27,6 +27,10 @@ PIN_HASH_SCHEME = "pbkdf2_sha256"
 PIN_HASH_ITERATIONS = 600_000
 PIN_SALT_BYTES = 16
 PIN_HASH_BYTES = 32
+# Brute-force protection: after MAX_PIN_FAILURES wrong PINs for one badge within
+# PIN_LOCKOUT_SECONDS, further attempts for that badge are refused until the window passes.
+MAX_PIN_FAILURES = 5
+PIN_LOCKOUT_SECONDS = 300
 
 class DispatcherAuthenticationError(ValueError):
     """Raised when dispatcher credentials cannot be verified."""
@@ -51,6 +55,8 @@ class MLService:
         self.sys_map: Dict[str, int] = {}
         self.authorized_dispatchers: Dict[str, Dict[str, Any]] = {}
         self.public_demo_credentials: Optional[Dict[str, str]] = None
+        self._pin_failures: Dict[str, List[float]] = {}
+        self._pin_failures_lock = threading.Lock()
         self.optimal_thresholds: Dict[str, float] = {
             "champion_lightgbm": 0.845,
             "logistic_regression": 0.8000,
@@ -214,15 +220,29 @@ class MLService:
                 "Отказ в аутентификации: табельный номер не зарегистрирован."
             )
 
+        now = time.time()
+        with self._pin_failures_lock:
+            recent = [t for t in self._pin_failures.get(badge, []) if now - t < PIN_LOCKOUT_SECONDS]
+            self._pin_failures[badge] = recent
+        if len(recent) >= MAX_PIN_FAILURES:
+            wait = int(PIN_LOCKOUT_SECONDS - (now - recent[0])) + 1
+            raise DispatcherAuthenticationError(
+                f"Слишком много неверных попыток PIN. Повторите через {wait} с."
+            )
+
         pin = (dispatcher_pin or "").strip()
         stored_hash = dispatcher.get("pin_hash")
         if (
             not re.fullmatch(r"\d{6}", pin)
             or not self._verify_pin(pin, stored_hash)
         ):
+            with self._pin_failures_lock:
+                self._pin_failures.setdefault(badge, []).append(now)
             raise DispatcherAuthenticationError(
                 "Отказ в аутентификации: неверный badge или 6-значный PIN-код."
             )
+        with self._pin_failures_lock:
+            self._pin_failures.pop(badge, None)
 
         clearance = dispatcher.get("clearance_level")
         if type(min_clearance_level) is not int or min_clearance_level not in (1, 2, 3):

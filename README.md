@@ -85,7 +85,7 @@ backend/app/        API и сервисы
 backend/ml/         признаки (features.py), обучение (train_validated_model.py), бенчмарк API
 backend/models/     модели и отчёты метрик
 scripts/            бэктест, воспроизведение метрик, сверка, деплой, выдача учёток
-tests/              58 автотестов (API, калибровка, бэктест, синтетический пайплайн)
+tests/              59 автотестов (API, калибровка, бэктест, синтетический пайплайн)
 frontend/           интерфейс диспетчера
 docs/               пояснительная записка, происхождение данных, методика пилота
 tools/              сборка презентации и записки (не входит в сервис)
@@ -94,7 +94,7 @@ tools/              сборка презентации и записки (не 
 ## Воспроизводимость
 
 ```bash
-python -m pytest tests/ -q                   # 58 тестов
+python -m pytest tests/ -q                   # 59 тестов
 python scripts/rolling_backtest.py           # недельный бэктест из кэша признаков (1,6 МБ)
 python scripts/rolling_backtest.py --extract # полный пересчёт из сырого журнала
 python scripts/reproduce_metrics.py          # январский срез, калибровка, Top-K

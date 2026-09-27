@@ -23,14 +23,17 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# The UI is served from the same origin, so CORS is off by default. External web clients are
+# allowed explicitly: LCT_CORS_ORIGINS="https://a.example,https://b.example".
+_cors_origins = [o.strip() for o in os.environ.get("LCT_CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH"],
+        allow_headers=["Content-Type"],
+    )
 
 # API Routers
 app.include_router(stats_router, prefix="/api/stats", tags=["Статистика и KPI"])
