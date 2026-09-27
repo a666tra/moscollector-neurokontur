@@ -12,5 +12,7 @@ __pycache__
 backend/data/authorized_dispatchers.json
 *.pptx
 *.txt
+!requirements.txt
+!backend/requirements.txt
 *.zip
 *.ps1
