@@ -50,6 +50,7 @@ class MLService:
         self.stype_map: Dict[str, int] = {}
         self.sys_map: Dict[str, int] = {}
         self.authorized_dispatchers: Dict[str, Dict[str, Any]] = {}
+        self.public_demo_credentials: Optional[Dict[str, str]] = None
         self.optimal_thresholds: Dict[str, float] = {
             "champion_lightgbm": 0.845,
             "logistic_regression": 0.8000,
@@ -103,6 +104,7 @@ class MLService:
     def load_authorized_dispatchers(self):
         self.authorized_dispatchers = {}
         if not os.path.exists(AUTH_DISPATCHERS_PATH):
+            self._load_public_demo_dispatcher()
             return
 
         try:
@@ -117,6 +119,32 @@ class MLService:
         except Exception as e:
             self.authorized_dispatchers = {}
             print(f"Error loading dispatchers: {e}")
+
+    def _load_public_demo_dispatcher(self):
+        """Public demo stand only: one in-memory dispatcher from environment variables.
+
+        Enabled when no registry file exists and LCT_DEMO_DISPATCHER_PIN holds six digits
+        (e.g. a Hugging Face Space variable). The PIN is hashed like registry entries and
+        never written to disk. Production installations use scripts/provision_dispatcher.py.
+        """
+        pin = os.environ.get("LCT_DEMO_DISPATCHER_PIN", "").strip()
+        if not re.fullmatch(r"\d{6}", pin):
+            return
+        badge = os.environ.get("LCT_DEMO_DISPATCHER_BADGE", "ДИСП-0001").strip()
+        salt = secrets.token_bytes(PIN_SALT_BYTES)
+        digest = hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), salt, PIN_HASH_ITERATIONS, dklen=PIN_HASH_BYTES)
+        record = {
+            "badge": badge,
+            "full_name": "Демо-диспетчер (публичный стенд)",
+            "role": "Старший диспетчер ОДС (демо)",
+            "clearance_level": 3,
+            "pin_hash": f"{PIN_HASH_SCHEME}${PIN_HASH_ITERATIONS}${salt.hex()}${digest.hex()}",
+            "can_confirm_false_alarm": True,
+            "can_force_dispatch": True,
+        }
+        if self._valid_dispatcher_record(badge, record):
+            self.authorized_dispatchers = {badge: record}
+            self.public_demo_credentials = {"badge": badge, "pin": pin}
 
     @staticmethod
     def _valid_pin_hash(encoded_hash: Any) -> bool:

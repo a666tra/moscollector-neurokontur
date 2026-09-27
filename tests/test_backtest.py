@@ -52,3 +52,19 @@ def test_channel_features_empty_history():
     feats = channel_features([], datetime(2026, 2, 1), {}, {}, {}, {})
     assert len(feats) == len(FEATURE_NAMES)
     assert feats[FEATURE_NAMES.index('silence_hours')] == 168.0
+
+
+def test_public_demo_dispatcher_from_env(monkeypatch, tmp_path):
+    from backend.app.services import ml_service as mod
+    monkeypatch.setattr(mod, 'AUTH_DISPATCHERS_PATH', str(tmp_path / 'missing.json'))
+    monkeypatch.setenv('LCT_DEMO_DISPATCHER_PIN', '246810')
+    svc = mod.ml_service
+    svc.load_authorized_dispatchers()
+    try:
+        badge, _ = svc.authenticate_dispatcher('ДИСП-0001', '246810', min_clearance_level=3)
+        assert badge == 'ДИСП-0001'
+        assert TestClient(app).get('/api/alarms/demo-access').json()['enabled'] is True
+    finally:
+        monkeypatch.delenv('LCT_DEMO_DISPATCHER_PIN')
+        svc.public_demo_credentials = None
+        svc.load_authorized_dispatchers()

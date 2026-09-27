@@ -26,11 +26,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code, models, and reference data
-COPY backend/ /app/backend/
+# Run as an unprivileged user (uid 1000 is also what Hugging Face Spaces expects)
+RUN useradd -m -u 1000 app
+
+# Copy backend code, models, and reference data; the JSON stores in backend/data must be writable
+COPY --chown=app:app backend/ /app/backend/
 
 # Copy compiled frontend from builder
-COPY --from=frontend-builder /frontend/dist /app/frontend/dist
+COPY --chown=app:app --from=frontend-builder /frontend/dist /app/frontend/dist
+
+USER app
 
 # Environment configuration
 ENV PYTHONUNBUFFERED=1

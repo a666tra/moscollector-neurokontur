@@ -71,6 +71,12 @@ def get_authorized_dispatchers():
         for d in ml_service.authorized_dispatchers.values()
     ]
 
+@router.get("/demo-access")
+def get_public_demo_access():
+    """Демо-учётка публичного стенда (только если задана переменной окружения LCT_DEMO_DISPATCHER_PIN)."""
+    creds = ml_service.public_demo_credentials
+    return {"enabled": bool(creds), **(creds or {})}
+
 @router.get("/recent", response_model=List[AlarmEvent])
 def get_recent_alarms():
     """События из поставляемой выгрузки архива телеметрии."""
