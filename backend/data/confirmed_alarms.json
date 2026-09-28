@@ -1,5 +1,20 @@
 [
   {
+    "channel_id": "120117",
+    "decision": "FORCE_DISPATCH",
+    "status": "DISPATCH_CONFIRMED",
+    "avoided_cost_rub": 0.0,
+    "dispatcher_badge": "ДИСП-0001",
+    "dispatcher_name": "Демо-диспетчер (публичный стенд)",
+    "dispatcher_role": "Старший диспетчер ОДС (демо)",
+    "clearance_level": "Level-3",
+    "timestamp": "2026-09-28 17:20:09",
+    "notes": "Выезд бригады: Неисправность датчика — нужна проверка на месте",
+    "prev_hash": "b002443b69e93b4dfe15a9d78e9b8b5a67d271543edb214d6a68102d12b19ddf",
+    "record_hash": "16812bfb559ab273c4d97556815d63c40c101b6cc914b3e895836f0b36b862dd",
+    "signature_standard": null
+  },
+  {
     "channel_id": "120504",
     "decision": "CONFIRM_FALSE_ALARM",
     "status": "SUPPRESSED_CONFIRMED",

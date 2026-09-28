@@ -202,7 +202,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="text-base sm:text-lg font-bold flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ac)' }}></span>
-            <span>Проверка на реальном журнале: {testWeeks} недель вперёд по времени</span>
+            <span>Проверка на реальном журнале вперёд по времени: {testWeeks} нед.</span>
           </h2>
           <span className="chip num text-xs self-start sm:self-auto" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
             {firstCutoff} — {lastCutoff}
@@ -237,7 +237,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
 
         {/* Chart Header Subtitle */}
         <div className="text-[11px]" style={{ color: 'var(--faint)' }}>
-          Динамика PR-AUC по 21 недельному срезу · Горизонт 24–72 ч · Наведите курсор на точку даты для значений
+          Динамика PR-AUC по {testWeeks} недельным срезам · Горизонт 24–72 ч · Наведите курсор на точку даты для значений
         </div>
 
         {/* SVG Container */}
@@ -382,7 +382,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold">
-              Сводные показатели моделей (медианы за {testWeeks} недель)
+              Сводные показатели моделей (медианы за {testWeeks} нед.)
             </h3>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
               Сравнение качества ранжирования на реальных данных 2026 года

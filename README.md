@@ -6,8 +6,9 @@
 
 | Материал | Ссылка |
 |---|---|
-| Работающий стенд | {STAND_URL} (бесплатный хостинг Render: после простоя первое открытие занимает до минуты) |
-| API (Swagger) | {STAND_URL}/docs |
+| Работающий стенд | [moscollector-neurokontur.onrender.com](https://moscollector-neurokontur.onrender.com) — бесплатный хостинг Render, после простоя первое открытие до минуты. Демо-учётка диспетчера подставляется автоматически |
+| API (Swagger) | [moscollector-neurokontur.onrender.com/docs](https://moscollector-neurokontur.onrender.com/docs) |
+| Репозиторий | [SourceCraft](https://sourcecraft.dev/lct-hackaton-2026/case-08-collector-outage-prediction-team-86) · [GitHub (зеркало)](https://github.com/a666tra/moscollector-neurokontur) |
 | Презентация (PDF) | [presentation/Москоллектор_НейроКонтур_Защита.pdf](presentation/Москоллектор_НейроКонтур_Защита.pdf) |
 | Пояснительная записка | [PDF](docs/Пояснительная_записка_Москоллектор_НейроКонтур.pdf) · [DOCX](docs/Пояснительная_записка_Москоллектор_НейроКонтур.docx) |
 
