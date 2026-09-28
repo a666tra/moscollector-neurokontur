@@ -16,15 +16,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed z-[2000] bottom-20 lg:bottom-6 right-4 left-4 sm:left-auto sm:w-[380px] space-y-2" aria-live="polite">
+      <div className="fixed z-[2000] top-5 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-32px)] space-y-2" aria-live="polite">
         {items.map(t => (
-          <div key={t.id} className="panel flex items-start gap-3 p-3 shadow-lg" style={{ background: 'var(--surface-2)' }}>
+          <div key={t.id} className="flex items-center gap-2 pl-4 pr-2 py-2.5 rounded-full text-sm rise"
+               style={{ background: 'var(--ink)', color: 'var(--bg)', animationDuration: '.35s' }}>
             {t.tone === 'error'
-              ? <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--crit)' }} />
-              : <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" style={{ color: t.tone === 'success' ? 'var(--ok)' : 'var(--accent-text)' }} />}
-            <div className="text-sm flex-1">{t.text}</div>
-            <button className="text-[var(--faint)] hover:text-[var(--text)]" aria-label="Закрыть"
-                    onClick={() => setItems(prev => prev.filter(x => x.id !== t.id))}><X className="w-4 h-4" /></button>
+              ? <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: 'var(--cr)' }} />
+              : <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--ok)' }} />}
+            <span className="flex-1">{t.text}</span>
+            <button className="w-6 h-6 rounded-full flex items-center justify-center opacity-60 hover:opacity-100" aria-label="Закрыть"
+                    onClick={() => setItems(prev => prev.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
           </div>
         ))}
       </div>

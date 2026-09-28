@@ -170,19 +170,19 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
     {
       name: 'LightGBM с еженедельным дообучением',
       scorerKey: 'lgbm_weekly',
-      color: '#7B61FF',
+      color: 'var(--ac)',
       data: currentSummary.lgbm_weekly,
     },
     {
       name: 'Та же модель без дообучения (обучена в январе)',
       scorerKey: 'deployed',
-      color: '#A29EB0',
+      color: 'var(--mut)',
       data: currentSummary.deployed,
     },
     {
       name: 'Правило «сбоил за последние 7 дней»',
       scorerKey: 'persistence',
-      color: '#F59E0B',
+      color: 'var(--wr)',
       data: currentSummary.persistence,
     },
     {
@@ -201,7 +201,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="text-base sm:text-lg font-bold flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#7B61FF' }}></span>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ac)' }}></span>
             <span>Проверка на реальном журнале: {testWeeks} недель вперёд по времени</span>
           </h2>
           <span className="chip num text-xs self-start sm:self-auto" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
@@ -218,19 +218,19 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5" style={{ background: '#7B61FF' }}></span>
+            <span className="w-5 h-0.5" style={{ background: 'var(--ac)' }}></span>
             <span className="font-medium">LightGBM с дообучением</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5 border-t border-dashed" style={{ borderColor: '#A29EB0' }}></span>
+            <span className="w-5 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--mut)' }}></span>
             <span style={{ color: 'var(--muted)' }}>Без дообучения (январская)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5" style={{ background: '#F59E0B' }}></span>
-            <span style={{ color: '#F59E0B' }}>Правило «сбоил за 7 дней»</span>
+            <span className="w-5 h-0.5" style={{ background: 'var(--wr)' }}></span>
+            <span style={{ color: 'var(--wr)' }}>Правило «сбоил за 7 дней»</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5 border-t border-dotted" style={{ borderColor: '#6F6A7E' }}></span>
+            <span className="w-5 h-0.5 border-t border-dotted" style={{ borderColor: 'var(--faint)' }}></span>
             <span style={{ color: 'var(--faint)' }}>Доля событий = случайный выбор</span>
           </div>
         </div>
@@ -304,10 +304,10 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
             })}
 
             {/* Data Paths */}
-            <path d={pathPrev} fill="none" stroke="#6F6A7E" strokeWidth="1.5" strokeDasharray="2,3" />
-            <path d={pathDep} fill="none" stroke="#A29EB0" strokeWidth="1.75" strokeDasharray="4,4" />
-            <path d={pathPers} fill="none" stroke="#F59E0B" strokeWidth="2" />
-            <path d={pathLgbm} fill="none" stroke="#7B61FF" strokeWidth="2.5" />
+            <path d={pathPrev} fill="none" stroke="var(--faint)" strokeWidth="1.5" strokeDasharray="2,3" />
+            <path d={pathDep} fill="none" stroke="var(--mut)" strokeWidth="1.75" strokeDasharray="4,4" />
+            <path d={pathPers} fill="none" stroke="var(--wr)" strokeWidth="2" />
+            <path d={pathLgbm} fill="none" stroke="var(--ac)" strokeWidth="2.5" />
 
             {/* Hover guideline and dots */}
             {hoveredPoint && (
@@ -321,10 +321,10 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yLgbm} r="4.5" fill="#7B61FF" stroke="var(--bg)" strokeWidth="1.5" />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yDep} r="4" fill="#A29EB0" stroke="var(--bg)" strokeWidth="1.5" />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPers} r="4" fill="#F59E0B" stroke="var(--bg)" strokeWidth="1.5" />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPrev} r="3" fill="#6F6A7E" stroke="var(--bg)" strokeWidth="1" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yLgbm} r="4.5" fill="var(--ac)" stroke="var(--bg)" strokeWidth="1.5" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yDep} r="4" fill="var(--mut)" stroke="var(--bg)" strokeWidth="1.5" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPers} r="4" fill="var(--wr)" stroke="var(--bg)" strokeWidth="1.5" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPrev} r="3" fill="var(--faint)" stroke="var(--bg)" strokeWidth="1" />
               </g>
             )}
 
@@ -358,19 +358,19 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
               </div>
               <div className="flex justify-between gap-4">
                 <span style={{ color: 'var(--muted)' }}>LightGBM (дообуч.):</span>
-                <span className="num font-semibold" style={{ color: '#7B61FF' }}>{formatNum(hoveredPoint.lgbm, 3)}</span>
+                <span className="num font-semibold" style={{ color: 'var(--ac)' }}>{formatNum(hoveredPoint.lgbm, 3)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span style={{ color: 'var(--muted)' }}>Январская модель:</span>
-                <span className="num" style={{ color: '#A29EB0' }}>{formatNum(hoveredPoint.dep, 3)}</span>
+                <span className="num" style={{ color: 'var(--mut)' }}>{formatNum(hoveredPoint.dep, 3)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span style={{ color: 'var(--muted)' }}>Правило 7 дней:</span>
-                <span className="num" style={{ color: '#F59E0B' }}>{formatNum(hoveredPoint.pers, 3)}</span>
+                <span className="num" style={{ color: 'var(--wr)' }}>{formatNum(hoveredPoint.pers, 3)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span style={{ color: 'var(--muted)' }}>Доля событий:</span>
-                <span className="num" style={{ color: '#6F6A7E' }}>{formatPct(hoveredPoint.prev, 2)}</span>
+                <span className="num" style={{ color: 'var(--faint)' }}>{formatPct(hoveredPoint.prev, 2)}</span>
               </div>
             </div>
           )}

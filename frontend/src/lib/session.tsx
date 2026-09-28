@@ -78,37 +78,32 @@ const ShiftDialog: React.FC<{ onCancel: () => void; onStarted: (d: Dispatcher) =
   };
 
   return (
-    <div className="fixed inset-0 z-[1500] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-[1500] flex items-end sm:items-center justify-center p-0 sm:p-4"
+         style={{ background: 'rgba(10,10,12,.45)', backdropFilter: 'blur(3px)' }} onClick={onCancel}>
       <form onSubmit={submit} onClick={e => e.stopPropagation()}
-            className="panel w-full sm:max-w-[420px] p-6 rounded-b-none sm:rounded-xl space-y-4" style={{ background: 'var(--surface-2)' }}>
+            className="w-full sm:max-w-[440px] p-8 rounded-t-[28px] sm:rounded-[28px] flex flex-col gap-4 rise"
+            style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)', animationDuration: '.35s' }}>
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
-              <UserCheck className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-            </div>
-            <div>
-              <div className="font-semibold">Начать смену</div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>Решения по тревогам и заявкам подписываются диспетчером</div>
-            </div>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'var(--acs)' }}>
+            <UserCheck className="w-7 h-7" style={{ color: 'var(--ac)' }} />
           </div>
-          <button type="button" className="text-[var(--faint)] hover:text-[var(--text)]" onClick={onCancel} aria-label="Закрыть"><X className="w-4 h-4" /></button>
+          <button type="button" className="icon-btn" onClick={onCancel} aria-label="Закрыть"><X className="w-4 h-4" /></button>
         </div>
+        <div className="serif font-semibold text-[40px] leading-[.95]">Начать смену</div>
+        <div className="text-sm -mt-1.5" style={{ color: 'var(--mut)' }}>Так мы узнаем, кто принял решение. Вход нужен один раз за смену.</div>
         <label className="block space-y-1.5">
-          <span className="label">Табельный номер</span>
-          <input className="input num" value={badge} onChange={e => setBadge(e.target.value)} placeholder="ДИСП-0000" autoComplete="username" />
+          <span className="text-[13px]" style={{ color: 'var(--mut)' }}>Табельный номер</span>
+          <input className="input num !h-[54px] !rounded-[14px] !text-base" value={badge} onChange={e => setBadge(e.target.value)} placeholder="ДИСП-0000" autoComplete="username" />
         </label>
         <label className="block space-y-1.5">
-          <span className="label">PIN (6 цифр)</span>
-          <input className="input num" type="password" inputMode="numeric" maxLength={6} value={pin}
+          <span className="text-[13px]" style={{ color: 'var(--mut)' }}>PIN из 6 цифр</span>
+          <input className="input num !h-[54px] !rounded-[14px] !text-xl tracking-[.4em]" type="password" inputMode="numeric" maxLength={6} value={pin}
                  onChange={e => setPin(e.target.value.replace(/\D/g, ''))} autoComplete="current-password" />
         </label>
-        {demo.enabled && (
-          <div className="text-xs rounded-lg p-3" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-            Демо-стенд: учётка <span className="num">{demo.badge}</span> / PIN <span className="num">{demo.pin}</span> уже подставлена.
-          </div>
-        )}
-        {error && <div className="text-sm" style={{ color: '#FF8A82' }}>{error}</div>}
-        <button className="btn btn-primary w-full" disabled={busy || !badge || pin.length !== 6}>
+        {demo.enabled && <div className="text-xs" style={{ color: 'var(--ac)' }}>Демо-стенд: данные уже подставлены.</div>}
+        {error && <div className="text-sm" style={{ color: 'var(--cr)' }}>{error}</div>}
+        <button className="h-14 rounded-full text-base font-semibold disabled:opacity-50" style={{ background: 'var(--ac)', color: 'var(--act)' }}
+                disabled={busy || !badge || pin.length !== 6}>
           {busy ? 'Проверяем…' : 'Начать смену'}
         </button>
       </form>

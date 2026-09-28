@@ -1,153 +1,122 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, LineChart } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { RiskMap, MapPin } from '../situation/RiskMap';
+import { ThemeButton } from '../lib/theme';
 import { fmtNum } from '../lib/api';
-import { useDemoAccess } from '../useDemoAccess';
+import { probabilityOf } from '../lib/plain';
+import { ObjectItem, PredictionItem } from '../types';
 
 interface Props {
   onEnter: () => void;
   onOpenQuality: () => void;
 }
 
-type Pt = [number, number];
-const RISK = { CRITICAL: '#F0443A', WARNING: '#F59E0B', ATTENTION: '#3B8EF0', NORMAL: '#22A06B' } as Record<string, string>;
-
-/** Schematic of the real collector network (from /api/objects/geojson/network), risk points pulse. */
-const NetworkSketch: React.FC = () => {
-  const [geo, setGeo] = useState<any>(null);
-  useEffect(() => { fetch('/api/objects/geojson/network').then(r => r.json()).then(setGeo).catch(() => {}); }, []);
-  const view = useMemo(() => {
-    if (!geo) return null;
-    const all: Pt[] = [];
-    geo.features.forEach((f: any) => {
-      if (f.geometry.type === 'LineString') all.push(...f.geometry.coordinates);
-      else all.push(f.geometry.coordinates);
-    });
-    const k = Math.cos((55.75 * Math.PI) / 180);
-    const xs = all.map(p => p[0] * k), ys = all.map(p => p[1]);
-    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-    const W = 600, H = 600, pad = 40, s = Math.min((W - 2 * pad) / (x1 - x0), (H - 2 * pad) / (y1 - y0));
-    const ox = (W - s * (x1 - x0)) / 2, oy = (H - s * (y1 - y0)) / 2;
-    const P = (p: Pt): Pt => [ox + (p[0] * k - x0) * s, H - (oy + (p[1] - y0) * s)];
-    return { P, W, H };
-  }, [geo]);
-  if (!geo || !view) return <div className="w-full aspect-square" />;
-  const { P, W, H } = view;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Схема сети коллекторов с точками риска">
-      <circle cx={W / 2} cy={H / 2} r={W * 0.46} fill="none" stroke="rgba(255,255,255,.05)" />
-      <circle cx={W / 2} cy={H / 2} r={W * 0.3} fill="none" stroke="rgba(255,255,255,.05)" />
-      {geo.features.filter((f: any) => f.geometry.type === 'LineString').map((f: any, i: number) => (
-        <polyline key={i} points={f.geometry.coordinates.map((c: Pt) => P(c).join(',')).join(' ')}
-                  fill="none" stroke="#8E78FF" strokeOpacity={0.55} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-      ))}
-      {geo.features.filter((f: any) => f.geometry.type === 'Point').map((f: any, i: number) => {
-        const [x, y] = P(f.geometry.coordinates);
-        const risk = f.properties?.risk_level || 'NORMAL';
-        const r = risk === 'CRITICAL' ? 6 : risk === 'WARNING' ? 5 : 3.5;
-        return (
-          <g key={i}>
-            {risk === 'CRITICAL' && (
-              <circle cx={x} cy={y} r={r} fill={RISK[risk]} className="nk-pulse" style={{ transformBox: 'fill-box', animationDelay: `${(i % 7) * 0.3}s` }} />
-            )}
-            <circle cx={x} cy={y} r={r} fill={RISK[risk] || RISK.NORMAL} stroke="#0D0C11" strokeWidth={1.5} />
-          </g>
-        );
-      })}
-    </svg>
-  );
-};
-
+/** First screen «Контуры риска»: live risk map as the backdrop, the idea in one sentence, verified numbers. */
 export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality }) => {
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
   const [bt, setBt] = useState<any>(null);
   const [perf, setPerf] = useState<any>(null);
-  const demo = useDemoAccess();
+  const [objects, setObjects] = useState<ObjectItem[]>([]);
+  const [preds, setPreds] = useState<PredictionItem[]>([]);
   useEffect(() => {
-    fetch('/api/predictions/backtest').then(r => (r.ok ? r.json() : null)).then(setBt).catch(() => {});
-    fetch('/api/predictions/metrics').then(r => (r.ok ? r.json() : null)).then(d => setPerf(d?.performance_benchmark)).catch(() => {});
+    const get = (u: string) => fetch(u).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    get('/api/predictions/backtest').then(setBt);
+    get('/api/predictions/metrics').then(d => setPerf(d?.performance_benchmark));
+    get('/api/objects').then(d => d && setObjects(d));
+    get('/api/predictions?limit=300').then(d => d && setPreds(d.items || []));
   }, []);
+
+  const pins: MapPin[] = useMemo(() => {
+    const seen = new Set<string>();
+    return preds.filter(p => (p.risk_level === 'CRITICAL' || p.risk_level === 'WARNING') && !seen.has(p.object_id) && seen.add(p.object_id))
+      .slice(0, 8).map(p => ({ objectId: p.object_id, pct: Math.round(probabilityOf(p) * 100), risk: p.risk_level }));
+  }, [preds]);
+
   const s = bt?.summary?.all;
   const p100 = s?.lgbm_weekly?.precision_at_100?.median;
   const prev = s?.prevalence?.median;
+  const channels = typeof bt?.channels === 'number' ? bt.channels.toLocaleString('ru-RU') : '—';
   const kpis = [
-    { v: bt?.test_weeks ?? '—', u: 'недель', t: 'проверки на реальном журнале 2026 г.' },
+    { v: bt?.test_weeks ?? '—', u: ' нед.', t: 'проверки на реальном журнале' },
     { v: fmtNum(s?.lgbm_weekly?.roc_auc?.median, 2), u: '', t: 'ROC-AUC, медиана по неделям' },
-    { v: typeof p100 === 'number' ? Math.round(p100 * 100) : '—', u: '%', t: typeof p100 === 'number' && prev ? `точность топ-100, в ${Math.round(p100 / prev)} раз выше случайной` : 'точность списка топ-100' },
-    { v: typeof perf?.full_batch_latency_ms === 'number' ? Math.round(perf.full_batch_latency_ms) : '—', u: 'мс', t: `пересчёт ${bt?.channels ? bt.channels.toLocaleString('ru-RU') : ''} каналов` },
+    { v: typeof p100 === 'number' ? Math.round(p100 * 100) : '—', u: ' %', t: typeof p100 === 'number' && prev ? `точность топ-100, в ${Math.round(p100 / prev)} раз выше случайной` : 'точность топ-100', accent: true },
+    { v: typeof perf?.full_batch_latency_ms === 'number' ? Math.round(perf.full_batch_latency_ms) : '—', u: ' мс', t: 'пересчёт всех каналов' },
   ];
 
   return (
-    <div className="min-h-full flex flex-col" style={{ background: 'var(--bg)' }}>
-      <header className="flex items-center justify-between px-5 sm:px-10 h-16 border-b" style={{ borderColor: 'var(--line)' }}>
-        <div className="flex items-center gap-3">
-          <Logo />
-          <div>
-            <div className="text-sm font-semibold">НейроКонтур</div>
-            <div className="text-xs" style={{ color: 'var(--muted)' }}>АО «Москоллектор» · ОДС</div>
-          </div>
+    <div className="relative min-h-full lg:h-full lg:overflow-hidden" style={{ background: 'var(--bg)' }}>
+      {/* map backdrop */}
+      <div className="absolute inset-x-0 top-0 h-[470px] lg:h-auto lg:inset-0">
+        <RiskMap objects={objects} pins={pins} interactive={false}
+                 zoom={isDesktop ? 11.3 : 10.3} center={isDesktop ? [55.752, 37.5] : [55.745, 37.62]} />
+        <div className="hidden lg:block absolute inset-0 pointer-events-none z-[450]"
+             style={{ background: 'linear-gradient(90deg, var(--bg) 0%, var(--bg) 30%, transparent 58%)' }} />
+        <div className="lg:hidden absolute inset-x-0 bottom-0 h-[150px] pointer-events-none z-[450]"
+             style={{ background: 'linear-gradient(180deg, transparent, var(--bg))' }} />
+      </div>
+
+      {/* header */}
+      <header className="lg:hidden absolute z-[700] left-4 right-4 top-5 glass rounded-full flex items-center py-1.5 pl-4 pr-1.5">
+        <span className="serif italic font-semibold text-[22px] leading-none">НейроКонтур</span>
+        <ThemeButton className="ml-auto w-10 h-10 rounded-full flex items-center justify-center" />
+      </header>
+      <header className="hidden lg:flex absolute z-[700] left-14 right-10 top-7 items-center gap-6">
+        <span className="serif italic font-semibold text-[32px] leading-none tracking-[-0.01em]">НейроКонтур</span>
+        <span className="num text-[11px] tracking-[.08em]" style={{ color: 'var(--mut)' }}>АО «МОСКОЛЛЕКТОР» · ЛЦТ 2026</span>
+        <div className="ml-auto flex items-center gap-2 p-1.5 rounded-full glass">
+          <button onClick={onOpenQuality} className="px-3.5 text-sm hover:underline">Как проверяли модель</button>
+          <ThemeButton className="w-10 h-10 rounded-full flex items-center justify-center" />
+          <button onClick={onEnter} className="btn btn-primary">Начать смену <ArrowUpRight className="w-4 h-4" /></button>
         </div>
-        <div className="hidden sm:block text-xs" style={{ color: 'var(--muted)' }}>ЛЦТ 2026 · задача 8</div>
       </header>
 
-      <main className="flex-1 grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-10 px-5 sm:px-10 py-10 lg:py-16 max-w-[1400px] w-full mx-auto items-center">
-        <div className="space-y-8 max-w-[620px]">
-          <div className="text-sm font-medium" style={{ color: 'var(--accent-text)' }}>Прогноз инцидентов в инженерных коллекторах Москвы</div>
-          <h1 className="text-[44px] sm:text-[64px] leading-[1.02] font-bold tracking-[-0.03em]">
-            Инцидент —<br /><span style={{ color: 'var(--muted)' }}>до того, как он случился.</span>
-          </h1>
-          <p className="text-lg leading-relaxed" style={{ color: 'var(--muted)' }}>
-            Каждое утро диспетчер ОДС получает список каналов СМВУ, где в ближайшие 24–72 часа вероятен инцидент:
-            с причиной, местом на карте и черновиком заявки на ТО. Решение остаётся за диспетчером.
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 border-y" style={{ borderColor: 'var(--line)' }}>
-            {kpis.map((k, i) => (
-              <div key={i} className={`py-4 ${i % 2 ? 'pl-4' : 'sm:pl-4 first:pl-0'} ${i > 0 ? 'sm:border-l' : ''}`} style={{ borderColor: 'var(--line)' }}>
-                <div className="num text-2xl font-semibold">{k.v}<span className="text-sm ml-1" style={{ color: 'var(--muted)' }}>{k.u}</span></div>
-                <div className="text-xs mt-1 leading-snug" style={{ color: 'var(--muted)' }}>{k.t}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="panel p-5 space-y-4" style={{ background: 'var(--surface)' }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold">Ситуационный центр ОДС</div>
-                <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                  <span className="num">{bt?.channels ? bt.channels.toLocaleString('ru-RU') : '—'}</span> каналов · карта · очередь риска · заявки ТО
-                </div>
-              </div>
-              {demo.enabled && <span className="chip" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>демо-смена <span className="num">{demo.badge}</span></span>}
+      {/* content */}
+      <div className="relative z-[600] px-6 pt-[450px] pb-32 lg:p-0 lg:absolute lg:left-14 lg:top-[150px] lg:w-[560px] flex flex-col gap-5 lg:gap-[22px]">
+        <h1 className="serif font-medium tracking-[-0.035em] text-[76px] leading-[.8] lg:text-[150px] lg:leading-[.82] rise" style={{ animationDelay: '.1s' }}>
+          Контуры<br className="hidden lg:block" /> <i style={{ color: 'var(--ac)' }}>риска</i>
+        </h1>
+        <p className="text-base lg:text-xl leading-[1.45] max-w-[470px] lg:mt-3.5 rise" style={{ color: 'var(--mut)', animationDelay: '.25s' }}>
+          Каждое утро показываем на карте, где в подземных коллекторах Москвы <b className="font-medium" style={{ color: 'var(--ink)' }}>может случиться поломка в ближайшие 1–3 дня</b> — и что с этим делать.
+        </p>
+        <div className="hidden lg:flex flex-col gap-2.5 rise" style={{ animationDelay: '.35s' }}>
+          {[`Модель проверяет ${channels} датчиков`, 'Отмечает на карте опасные места и объясняет почему', 'Диспетчер одним нажатием решает: ремонт, выезд или отбой'].map((t, i) => (
+            <div key={i} className="flex items-center gap-3.5 text-[15px]">
+              <span className="w-8 h-8 rounded-full flex items-center justify-center num text-[13px] font-semibold" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)', color: 'var(--ac)' }}>{i + 1}</span>{t}
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button className="btn btn-primary h-11 flex-1 justify-between px-4" onClick={onEnter}>
-                Войти в ситуационный центр <ArrowRight className="w-4 h-4" />
-              </button>
-              <button className="btn btn-secondary h-11" onClick={onOpenQuality}><LineChart className="w-4 h-4" />Как мы проверяли модель</button>
-            </div>
-          </div>
+          ))}
         </div>
-
-        <div className="relative max-w-[560px] w-full mx-auto">
-          <NetworkSketch />
-          <div className="absolute left-0 bottom-2 panel px-3 py-2 text-xs flex items-center gap-2" style={{ background: 'var(--surface)' }}>
-            <span className="w-2 h-2 rounded-full" style={{ background: 'var(--crit)' }} />
-            <span style={{ color: 'var(--muted)' }}>Объекты с критическим прогнозом — по данным модели</span>
-          </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:hidden border-t-[1.5px] pt-2.5" style={{ borderColor: 'var(--ink)' }}>
+          {kpis.map((k, i) => <Kpi key={i} {...k} small />)}
         </div>
-      </main>
+        <button onClick={onOpenQuality} className="lg:hidden self-start text-sm underline" style={{ color: 'var(--mut)' }}>Как проверяли модель</button>
+      </div>
+      <div className="hidden lg:grid absolute z-[600] left-14 bottom-11 w-[620px] grid-cols-4 gap-6 rise" style={{ animationDelay: '.45s' }}>
+        {kpis.map((k, i) => <Kpi key={i} {...k} />)}
+      </div>
 
-      <footer className="px-5 sm:px-10 py-5 text-xs border-t leading-relaxed" style={{ borderColor: 'var(--line)', color: 'var(--faint)' }}>
-        События для проверки модели размечены по журналу СМВУ (неисправности, сбои связи, опасные показания газа и температуры) — актов ремонтов в данных нет.
-        Стенд не подключён к СМВУ и CMMS заказчика; карта схематичная, без реальных координат узлов.
-      </footer>
+      {/* legend */}
+      <div className="hidden lg:flex absolute z-[600] right-10 bottom-9 glass rounded-full items-center gap-4 px-4 py-2.5 text-[13px]">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--cr)' }} />срочно проверить</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--wr)' }} />проверить скоро</span>
+        <span className="flex items-center gap-1.5" style={{ color: 'var(--mut)' }}><span className="w-3.5 h-[3px] rounded" style={{ background: 'var(--ac)' }} />коллектор</span>
+        <span className="num text-[10px]" style={{ color: 'var(--mut)' }}>демо-стенд · карта схематична</span>
+      </div>
+
+      {/* mobile CTA */}
+      <div className="lg:hidden fixed z-[800] left-5 right-5 bottom-6 flex flex-col gap-2">
+        <button onClick={onEnter} className="h-[60px] rounded-full text-[17px] font-semibold flex items-center justify-center gap-2.5" style={{ background: 'var(--ac)', color: 'var(--act)' }}>
+          Начать смену <ArrowUpRight className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 };
 
-export const Logo: React.FC = () => (
-  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent)' }} aria-hidden>
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12h4l2-5 4 10 2-5h6" />
-    </svg>
+const Kpi: React.FC<{ v: React.ReactNode; u: string; t: string; accent?: boolean; small?: boolean }> = ({ v, u, t, accent, small }) => (
+  <div className={small ? '' : 'border-t-[1.5px] pt-2.5'} style={{ borderColor: accent ? 'var(--ac)' : 'var(--ink)' }}>
+    <div className={`serif font-semibold ${small ? 'text-[32px]' : 'text-[50px]'} leading-[.9]`} style={accent ? { color: 'var(--ac)' } : undefined}>
+      {v}<span className={small ? 'text-[16px]' : 'text-[22px]'}>{u}</span>
+    </div>
+    <div className="text-xs mt-1.5" style={{ color: 'var(--mut)' }}>{t}</div>
   </div>
 );
