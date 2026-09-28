@@ -121,7 +121,7 @@ ${ticket.assigned_team}
 
 СЦЕНАРНАЯ ОЦЕНКА ЗАТРАТ:
 Расчетная стоимость ТО: ${ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
-Предотвращенный ущерб аварийного выезда: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
+Сценарная экономия на аварийном выезде: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
 Сценарная разница затрат: ${ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
 ================================================================================
     `.trim();
@@ -203,7 +203,7 @@ ${ticket.assigned_team}
         </div>
 
         <div className="panel p-3.5 space-y-1">
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>Предотвращенный ущерб</div>
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Сценарная экономия</div>
           <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>
             {(totalSaved / 1000).toFixed(1)} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>тыс ₽</span>
           </div>

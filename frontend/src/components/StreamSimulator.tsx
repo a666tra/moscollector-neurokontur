@@ -237,7 +237,7 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
           <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>
             {totalSaved.toLocaleString('ru-RU')} ₽
           </div>
-          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>Предотвращенный ущерб</div>
+          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>Сценарная экономия</div>
         </div>
       </div>
 

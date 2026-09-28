@@ -92,7 +92,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
         <div className="flex items-center gap-3 self-end sm:self-auto">
           {totalAvoided > 0 && (
             <div className="text-right hidden md:block">
-              <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Предотвращенный ущерб</div>
+              <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Сценарная экономия</div>
               <div className="num text-xs font-semibold" style={{ color: 'var(--ok)' }}>
                 +{totalAvoided.toLocaleString('ru-RU')} ₽
               </div>

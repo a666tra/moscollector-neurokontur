@@ -117,7 +117,7 @@ export const MetricsView: React.FC = () => {
             </h1>
             <span className="chip risk-NORMAL">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Валидировано на СМВУ</span>
+              <span>Проверено на журнале СМВУ</span>
             </span>
             {loading && (
               <span className="text-xs flex items-center gap-1" style={{ color: 'var(--accent-text)' }}>
