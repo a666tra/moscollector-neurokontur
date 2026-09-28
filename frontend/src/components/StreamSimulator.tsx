@@ -4,61 +4,49 @@ import {
   BatteryLow, Radio, CheckCircle, Zap, ShieldCheck, Activity
 } from 'lucide-react';
 import { SimulationResult } from '../types';
-import { DemoAccessHint } from './DemoAccessHint';
+import { useSession } from '../lib/session';
+import { useToast } from '../lib/toast';
+import { api } from '../lib/api';
 
 interface StreamSimulatorProps {
   onRefreshStats?: () => void;
 }
 
 export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats }) => {
+  const { dispatcher, requireDispatcher } = useSession();
+  const toast = useToast();
+
   const [history, setHistory] = useState<SimulationResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [speedMs, setSpeedMs] = useState(2000);
+  const [speedMs] = useState(2000);
   const [loadingScenario, setLoadingScenario] = useState<string | null>(null);
-  const [dispatcherBadge, setDispatcherBadge] = useState('');
-  const [dispatcherPin, setDispatcherPin] = useState('');
-  const [actionError, setActionError] = useState('');
   const timerRef = useRef<any>(null);
-  const hasDispatcherCredentials = dispatcherBadge.trim().length > 0 && /^\d{6}$/.test(dispatcherPin);
 
   const triggerScenario = async (scenarioType: string) => {
     const requiresDispatcher = scenarioType === 'GAS_SPIKE' || scenarioType === 'BATTERY_DROP';
-    if (requiresDispatcher && !hasDispatcherCredentials) {
-      setActionError('Для сценариев с автоматическим формированием заявки укажите табельный номер и PIN диспетчера.');
-      return;
+    let d = dispatcher;
+    if (requiresDispatcher && !d) {
+      d = await requireDispatcher();
+      if (!d) return;
     }
 
-    setActionError('');
     setLoadingScenario(scenarioType);
     try {
-      const res = await fetch('/api/simulation/step', {
+      const stepResult = await api<SimulationResult>('/api/simulation/step', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        json: {
           scenario_type: scenarioType,
-          ...(requiresDispatcher ? {
-            dispatcher_badge: dispatcherBadge.trim(),
-            dispatcher_pin: dispatcherPin
-          } : {})
-        })
+          ...(d ? {
+            dispatcher_badge: d.badge,
+            dispatcher_pin: d.pin,
+          } : {}),
+        },
       });
-      if (res.ok) {
-        const stepResult: SimulationResult = await res.json();
-        setHistory(prev => [stepResult, ...prev.slice(0, 49)]);
-        onRefreshStats?.();
-      } else {
-        const body = await res.json().catch(() => null);
-        const detail = typeof body?.detail === 'string' ? body.detail : '';
-        setActionError(res.status === 401
-          ? 'Учётные данные не подтверждены. Проверьте табельный номер и PIN.'
-          : res.status === 403
-            ? 'Данный уровень доступа не позволяет создавать заявки.'
-            : detail || `Не удалось выполнить сценарий (HTTP ${res.status}).`);
-        if (res.status === 401 || res.status === 403) setIsRunning(false);
-      }
-    } catch (e) {
-      console.error('Simulation step error', e);
-      setActionError('Не удалось связаться с сервером API.');
+      setHistory(prev => [stepResult, ...prev.slice(0, 49)]);
+      onRefreshStats?.();
+    } catch (err: any) {
+      toast(err?.message || 'Не удалось выполнить шаг симуляции', 'error');
+      if (isRunning) setIsRunning(false);
     } finally {
       setLoadingScenario(null);
     }
@@ -67,20 +55,20 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
-        const scenarios = hasDispatcherCredentials
+        const scenarios = dispatcher
           ? ['NORMAL_STREAM', 'NORMAL_STREAM', 'FALSE_ALARM_BURST', 'BATTERY_DROP', 'GAS_SPIKE']
           : ['NORMAL_STREAM', 'NORMAL_STREAM', 'FALSE_ALARM_BURST'];
         const randomScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
         triggerScenario(randomScenario);
       }, speedMs);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
     }
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRunning, speedMs, dispatcherBadge, dispatcherPin]);
+  }, [isRunning, speedMs, dispatcher]);
 
   const totalEvents = history.length;
   const falseAlarmsCount = history.filter(h => h.ml_verdict === 'FALSE_ALARM').length;
@@ -88,74 +76,25 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
   const totalSaved = history.reduce((sum, h) => sum + (h.scenario_potential_rub || 0), 0);
 
   return (
-    <div className="space-y-6">
-      {/* Dispatcher auth banner with DemoAccessHint */}
-      <section className="eng-panel p-4 space-y-3" aria-label="Авторизация дежурного диспетчера">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <div className="text-xs font-semibold text-[#E7EAF0]">Авторизация дежурного диспетчера</div>
-            <p className="text-xs text-[#9AA3B2] mt-0.5">
-              Сценарии с формированием наряда требуют авторизации оператора ОДС.
-            </p>
-          </div>
-          <DemoAccessHint onFill={(b, p) => { setDispatcherBadge(b); setDispatcherPin(p); }} />
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-end pt-1">
-          <label className="text-xs text-[#9AA3B2]">
-            Табельный номер
-            <input
-              type="text"
-              value={dispatcherBadge}
-              onChange={event => { setDispatcherBadge(event.target.value); setActionError(''); }}
-              placeholder="ДИСП-7041"
-              autoComplete="off"
-              className="block w-full sm:w-44 mt-1 bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#E7EAF0] focus:border-[#7C4DFF] focus:outline-none"
-            />
-          </label>
-          <label className="text-xs text-[#9AA3B2]">
-            PIN (6 цифр)
-            <input
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              value={dispatcherPin}
-              onChange={event => { setDispatcherPin(event.target.value.replace(/\D/g, '').slice(0, 6)); setActionError(''); }}
-              placeholder="••••••"
-              autoComplete="off"
-              className="block w-full sm:w-36 mt-1 bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#E7EAF0] font-mono tracking-widest focus:border-[#7C4DFF] focus:outline-none"
-            />
-          </label>
-          {actionError && <p role="alert" className="text-xs text-[#F0453A] sm:self-end pb-1">{actionError}</p>}
-        </div>
-      </section>
-
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+    <div className="space-y-5 max-w-[920px]">
+      {/* Top Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-[#E7EAF0]">
-              Симулятор сценариев телеметрии СМВУ
-            </h2>
-            <span className="eng-badge badge-normal">
-              Интерактивный стенд
+            <h2 className="text-base font-semibold">Симулятор потока телеметрии</h2>
+            <span className="chip" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
+              СМВУ Контур
             </span>
           </div>
-          <p className="text-xs text-[#9AA3B2] mt-1">
-            Интерактивная подача типовых паттернов телеметрии для проверки логики классификации и формирования нарядов
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            Подача сигналов в реальном времени для проверки классификатора и автоматической генерации нарядов
           </p>
         </div>
 
-        {/* Global Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => setIsRunning(!isRunning)}
-            className={`px-4 py-2 text-xs font-medium rounded-lg flex items-center gap-2 cursor-pointer transition-colors shadow-xs ${
-              isRunning 
-                ? 'bg-[#F0453A] hover:bg-[#F0453A]/90 text-white' 
-                : 'bg-[#7C4DFF] hover:bg-[#9170FF] text-white'
-            }`}
+            className={`btn text-xs h-8 ${isRunning ? 'btn-danger' : 'btn-primary'}`}
           >
             {isRunning ? (
               <>
@@ -172,206 +111,226 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
 
           <button
             onClick={() => setHistory([])}
-            className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[#9AA3B2] hover:text-[#E7EAF0] rounded-lg cursor-pointer transition-colors"
-            title="Очистить историю симуляции"
+            className="icon-btn h-8 w-8"
+            title="Очистить журнал симуляции"
+            aria-label="Очистить"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Scenario Injection Bar */}
-      <div className="eng-panel p-4">
-        <div className="text-xs uppercase text-[#9AA3B2] mb-3 font-semibold flex items-center gap-2">
-          <Zap className="w-3.5 h-3.5 text-[#7C4DFF]" />
-          <span>Типовые сценарии телеметрии:</span>
+      <div className="panel p-4 space-y-3">
+        <div className="text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--muted)' }}>
+          <Zap className="w-3.5 h-3.5" style={{ color: 'var(--accent-text)' }} />
+          <span>Подача сценариев телеметрии</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Scenario 1: False Alarm Burst */}
           <button
+            type="button"
             onClick={() => triggerScenario('FALSE_ALARM_BURST')}
             disabled={loadingScenario !== null}
-            className="p-3.5 bg-[#181D29] hover:bg-[#181D29]/80 border border-[#4C9BFF]/30 hover:border-[#4C9BFF] rounded-xl text-left transition-colors group cursor-pointer"
+            className="p-3.5 rounded-xl border text-left transition-colors hover:border-[var(--line-2)] space-y-1.5"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-semibold text-[#E7EAF0] group-hover:text-[#4C9BFF] flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-[#4C9BFF]" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5" style={{ color: 'var(--attn)' }} />
                 Дребезг геркона двери
               </span>
-              <span className="eng-badge badge-cyan text-xs">Импульс</span>
+              <span className="chip risk-ATTENTION text-[11px]">Импульс</span>
             </div>
-            <div className="text-xs text-[#9AA3B2] leading-snug">
-              Серия микропереключений за короткий интервал. Фильтр отсекает ложный выезд.
-            </div>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Серия микропереключений геркона за короткий интервал. Фильтр дребезга блокирует ложный выезд.
+            </p>
           </button>
 
           {/* Scenario 2: Gas Spike */}
           <button
+            type="button"
             onClick={() => triggerScenario('GAS_SPIKE')}
-            disabled={loadingScenario !== null || !hasDispatcherCredentials}
-            className="p-3.5 bg-[#181D29] hover:bg-[#181D29]/80 border border-[#F0453A]/30 hover:border-[#F0453A] rounded-xl text-left transition-colors group cursor-pointer disabled:opacity-40"
+            disabled={loadingScenario !== null}
+            className="p-3.5 rounded-xl border text-left transition-colors hover:border-[var(--line-2)] space-y-1.5"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-semibold text-[#E7EAF0] group-hover:text-[#F0453A] flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-[#F0453A]" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5" style={{ color: 'var(--crit)' }} />
                 Рост метана CH₄
               </span>
-              <span className="eng-badge badge-critical text-xs">Тревога</span>
+              <span className="chip risk-CRITICAL text-[11px]">Тревога</span>
             </div>
-            <div className="text-xs text-[#9AA3B2] leading-snug">
-              Превышение концентрации газа. Модель подтверждает риск и формирует срочный наряд.
-            </div>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Превышение концентрации газа. Модель подтверждает риск аварии и формирует срочный наряд.
+            </p>
           </button>
 
           {/* Scenario 3: Battery Drop */}
           <button
+            type="button"
             onClick={() => triggerScenario('BATTERY_DROP')}
-            disabled={loadingScenario !== null || !hasDispatcherCredentials}
-            className="p-3.5 bg-[#181D29] hover:bg-[#181D29]/80 border border-[#F5A524]/30 hover:border-[#F5A524] rounded-xl text-left transition-colors group cursor-pointer disabled:opacity-40"
+            disabled={loadingScenario !== null}
+            className="p-3.5 rounded-xl border text-left transition-colors hover:border-[var(--line-2)] space-y-1.5"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-semibold text-[#E7EAF0] group-hover:text-[#F5A524] flex items-center gap-1.5">
-                <BatteryLow className="w-3.5 h-3.5 text-[#F5A524]" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold flex items-center gap-1.5">
+                <BatteryLow className="w-3.5 h-3.5" style={{ color: 'var(--warn)' }} />
                 Просадка питания 10,8 В
               </span>
-              <span className="eng-badge badge-warning text-xs">Деградация</span>
+              <span className="chip risk-WARNING text-[11px]">Деградация</span>
             </div>
-            <div className="text-xs text-[#9AA3B2] leading-snug">
-              Признак деградации АКБ питания датчика. Формируется наряд на плановое ТО.
-            </div>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Признак постепенной деградации АКБ питания датчика. Формируется наряд на плановое ТО.
+            </p>
           </button>
 
           {/* Scenario 4: Normal Stream */}
           <button
+            type="button"
             onClick={() => triggerScenario('NORMAL_STREAM')}
             disabled={loadingScenario !== null}
-            className="p-3.5 bg-[#181D29] hover:bg-[#181D29]/80 border border-white/10 hover:border-white/30 rounded-xl text-left transition-colors group cursor-pointer"
+            className="p-3.5 rounded-xl border text-left transition-colors hover:border-[var(--line-2)] space-y-1.5"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}
           >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-semibold text-[#E7EAF0] group-hover:text-[#2FBF71] flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#2FBF71]" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" style={{ color: 'var(--ok)' }} />
                 Штатная телеметрия
               </span>
-              <span className="eng-badge badge-normal text-xs">Норма</span>
+              <span className="chip risk-NORMAL text-[11px]">Норма</span>
             </div>
-            <div className="text-xs text-[#9AA3B2] leading-snug">
-              Поступление пакета телеметрии в пределах штатных порогов без аномалий.
-            </div>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Поступление пакета телеметрии в пределах штатных порогов без аномалий и сбоев.
+            </p>
           </button>
         </div>
       </div>
 
-      {/* Simulator Real-Time KPI Strip */}
+      {/* KPI Tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="eng-panel p-3.5">
-          <div className="text-xs text-[#9AA3B2]">Событий в сессии</div>
-          <div className="text-2xl font-bold font-mono text-[#E7EAF0] mt-1">{totalEvents}</div>
-          <div className="text-xs text-[#6B7385] mt-0.5">В текущей сессии</div>
+        <div className="panel p-3 space-y-1">
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Событий в сессии</div>
+          <div className="num text-2xl font-bold">{totalEvents}</div>
+          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>Пакетов телеметрии</div>
         </div>
 
-        <div className="eng-panel p-3.5">
-          <div className="text-xs text-[#9AA3B2]">Отфильтровано шума</div>
-          <div className="text-2xl font-bold font-mono text-[#4C9BFF] mt-1">{falseAlarmsCount}</div>
-          <div className="text-xs text-[#4C9BFF] mt-0.5">
-            {totalEvents > 0 ? ((falseAlarmsCount / totalEvents) * 100).toFixed(0) : '0'}% от общего потока
+        <div className="panel p-3 space-y-1">
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Отфильтровано шума</div>
+          <div className="num text-2xl font-bold" style={{ color: 'var(--attn)' }}>{falseAlarmsCount}</div>
+          <div className="text-[11px]" style={{ color: 'var(--muted)' }}>
+            {totalEvents > 0 ? ((falseAlarmsCount / totalEvents) * 100).toFixed(0) : '0'}% от потока
           </div>
         </div>
 
-        <div className="eng-panel p-3.5">
-          <div className="text-xs text-[#9AA3B2]">Сформировано нарядов</div>
-          <div className="text-2xl font-bold font-mono text-[#F5A524] mt-1">{ticketsCreatedCount}</div>
-          <div className="text-xs text-[#F5A524] mt-0.5">Заявок в реестре</div>
+        <div className="panel p-3 space-y-1">
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Сформировано нарядов</div>
+          <div className="num text-2xl font-bold" style={{ color: 'var(--warn)' }}>{ticketsCreatedCount}</div>
+          <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Заявок в реестре</div>
         </div>
 
-        <div className="eng-panel p-3.5">
-          <div className="text-xs text-[#9AA3B2]">Сценарный потенциал</div>
-          <div className="text-2xl font-bold font-mono text-[#2FBF71] mt-1">
+        <div className="panel p-3 space-y-1">
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>Сценарный потенциал</div>
+          <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>
             {totalSaved.toLocaleString('ru-RU')} ₽
           </div>
-          <div className="text-xs text-[#6B7385] mt-0.5">Предотвращённый ущерб</div>
+          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>Предотвращенный ущерб</div>
         </div>
       </div>
 
       {/* Live Stream Feed / Timeline */}
-      <div className="eng-panel overflow-hidden">
-        <div className="p-3.5 bg-[#181D29] border-b border-white/10 flex justify-between items-center">
+      <div className="panel overflow-hidden">
+        <div className="p-3.5 border-b flex justify-between items-center" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[#7C4DFF]" />
-            <span className="text-xs font-semibold text-[#E7EAF0]">
-              Журнал симулятора телеметрии
-            </span>
+            <Activity className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
+            <span className="text-xs font-semibold">Журнал симулятора</span>
           </div>
-          <div className="text-xs text-[#9AA3B2]">
-            Автопрокрутка при активном потоке
+          <div className="text-xs" style={{ color: 'var(--muted)' }}>
+            Последние 50 событий
           </div>
         </div>
 
-        <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto">
+        <div className="divide-y max-h-[460px] overflow-y-auto scroll-thin" style={{ borderColor: 'var(--line)' }}>
           {history.length === 0 ? (
-            <div className="p-12 text-center text-[#9AA3B2] text-xs space-y-2">
-              <Radio className="w-8 h-8 text-[#9AA3B2] mx-auto opacity-40 animate-pulse" />
+            <div className="p-10 text-center text-xs space-y-2" style={{ color: 'var(--muted)' }}>
+              <Radio className="w-7 h-7 mx-auto opacity-40 animate-pulse" />
               <div>Ожидание подачи сигналов…</div>
-              <div className="text-xs text-[#6B7385]">
+              <div className="text-[11px]" style={{ color: 'var(--faint)' }}>
                 Выберите сценарий выше или запустите автоматический поток
               </div>
             </div>
           ) : (
-            history.map((step, idx) => (
-              <div key={idx} className="p-4 hover:bg-white/5 transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#6B7385] font-mono">
-                      #{step.step_id}
-                    </span>
-                    <span className="text-xs font-semibold text-[#E7EAF0]">
-                      {step.sensor_name}
-                    </span>
-                    <span className="text-xs text-[#9AA3B2] font-mono">
-                      (канал #{step.channel_id})
-                    </span>
-                    <span className="eng-badge bg-white/5 text-[#9AA3B2] text-xs font-mono">
-                      {step.picket}
-                    </span>
+            history.map((step, idx) => {
+              const verdictChip =
+                step.ml_verdict === 'REAL_RISK'
+                  ? 'risk-CRITICAL'
+                  : step.ml_verdict === 'FALSE_ALARM'
+                    ? 'risk-ATTENTION'
+                    : step.ml_verdict === 'SENSOR_DEGRADATION'
+                      ? 'risk-WARNING'
+                      : 'risk-NORMAL';
+
+              const verdictTitle =
+                step.ml_verdict === 'REAL_RISK'
+                  ? 'Реальный риск'
+                  : step.ml_verdict === 'FALSE_ALARM'
+                    ? 'Кандидат на шум'
+                    : step.ml_verdict === 'SENSOR_DEGRADATION'
+                      ? 'Деградация'
+                      : 'Норма';
+
+              return (
+                <div key={idx} className="p-3.5 hover:bg-[var(--surface-2)] transition-colors space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="num text-xs" style={{ color: 'var(--faint)' }}>
+                        #{step.step_id}
+                      </span>
+                      <span className="text-xs font-semibold">
+                        {step.sensor_name}
+                      </span>
+                      <span className="num text-xs" style={{ color: 'var(--muted)' }}>
+                        (#{step.channel_id})
+                      </span>
+                      <span className="chip text-[11px]" style={{ background: 'var(--surface-3)', color: 'var(--muted)' }}>
+                        ПК <span className="num">{step.picket}</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="num text-xs px-2 py-0.5 rounded border" style={{ background: 'var(--bg)', borderColor: 'var(--line)' }}>
+                        Значение: <span className="font-semibold text-[var(--accent-text)]">{step.emitted_value}</span>
+                      </span>
+                      <span className={`chip ${verdictChip}`}>
+                        {verdictTitle}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#E7EAF0] bg-[#0B0E14] px-2.5 py-0.5 rounded-md border border-white/10 font-mono">
-                      Значение: <span className="font-semibold text-[#4C9BFF]">{step.emitted_value}</span>
-                    </span>
+                  <div className="text-xs flex flex-wrap items-center justify-between gap-2" style={{ color: 'var(--muted)' }}>
+                    <div>
+                      <span className="font-medium text-[var(--text)]">{step.object_name}</span>: {step.explanation}
+                    </div>
 
-                    <span className={`eng-badge text-xs ${
-                      step.ml_verdict === 'REAL_RISK' ? 'badge-critical' :
-                      step.ml_verdict === 'FALSE_ALARM' ? 'badge-cyan' :
-                      step.ml_verdict === 'SENSOR_DEGRADATION' ? 'badge-warning' : 'badge-normal'
-                    }`}>
-                      {step.ml_verdict === 'REAL_RISK' ? 'РЕАЛЬНЫЙ РИСК' :
-                       step.ml_verdict === 'FALSE_ALARM' ? 'КАНДИДАТ НА ШУМ' :
-                       step.ml_verdict === 'SENSOR_DEGRADATION' ? 'ДЕГРАДАЦИЯ' : 'НОРМА'}
-                    </span>
+                    <div className="flex items-center gap-3 num text-xs">
+                      {step.ticket_created && (
+                        <span className="flex items-center gap-1 font-semibold" style={{ color: 'var(--warn)' }}>
+                          <CheckCircle className="w-3.5 h-3.5" /> Наряд: {step.ticket_id}
+                        </span>
+                      )}
+                      {(step.scenario_potential_rub || 0) > 0 && (
+                        <span className="font-semibold" style={{ color: 'var(--ok)' }}>
+                          +{(step.scenario_potential_rub || 0).toLocaleString('ru-RU')} ₽
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                <div className="mt-2 text-xs text-[#9AA3B2] flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[#E7EAF0] font-medium">{step.object_name}</span>: {step.explanation}
-                  </div>
-
-                  <div className="flex items-center gap-3 font-mono text-xs">
-                    {step.ticket_created && (
-                      <span className="text-[#F5A524] flex items-center gap-1 font-semibold">
-                        <CheckCircle className="w-3.5 h-3.5" /> Наряд: {step.ticket_id}
-                      </span>
-                    )}
-                    {(step.scenario_potential_rub || 0) > 0 && (
-                      <span className="text-[#2FBF71] font-semibold">
-                        +{(step.scenario_potential_rub || 0).toLocaleString('ru-RU')} ₽
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

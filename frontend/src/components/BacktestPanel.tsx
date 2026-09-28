@@ -52,7 +52,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
 
   if (loading) {
     return (
-      <div className="eng-panel p-6 text-center text-[#9AA3B2] text-sm">
+      <div className="panel p-6 text-center text-xs" style={{ color: 'var(--muted)' }}>
         Загрузка результатов еженедельного бэктеста…
       </div>
     );
@@ -60,7 +60,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
 
   if (!report || !report.weeks || report.weeks.length === 0) {
     return (
-      <div className="eng-panel p-6 text-center text-[#9AA3B2] text-sm">
+      <div className="panel p-6 text-center text-xs" style={{ color: 'var(--muted)' }}>
         Данные бэктеста временно недоступны.
       </div>
     );
@@ -134,7 +134,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
       lgbm,
       dep,
       pers,
-      prev
+      prev,
     };
   });
 
@@ -170,74 +170,74 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
     {
       name: 'LightGBM с еженедельным дообучением',
       scorerKey: 'lgbm_weekly',
-      badgeColor: 'border-[#7C4DFF] text-[#E7EAF0] bg-[#7C4DFF]/10',
-      data: currentSummary.lgbm_weekly
+      color: '#7B61FF',
+      data: currentSummary.lgbm_weekly,
     },
     {
       name: 'Та же модель без дообучения (обучена в январе)',
       scorerKey: 'deployed',
-      badgeColor: 'border-white/10 text-[#9AA3B2] bg-white/5',
-      data: currentSummary.deployed
+      color: '#A29EB0',
+      data: currentSummary.deployed,
     },
     {
       name: 'Правило «сбоил за последние 7 дней»',
       scorerKey: 'persistence',
-      badgeColor: 'border-[#F5A524]/40 text-[#F5A524] bg-[#F5A524]/10',
-      data: currentSummary.persistence
+      color: '#F59E0B',
+      data: currentSummary.persistence,
     },
     {
       name: 'Логистическая регрессия',
       scorerKey: 'logreg_weekly',
-      badgeColor: 'border-[#4C9BFF]/40 text-[#4C9BFF] bg-[#4C9BFF]/10',
-      data: currentSummary.logreg_weekly
-    }
+      color: 'var(--attn)',
+      data: currentSummary.logreg_weekly,
+    },
   ];
 
   const hoveredPoint = hoveredIndex !== null ? points[hoveredIndex] : null;
 
   return (
-    <section className="eng-panel p-5 sm:p-6 space-y-6">
+    <section className="panel p-5 sm:p-6 space-y-6">
       {/* Title & Subtitle */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-lg sm:text-xl font-bold text-[#E7EAF0] flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#7C4DFF]"></span>
+          <h2 className="text-base sm:text-lg font-bold flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#7B61FF' }}></span>
             <span>Проверка на реальном журнале: {testWeeks} недель вперёд по времени</span>
           </h2>
-          <span className="text-xs text-[#9AA3B2] bg-[#181D29] border border-white/10 px-3 py-1 rounded-md self-start sm:self-auto">
+          <span className="chip num text-xs self-start sm:self-auto" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
             {firstCutoff} — {lastCutoff}
           </span>
         </div>
-        <p className="text-xs sm:text-sm text-[#9AA3B2] mt-2 leading-relaxed max-w-4xl">
+        <p className="text-xs sm:text-sm mt-2 leading-relaxed max-w-4xl" style={{ color: 'var(--muted)' }}>
           Каждую среду в 00:00 (с {firstCutoff} по {lastCutoff}) модель строит прогноз по истории до этого момента; затем прогноз сравнивается с тем, что реально записано в журнале СМВУ через 24–72 ч. Модель для недели k обучена только на неделях до k−1.
         </p>
       </div>
 
       {/* SVG Line Chart */}
-      <div className="bg-[#0B0E14] border border-white/10 rounded-xl p-4 sm:p-5 space-y-3">
+      <div className="panel p-4 sm:p-5 space-y-3" style={{ background: 'var(--bg)' }}>
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5 bg-[#7C4DFF]"></span>
-            <span className="text-[#E7EAF0] font-medium">LightGBM с еженедельным дообучением</span>
+            <span className="w-5 h-0.5" style={{ background: '#7B61FF' }}></span>
+            <span className="font-medium">LightGBM с дообучением</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5 border-t border-dashed border-[#9AA3B2]"></span>
-            <span className="text-[#9AA3B2]">Та же модель без дообучения (обучена в январе)</span>
+            <span className="w-5 h-0.5 border-t border-dashed" style={{ borderColor: '#A29EB0' }}></span>
+            <span style={{ color: 'var(--muted)' }}>Без дообучения (январская)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5 bg-[#F5A524]"></span>
-            <span className="text-[#F5A524]">Правило «сбоил за последние 7 дней»</span>
+            <span className="w-5 h-0.5" style={{ background: '#F59E0B' }}></span>
+            <span style={{ color: '#F59E0B' }}>Правило «сбоил за 7 дней»</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-5 h-0.5 border-t border-dotted border-[#6B7385]"></span>
-            <span className="text-[#6B7385]">Доля событий = случайный выбор</span>
+            <span className="w-5 h-0.5 border-t border-dotted" style={{ borderColor: '#6F6A7E' }}></span>
+            <span style={{ color: 'var(--faint)' }}>Доля событий = случайный выбор</span>
           </div>
         </div>
 
         {/* Chart Header Subtitle */}
-        <div className="text-[11px] text-[#6B7385]">
-          Показана динамика PR-AUC по 21 недельному срезу · Горизонт 24–72 ч · Наведите курсор на дату для значений
+        <div className="text-[11px]" style={{ color: 'var(--faint)' }}>
+          Динамика PR-AUC по 21 недельному срезу · Горизонт 24–72 ч · Наведите курсор на точку даты для значений
         </div>
 
         {/* SVG Container */}
@@ -257,16 +257,16 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
                     y1={y}
                     x2={width - padRight}
                     y2={y}
-                    stroke="#2A3140"
+                    stroke="var(--line)"
                     strokeWidth="1"
                     strokeDasharray="2,4"
                   />
                   <text
                     x={padLeft - 8}
                     y={y + 4}
-                    fill="#9AA3B2"
+                    fill="var(--muted)"
                     fontSize="11"
-                    fontFamily="JetBrains Mono, monospace"
+                    className="num"
                     textAnchor="end"
                   >
                     {t.toFixed(1).replace('.', ',')}
@@ -281,7 +281,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
               y1={padTop + chartH}
               x2={width - padRight}
               y2={padTop + chartH}
-              stroke="#2A3140"
+              stroke="var(--line)"
               strokeWidth="1"
             />
 
@@ -293,9 +293,9 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
                   key={idx}
                   x={p.x}
                   y={height - 12}
-                  fill="#9AA3B2"
+                  fill="var(--muted)"
                   fontSize="11"
-                  fontFamily="JetBrains Mono, monospace"
+                  className="num"
                   textAnchor="middle"
                 >
                   {p.shortDate}
@@ -304,10 +304,10 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
             })}
 
             {/* Data Paths */}
-            <path d={pathPrev} fill="none" stroke="#6B7385" strokeWidth="1.5" strokeDasharray="2,3" />
-            <path d={pathDep} fill="none" stroke="#9AA3B2" strokeWidth="1.75" strokeDasharray="4,4" />
-            <path d={pathPers} fill="none" stroke="#F5A524" strokeWidth="2" />
-            <path d={pathLgbm} fill="none" stroke="#7C4DFF" strokeWidth="2.5" />
+            <path d={pathPrev} fill="none" stroke="#6F6A7E" strokeWidth="1.5" strokeDasharray="2,3" />
+            <path d={pathDep} fill="none" stroke="#A29EB0" strokeWidth="1.75" strokeDasharray="4,4" />
+            <path d={pathPers} fill="none" stroke="#F59E0B" strokeWidth="2" />
+            <path d={pathLgbm} fill="none" stroke="#7B61FF" strokeWidth="2.5" />
 
             {/* Hover guideline and dots */}
             {hoveredPoint && (
@@ -317,14 +317,14 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
                   y1={padTop}
                   x2={hoveredPoint.x}
                   y2={padTop + chartH}
-                  stroke="rgba(255,255,255,0.25)"
+                  stroke="var(--line-2)"
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yLgbm} r="4.5" fill="#7C4DFF" stroke="#0B0E14" strokeWidth="1.5" />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yDep} r="4" fill="#9AA3B2" stroke="#0B0E14" strokeWidth="1.5" />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPers} r="4" fill="#F5A524" stroke="#0B0E14" strokeWidth="1.5" />
-                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPrev} r="3" fill="#6B7385" stroke="#0B0E14" strokeWidth="1" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yLgbm} r="4.5" fill="#7B61FF" stroke="var(--bg)" strokeWidth="1.5" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yDep} r="4" fill="#A29EB0" stroke="var(--bg)" strokeWidth="1.5" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPers} r="4" fill="#F59E0B" stroke="var(--bg)" strokeWidth="1.5" />
+                <circle cx={hoveredPoint.x} cy={hoveredPoint.yPrev} r="3" fill="#6F6A7E" stroke="var(--bg)" strokeWidth="1" />
               </g>
             )}
 
@@ -346,30 +346,31 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
           {/* Interactive Tooltip Card */}
           {hoveredPoint && (
             <div
-              className="absolute z-20 pointer-events-none bg-[#181D29] border border-white/20 rounded-lg p-2.5 shadow-xl text-xs space-y-1"
+              className="panel absolute z-20 pointer-events-none p-2.5 shadow-xl text-xs space-y-1"
               style={{
                 top: '12px',
-                left: `${Math.min(Math.max(10, (hoveredPoint.x / width) * 100), 72)}%`
+                left: `${Math.min(Math.max(10, (hoveredPoint.x / width) * 100), 72)}%`,
+                background: 'var(--surface-2)',
               }}
             >
-              <div className="font-mono text-[#E7EAF0] font-semibold border-b border-white/10 pb-1">
+              <div className="num font-semibold border-b pb-1" style={{ borderColor: 'var(--line)' }}>
                 Срез: {formatDate(hoveredPoint.cutoff)}
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-[#9AA3B2]">LightGBM (дообуч.):</span>
-                <span className="font-mono text-[#7C4DFF] font-semibold">{formatNum(hoveredPoint.lgbm, 3)}</span>
+                <span style={{ color: 'var(--muted)' }}>LightGBM (дообуч.):</span>
+                <span className="num font-semibold" style={{ color: '#7B61FF' }}>{formatNum(hoveredPoint.lgbm, 3)}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-[#9AA3B2]">Январская модель:</span>
-                <span className="font-mono text-[#9AA3B2]">{formatNum(hoveredPoint.dep, 3)}</span>
+                <span style={{ color: 'var(--muted)' }}>Январская модель:</span>
+                <span className="num" style={{ color: '#A29EB0' }}>{formatNum(hoveredPoint.dep, 3)}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-[#9AA3B2]">Правило 7 дней:</span>
-                <span className="font-mono text-[#F5A524]">{formatNum(hoveredPoint.pers, 3)}</span>
+                <span style={{ color: 'var(--muted)' }}>Правило 7 дней:</span>
+                <span className="num" style={{ color: '#F59E0B' }}>{formatNum(hoveredPoint.pers, 3)}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-[#9AA3B2]">Доля событий:</span>
-                <span className="font-mono text-[#6B7385]">{formatPct(hoveredPoint.prev, 2)}</span>
+                <span style={{ color: 'var(--muted)' }}>Доля событий:</span>
+                <span className="num" style={{ color: '#6F6A7E' }}>{formatPct(hoveredPoint.prev, 2)}</span>
               </div>
             </div>
           )}
@@ -380,35 +381,29 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[#E7EAF0]">
+            <h3 className="text-sm font-semibold">
               Сводные показатели моделей (медианы за {testWeeks} недель)
             </h3>
-            <p className="text-xs text-[#9AA3B2]">
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>
               Сравнение качества ранжирования на реальных данных 2026 года
             </p>
           </div>
 
           {/* Toggle Button Group */}
-          <div className="inline-flex bg-[#181D29] border border-white/10 p-0.5 rounded-lg self-start sm:self-auto">
+          <div className="flex gap-1 p-1 rounded-lg self-start sm:self-auto" style={{ background: 'var(--bg)' }}>
             <button
               type="button"
               onClick={() => setPopulation('all')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                population === 'all'
-                  ? 'bg-[#7C4DFF] text-white shadow-xs'
-                  : 'text-[#9AA3B2] hover:text-white'
-              }`}
+              className="px-3 h-7 rounded-md text-xs font-medium transition-colors"
+              style={population === 'all' ? { background: 'var(--surface-3)', color: 'var(--text)' } : { color: 'var(--muted)' }}
             >
               Все каналы
             </button>
             <button
               type="button"
               onClick={() => setPopulation('new_incidents')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                population === 'new_incidents'
-                  ? 'bg-[#7C4DFF] text-white shadow-xs'
-                  : 'text-[#9AA3B2] hover:text-white'
-              }`}
+              className="px-3 h-7 rounded-md text-xs font-medium transition-colors"
+              style={population === 'new_incidents' ? { background: 'var(--surface-3)', color: 'var(--text)' } : { color: 'var(--muted)' }}
             >
               Каналы без сбоев за 7 дней
             </button>
@@ -416,10 +411,10 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto border border-white/10 rounded-xl">
+        <div className="panel overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#181D29] text-[#9AA3B2] border-b border-white/10">
-              <tr>
+            <thead>
+              <tr className="border-b" style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
                 <th className="py-3 px-4 font-medium">Модель</th>
                 <th className="py-3 px-4 font-medium text-right">ROC-AUC</th>
                 <th className="py-3 px-4 font-medium text-right">PR-AUC</th>
@@ -428,28 +423,28 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
                 <th className="py-3 px-4 font-medium text-right">Точность топ-200</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 bg-[#121620]">
+            <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
               {tableRows.map((row) => (
-                <tr key={row.scorerKey} className="hover:bg-white/5 transition-colors">
-                  <td className="py-3.5 px-4 font-medium text-[#E7EAF0]">
+                <tr key={row.scorerKey} className="hover:bg-[var(--surface-2)] transition-colors">
+                  <td className="py-3.5 px-4 font-medium">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${row.badgeColor.includes('7C4DFF') ? 'bg-[#7C4DFF]' : row.badgeColor.includes('F5A524') ? 'bg-[#F5A524]' : row.badgeColor.includes('4C9BFF') ? 'bg-[#4C9BFF]' : 'bg-[#9AA3B2]'}`}></span>
+                      <span className="w-2 h-2 rounded-full" style={{ background: row.color }}></span>
                       <span>{row.name}</span>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-[#E7EAF0]">
+                  <td className="py-3.5 px-4 text-right num">
                     {formatNum(row.data?.roc_auc?.median)}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-[#E7EAF0]">
+                  <td className="py-3.5 px-4 text-right num">
                     {formatNum(row.data?.pr_auc?.median)}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-[#E7EAF0]">
+                  <td className="py-3.5 px-4 text-right num">
                     {formatPct(row.data?.precision_at_50?.median)}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-[#E7EAF0]">
+                  <td className="py-3.5 px-4 text-right num">
                     {formatPct(row.data?.precision_at_100?.median)}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-[#E7EAF0]">
+                  <td className="py-3.5 px-4 text-right num">
                     {formatPct(row.data?.precision_at_200?.median)}
                   </td>
                 </tr>
@@ -461,46 +456,46 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ initialData }) => 
 
       {/* 3 Key Takeaways */}
       <div className="space-y-2.5">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#9AA3B2]">
+        <div className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
           Ключевые выводы валидации:
-        </h4>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="bg-[#181D29] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-            <div className="text-xs font-semibold text-[#7C4DFF] flex items-center gap-1.5">
+          <div className="panel p-3.5 space-y-1.5" style={{ background: 'var(--surface-2)' }}>
+            <div className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--accent-text)' }}>
               <CheckCircle className="w-3.5 h-3.5" />
               <span>Еженедельное дообучение</span>
             </div>
-            <p className="text-xs text-[#E7EAF0] leading-relaxed">
-              Медианный PR-AUC <span className="font-mono font-semibold text-[#7C4DFF]">{lgbmPrAuc}</span> против <span className="font-mono text-[#9AA3B2]">{depPrAuc}</span> у модели без дообучения — поэтому в сервисе заложен регулярный цикл дообучения.
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Медианный PR-AUC <span className="num font-semibold text-[var(--text)]">{lgbmPrAuc}</span> против <span className="num" style={{ color: 'var(--faint)' }}>{depPrAuc}</span> у модели без дообучения — поэтому в сервисе заложен регулярный цикл дообучения.
             </p>
           </div>
 
-          <div className="bg-[#181D29] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-            <div className="text-xs font-semibold text-[#F5A524] flex items-center gap-1.5">
+          <div className="panel p-3.5 space-y-1.5" style={{ background: 'var(--surface-2)' }}>
+            <div className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--warn)' }}>
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Сравнение с эвристикой</span>
             </div>
-            <p className="text-xs text-[#E7EAF0] leading-relaxed">
-              Качество ранжирования выше правила «сбоил недавно»: ROC-AUC <span className="font-mono font-semibold text-[#7C4DFF]">{lgbmRoc}</span> против <span className="font-mono text-[#F5A524]">{persRoc}</span>; в топ-100 точность сопоставима ({lgbmP100} % и {persP100} %).
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Качество ранжирования выше правила «сбоил недавно»: ROC-AUC <span className="num font-semibold text-[var(--text)]">{lgbmRoc}</span> против <span className="num" style={{ color: 'var(--warn)' }}>{persRoc}</span>; в топ-100 точность сопоставима ({lgbmP100} % и {persP100} %).
             </p>
           </div>
 
-          <div className="bg-[#181D29] border border-white/10 rounded-xl p-3.5 space-y-1.5">
-            <div className="text-xs font-semibold text-[#4C9BFF] flex items-center gap-1.5">
+          <div className="panel p-3.5 space-y-1.5" style={{ background: 'var(--surface-2)' }}>
+            <div className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--attn)' }}>
               <Info className="w-3.5 h-3.5" />
               <span>Новые инциденты</span>
             </div>
-            <p className="text-xs text-[#E7EAF0] leading-relaxed">
-              На каналах без сбоев за неделю ({newIncidentShare} % всех событий) правило не работает (ROC-AUC 0,5), а модель сохраняет ROC-AUC <span className="font-mono font-semibold text-[#7C4DFF]">{newRoc}</span> — это инциденты, о которых диспетчер иначе не узнал бы заранее.
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+              На каналах без сбоев за неделю ({newIncidentShare} % всех событий) правило не работает (ROC-AUC 0,5), а модель сохраняет ROC-AUC <span className="num font-semibold text-[var(--text)]">{newRoc}</span> — это инциденты, о которых диспетчер иначе не узнал бы заранее.
             </p>
           </div>
         </div>
       </div>
 
       {/* Source Line */}
-      <div className="text-xs text-[#6B7385] border-t border-white/10 pt-3 flex flex-wrap justify-between items-center gap-2">
+      <div className="text-xs border-t pt-3 flex flex-wrap justify-between items-center gap-2" style={{ borderColor: 'var(--line)', color: 'var(--faint)' }}>
         <span>Источник: backend/models/rolling_backtest_report.json · воспроизведение: python scripts/rolling_backtest.py</span>
-        <span className="font-mono text-[11px]">Журнал СМВУ 2026 г. (11 485 каналов)</span>
+        <span className="num text-[11px]">Журнал СМВУ 2026 г. (11 485 каналов)</span>
       </div>
     </section>
   );
