@@ -6,7 +6,8 @@ from datetime import datetime
 from backend.app.core.config import settings
 from backend.app.models.schemas import (
     AlarmClassificationRequest, AlarmClassificationResponse, AlarmEvent,
-    AlarmConfirmationRequest, AlarmConfirmationResponse, AuditVerificationResponse
+    AlarmConfirmationRequest, AlarmConfirmationResponse, AuditVerificationResponse,
+    DispatcherSessionRequest, DispatcherSessionResponse
 )
 from backend.app.services.ml_service import (
     DispatcherAuthenticationError,
@@ -51,6 +52,20 @@ def confirm_alarm_decision(req: AlarmConfirmationRequest):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+@router.post("/session", response_model=DispatcherSessionResponse)
+def start_dispatcher_session(req: DispatcherSessionRequest):
+    """Проверить табельный номер и PIN в начале смены (интерфейс хранит их только в памяти вкладки)."""
+    try:
+        badge, d = ml_service.authenticate_dispatcher(req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=1)
+    except DispatcherAuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except DispatcherAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return DispatcherSessionResponse(
+        badge=badge, full_name=d["full_name"], role=d["role"], clearance_level=d["clearance_level"],
+        can_confirm_false_alarm=d["can_confirm_false_alarm"], can_force_dispatch=d["can_force_dispatch"])
+
 
 @router.get("/confirmed", response_model=List[Dict[str, Any]])
 def get_confirmed_alarm_log():

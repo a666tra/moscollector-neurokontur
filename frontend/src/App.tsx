@@ -1,410 +1,235 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Map, ShieldAlert, Filter, Wrench, Play, BarChart3, 
-  Activity, Clock, Sliders, Info
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Map as MapIcon, ClipboardList, LineChart, Stethoscope, Play, SlidersHorizontal, Info, LogOut, UserCheck, X, MoreHorizontal,
 } from 'lucide-react';
-import { HeroCover } from './components/HeroCover';
-import { CollectorMap } from './components/CollectorMap';
-import { RiskDashboard } from './components/RiskDashboard';
-import { FalseAlarmFilter } from './components/FalseAlarmFilter';
+import { Landing, Logo } from './shell/Landing';
+import { Situation } from './situation/Situation';
 import { MaintenanceTickets } from './components/MaintenanceTickets';
-import { StreamSimulator } from './components/StreamSimulator';
 import { MetricsView } from './components/MetricsView';
+import { FalseAlarmFilter } from './components/FalseAlarmFilter';
+import { StreamSimulator } from './components/StreamSimulator';
 import { SettingsModal } from './components/SettingsModal';
-import { DemoAccessHint } from './components/DemoAccessHint';
-import { SystemStats } from './types';
+import { SessionProvider, useSession } from './lib/session';
+import { ToastProvider } from './lib/toast';
+import { fmtInt, fmtNum } from './lib/api';
+import { ConfirmedAlarmItem, ObjectItem, PredictionItem, SystemStats } from './types';
 
-type ActiveTab = 'map' | 'risks' | 'alarms' | 'tickets' | 'simulator' | 'metrics';
+type View = 'situation' | 'tickets' | 'quality';
+type Tool = 'signal' | 'simulator' | null;
 
-export const App: React.FC = () => {
-  const [showHero, setShowHero] = useState<boolean>(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('tab') || params.get('hero') === 'false') {
-      return false;
-    }
-    return !sessionStorage.getItem('hero_dismissed');
-  });
+const VIEWS: Array<{ id: View; title: string; sub: string; icon: React.ElementType }> = [
+  { id: 'situation', title: 'Обстановка', sub: 'Карта и очередь риска', icon: MapIcon },
+  { id: 'tickets', title: 'Заявки и журнал', sub: 'Наряды ТО, решения смены', icon: ClipboardList },
+  { id: 'quality', title: 'Качество модели', sub: 'Проверка на реальных данных', icon: LineChart },
+];
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab') as ActiveTab;
-    if (tabParam && ['map', 'risks', 'alarms', 'tickets', 'simulator', 'metrics'].includes(tabParam)) {
-      return tabParam;
-    }
-    return 'map';
-  });
+const readView = (): View => {
+  const v = new URLSearchParams(window.location.search).get('view');
+  return v === 'tickets' || v === 'quality' ? v : 'situation';
+};
 
-  const handleTabChange = (tab: ActiveTab) => {
-    setActiveTab(tab);
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', tab);
-      window.history.replaceState({}, '', url.toString());
-    } catch (_) {}
+export const App: React.FC = () => (
+  <ToastProvider>
+    <SessionProvider>
+      <Root />
+    </SessionProvider>
+  </ToastProvider>
+);
+
+const Root: React.FC = () => {
+  const [entered, setEntered] = useState(() => new URLSearchParams(window.location.search).has('view'));
+  const [view, setViewState] = useState<View>(readView);
+  const setView = (v: View) => {
+    setViewState(v);
+    setEntered(true);
+    try { const u = new URL(window.location.href); u.searchParams.set('view', v); window.history.replaceState({}, '', u); } catch { /* ignore */ }
   };
-  const [showSettings, setShowSettings] = useState<boolean>(false);
+  if (!entered) return <Landing onEnter={() => setView('situation')} onOpenQuality={() => setView('quality')} />;
+  return <Workspace view={view} setView={setView} onExit={() => setEntered(false)} />;
+};
+
+const Workspace: React.FC<{ view: View; setView: (v: View) => void; onExit: () => void }> = ({ view, setView, onExit }) => {
+  const [objects, setObjects] = useState<ObjectItem[]>([]);
+  const [predictions, setPredictions] = useState<PredictionItem[]>([]);
+  const [counts, setCounts] = useState<{ critical: number; warning: number } | null>(null);
+  const [confirmed, setConfirmed] = useState<ConfirmedAlarmItem[]>([]);
   const [stats, setStats] = useState<SystemStats | null>(null);
-  const [backtestWeeks, setBacktestWeeks] = useState<number>(21);
-  const [currentTime, setCurrentTime] = useState<string>('');
-  const [objects, setObjects] = useState<any[]>([]);
-  const [predictions, setPredictions] = useState<any[]>([]);
-  const [selectedObjectId, setSelectedObjectId] = useState<string | undefined>(undefined);
-  const [createdTicketIds, setCreatedTicketIds] = useState<Set<string>>(new Set());
-  const [dispatcherBadge, setDispatcherBadge] = useState('');
-  const [dispatcherPin, setDispatcherPin] = useState('');
-  const [ticketActionError, setTicketActionError] = useState('');
-  const [ticketActionNotice, setTicketActionNotice] = useState('');
+  const [roc, setRoc] = useState<number | undefined>();
+  const [tool, setTool] = useState<Tool>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch('/api/stats/summary');
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
-    } catch (e) {
-      console.error('Failed to load system stats', e);
-    }
-  };
-
-  const fetchBacktestWeeks = async () => {
-    try {
-      const res = await fetch('/api/predictions/backtest');
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.test_weeks === 'number') {
-          setBacktestWeeks(data.test_weeks);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load backtest test_weeks', e);
-    }
-  };
-
-  const fetchAppData = async () => {
-    try {
-      const [objRes, predRes] = await Promise.all([
-        fetch('/api/objects'),
-        fetch('/api/predictions?limit=500')
-      ]);
-      if (objRes.ok) {
-        const objData = await objRes.json();
-        setObjects(objData);
-      }
-      if (predRes.ok) {
-        const predData = await predRes.json();
-        setPredictions(predData.items || []);
-      }
-    } catch (e) {
-      console.error('Failed to fetch objects or predictions', e);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-    fetchBacktestWeeks();
-    fetchAppData();
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
+  const load = useCallback(async () => {
+    const get = (u: string) => fetch(u).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    const [obj, pred, conf, st] = await Promise.all([
+      get('/api/objects'), get('/api/predictions?limit=500'), get('/api/alarms/confirmed'), get('/api/stats/summary'),
+    ]);
+    if (obj) setObjects(obj);
+    if (pred) { setPredictions(pred.items || []); setCounts({ critical: pred.critical_count, warning: pred.warning_count }); }
+    if (conf) setConfirmed(conf);
+    if (st) setStats(st);
   }, []);
 
-  const handleCreateTicket = async (channelId: string) => {
-    if (!dispatcherBadge.trim() || !/^\d{6}$/.test(dispatcherPin)) {
-      setTicketActionNotice('');
-      setTicketActionError('Введите табельный номер и 6-значный PIN, чтобы сформировать заявку на ТО.');
-      return;
-    }
-
-    setTicketActionError('');
-    setTicketActionNotice('');
-    try {
-      const res = await fetch('/api/tickets/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channel_id: channelId,
-          priority: 'ВЫСОКИЙ',
-          notes: 'Сформировано по результатам предиктивного анализа риска СМВУ (горизонт 24–72 ч).',
-          dispatcher_badge: dispatcherBadge.trim(),
-          dispatcher_pin: dispatcherPin
-        })
-      });
-      if (res.ok) {
-        setCreatedTicketIds(prev => new Set([...prev, channelId]));
-        setTicketActionNotice('Заявка на ТО успешно сформирована в реестре нарядов.');
-        fetchStats();
-        return;
-      }
-      const body = await res.json().catch(() => null);
-      const detail = typeof body?.detail === 'string' ? body.detail : '';
-      setTicketActionError(res.status === 401
-        ? 'Учётные данные не подтверждены. Проверьте табельный номер и PIN.'
-        : res.status === 403
-          ? 'Данный уровень доступа не позволяет создавать заявки на ТО.'
-          : detail || `Не удалось создать заявку (HTTP ${res.status}).`);
-    } catch (e) {
-      console.error('Failed to create ticket', e);
-      setTicketActionError('Не удалось связаться с API. Проверьте подключение к серверу.');
-    }
-  };
-
-  const handleSelectObject = (obj: any) => {
-    setSelectedObjectId(obj.object_id);
-  };
-
-  // Live Moscow time clock
   useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow' }));
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    load();
+    fetch('/api/predictions/backtest').then(r => (r.ok ? r.json() : null))
+      .then(d => setRoc(d?.summary?.all?.lgbm_weekly?.roc_auc?.median)).catch(() => {});
+  }, [load]);
 
-  const handleEnterDashboard = (tab: ActiveTab = 'map') => {
-    setActiveTab(tab);
-    setShowHero(false);
-    sessionStorage.setItem('hero_dismissed', 'true');
-  };
-
-  if (showHero) {
-    return (
-      <HeroCover 
-        stats={stats} 
-        onEnter={() => handleEnterDashboard('map')} 
-        onOpenMetrics={() => handleEnterDashboard('metrics')}
-      />
-    );
-  }
+  const current = VIEWS.find(v => v.id === view)!;
+  const openTool = (t: Tool) => { setTool(t); setMoreOpen(false); };
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] text-[#E7EAF0] flex flex-col font-sans">
-      {/* Top Header per DESIGN.md */}
-      <header className="bg-[#121620] border-b border-white/10 sticky top-0 z-50 px-4 py-2">
-        <div className="max-w-[1920px] mx-auto flex items-center justify-between gap-4">
-          {/* Logo + Subtitle */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[#7C4DFF]/15 border border-[#7C4DFF]/30 flex items-center justify-center">
-              <Activity className="w-4 h-4 text-[#7C4DFF]" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-[#E7EAF0] leading-tight">
-                Москоллектор · НейроКонтур
-              </div>
-              <div className="text-xs text-[#9AA3B2] leading-tight">
-                Прогноз инцидентов коллекторов
-              </div>
-            </div>
+    <div className="h-full flex" style={{ background: 'var(--bg)' }}>
+      {/* Sidebar (desktop) */}
+      <aside className="hidden lg:flex w-[244px] shrink-0 flex-col border-r" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
+        <button onClick={onExit} className="flex items-center gap-3 px-5 h-16 border-b text-left" style={{ borderColor: 'var(--line)' }} title="О проекте">
+          <Logo />
+          <div>
+            <div className="text-sm font-semibold">НейроКонтур</div>
+            <div className="text-xs" style={{ color: 'var(--muted)' }}>Москоллектор · ОДС</div>
           </div>
-
-          {/* Navigation Tabs (scrollable on mobile, single line on desktop) */}
-          <nav className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
-            <button
-              onClick={() => handleTabChange('map')}
-              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
-                activeTab === 'map'
-                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
-                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
-              }`}
-            >
-              <Map className="w-4 h-4 text-[#7C4DFF]" />
-              <span>Карта сети</span>
-            </button>
-
-            <button
-              onClick={() => handleTabChange('risks')}
-              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
-                activeTab === 'risks'
-                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
-                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4 text-[#F0453A]" />
-              <span>Риски 24–72 ч</span>
-              {stats?.critical_sensors_count ? (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#F0453A]/20 text-[#F0453A] font-mono rounded-full text-xs font-semibold">
-                  {stats.critical_sensors_count}
+        </button>
+        <nav className="p-3 space-y-1">
+          <div className="px-2 pt-2 pb-1 label">Рабочие области</div>
+          {VIEWS.map(v => {
+            const active = v.id === view;
+            return (
+              <button key={v.id} onClick={() => setView(v.id)} aria-current={active ? 'page' : undefined}
+                      className="w-full flex items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
+                      style={active ? { background: 'var(--accent-soft)', boxShadow: 'inset 2px 0 0 var(--accent)' } : undefined}>
+                <v.icon className="w-4 h-4 mt-0.5 shrink-0" style={{ color: active ? 'var(--accent-text)' : 'var(--muted)' }} />
+                <span>
+                  <span className="block text-sm font-medium" style={{ color: active ? 'var(--text)' : 'var(--muted)' }}>{v.title}</span>
+                  <span className="block text-xs" style={{ color: 'var(--faint)' }}>{v.sub}</span>
                 </span>
-              ) : null}
-            </button>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="mt-auto p-3 space-y-1 border-t" style={{ borderColor: 'var(--line)' }}>
+          <div className="px-2 pt-1 pb-1 label">Инструменты</div>
+          <ToolButton icon={Stethoscope} text="Разобрать сигнал" onClick={() => openTool('signal')} />
+          <ToolButton icon={Play} text="Симулятор потока" onClick={() => openTool('simulator')} />
+          <ToolButton icon={SlidersHorizontal} text="Параметры и пороги" onClick={() => setSettingsOpen(true)} />
+          <ToolButton icon={Info} text="О проекте" onClick={onExit} />
+        </div>
+      </aside>
 
-            <button
-              onClick={() => handleTabChange('alarms')}
-              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
-                activeTab === 'alarms'
-                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
-                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
-              }`}
-            >
-              <Filter className="w-4 h-4 text-[#4C9BFF]" />
-              <span>Фильтр тревог</span>
-            </button>
-
-            <button
-              onClick={() => handleTabChange('tickets')}
-              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
-                activeTab === 'tickets'
-                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
-                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
-              }`}
-            >
-              <Wrench className="w-4 h-4 text-[#F5A524]" />
-              <span>Наряды ТО/ППР</span>
-              {stats?.tickets_count ? (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#F5A524]/20 text-[#F5A524] font-mono rounded-full text-xs font-semibold">
-                  {stats.tickets_count}
-                </span>
-              ) : null}
-            </button>
-
-            <button
-              onClick={() => handleTabChange('simulator')}
-              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
-                activeTab === 'simulator'
-                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
-                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
-              }`}
-            >
-              <Play className="w-4 h-4 text-[#2FBF71]" />
-              <span>Симулятор (демо)</span>
-            </button>
-
-            <button
-              onClick={() => handleTabChange('metrics')}
-              className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap border-b-2 flex items-center gap-2 ${
-                activeTab === 'metrics'
-                  ? 'border-[#7C4DFF] text-[#E7EAF0] font-semibold'
-                  : 'border-transparent text-[#9AA3B2] hover:text-[#E7EAF0]'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4 text-[#7C4DFF]" />
-              <span>Проверка модели</span>
-            </button>
-          </nav>
-
-          {/* Right Action Icons & Clock */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Clock: hidden on narrow screens per DESIGN.md */}
-            <div className="hidden lg:flex items-center gap-1.5 text-xs text-[#9AA3B2] font-mono mr-2">
-              <Clock className="w-3.5 h-3.5 text-[#7C4DFF]" />
-              <span>{currentTime} МСК</span>
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Top bar */}
+        <header className="shrink-0 border-b" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
+          <div className="flex items-center gap-4 px-4 lg:px-6 h-14 lg:h-16">
+            <div className="lg:hidden"><Logo /></div>
+            <div className="min-w-0">
+              <div className="font-semibold truncate">{current.title}</div>
+              <div className="text-xs truncate hidden sm:block" style={{ color: 'var(--muted)' }}>{current.sub}</div>
             </div>
+            <div className="hidden md:flex items-center ml-auto">
+              <Kpi label="Критично" value={fmtInt(counts?.critical)} color="var(--crit)" />
+              <Kpi label="Предупреждение" value={fmtInt(counts?.warning)} color="var(--warn)" />
+              <Kpi label="Заявок ТО" value={fmtInt(stats?.tickets_count)} />
+              <Kpi label="ROC-AUC модели" value={fmtNum(roc, 2)} />
+            </div>
+            <div className="ml-auto md:ml-4"><ShiftButton /></div>
+          </div>
+          <div className="md:hidden grid grid-cols-3 border-t text-center" style={{ borderColor: 'var(--line)' }}>
+            <MobileKpi label="Критично" value={fmtInt(counts?.critical)} color="var(--crit)" />
+            <MobileKpi label="Предупр." value={fmtInt(counts?.warning)} color="var(--warn)" />
+            <MobileKpi label="Заявок ТО" value={fmtInt(stats?.tickets_count)} />
+          </div>
+        </header>
 
-            {/* Settings Icon Button with Tooltip */}
-            <button
-              type="button"
-              onClick={() => setShowSettings(true)}
-              className="p-2 text-[#9AA3B2] hover:text-[#E7EAF0] hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-colors cursor-pointer"
-              title="Параметры и пороги"
-              aria-label="Параметры и пороги"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
+        <main className="flex-1 min-h-0 pb-16 lg:pb-0">
+          {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
+          {view === 'tickets' && <div className="h-full overflow-y-auto p-4 lg:p-6"><MaintenanceTickets onRefreshStats={load} /></div>}
+          {view === 'quality' && <div className="h-full overflow-y-auto p-4 lg:p-6"><MetricsView /></div>}
+        </main>
 
-            {/* About / Hero Icon Button with Tooltip */}
-            <button
-              type="button"
-              onClick={() => setShowHero(true)}
-              className="p-2 text-[#9AA3B2] hover:text-[#E7EAF0] hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-colors cursor-pointer"
-              title="О системе"
-              aria-label="О системе"
-            >
-              <Info className="w-4 h-4" />
+        {/* Bottom nav (mobile) */}
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-4 h-16 border-t" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
+          {VIEWS.map(v => (
+            <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[11px]"
+                    style={{ color: v.id === view ? 'var(--accent-text)' : 'var(--muted)' }}>
+              <v.icon className="w-5 h-5" />{v.title.split(' ')[0]}
             </button>
+          ))}
+          <button onClick={() => setMoreOpen(true)} className="flex flex-col items-center justify-center gap-1 text-[11px]" style={{ color: 'var(--muted)' }}>
+            <MoreHorizontal className="w-5 h-5" />Ещё
+          </button>
+        </nav>
+      </div>
+
+      {moreOpen && (
+        <div className="lg:hidden fixed inset-0 z-[1300] bg-black/60 flex items-end" onClick={() => setMoreOpen(false)}>
+          <div className="w-full rounded-t-2xl p-3 pb-6 space-y-1" style={{ background: 'var(--surface)' }} onClick={e => e.stopPropagation()}>
+            <ToolButton icon={Stethoscope} text="Разобрать сигнал" onClick={() => openTool('signal')} />
+            <ToolButton icon={Play} text="Симулятор потока" onClick={() => openTool('simulator')} />
+            <ToolButton icon={SlidersHorizontal} text="Параметры и пороги" onClick={() => { setMoreOpen(false); setSettingsOpen(true); }} />
+            <ToolButton icon={Info} text="О проекте" onClick={onExit} />
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Main Workspace View */}
-      <main className="flex-1 max-w-[1920px] w-full mx-auto p-4 sm:p-6">
-        {activeTab === 'map' && (
-          <CollectorMap 
-            objects={objects} 
-            onSelectObject={handleSelectObject} 
-            selectedObjectId={selectedObjectId} 
-          />
-        )}
-        {activeTab === 'risks' && (
-          <div className="space-y-4">
-            <section className="eng-panel p-4 space-y-3" aria-label="Авторизация диспетчера">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <div className="text-xs font-semibold text-[#E7EAF0]">Учётные данные для оформления наряда ТО</div>
-                  <p className="text-xs text-[#9AA3B2] mt-0.5">
-                    Для создания наряда введите табельный номер и 6-значный PIN оператора ОДС.
-                  </p>
-                </div>
-                <DemoAccessHint onFill={(b, p) => { setDispatcherBadge(b); setDispatcherPin(p); }} />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-end pt-1">
-                <label className="text-xs text-[#9AA3B2]">
-                  Табельный номер
-                  <input
-                    type="text"
-                    value={dispatcherBadge}
-                    onChange={event => { setDispatcherBadge(event.target.value); setTicketActionError(''); setTicketActionNotice(''); }}
-                    placeholder="ДИСП-7041"
-                    autoComplete="off"
-                    className="block w-full sm:w-44 mt-1 bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#E7EAF0] focus:border-[#7C4DFF] focus:outline-none"
-                  />
-                </label>
-                <label className="text-xs text-[#9AA3B2]">
-                  PIN (6 цифр)
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    value={dispatcherPin}
-                    onChange={event => { setDispatcherPin(event.target.value.replace(/\D/g, '').slice(0, 6)); setTicketActionError(''); setTicketActionNotice(''); }}
-                    placeholder="••••••"
-                    autoComplete="off"
-                    className="block w-full sm:w-36 mt-1 bg-[#0B0E14] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#E7EAF0] focus:border-[#7C4DFF] focus:outline-none font-mono"
-                  />
-                </label>
-              </div>
-
-              {ticketActionError && <p role="alert" className="text-xs text-[#F0453A] mt-2">{ticketActionError}</p>}
-              {ticketActionNotice && <p role="status" className="text-xs text-[#2FBF71] mt-2">{ticketActionNotice}</p>}
-            </section>
-
-            <RiskDashboard
-              predictions={predictions}
-              onCreateTicket={handleCreateTicket}
-              createdTicketIds={createdTicketIds}
-            />
-          </div>
-        )}
-        {activeTab === 'alarms' && <FalseAlarmFilter />}
-        {activeTab === 'tickets' && <MaintenanceTickets onRefreshStats={fetchStats} />}
-        {activeTab === 'simulator' && <StreamSimulator onRefreshStats={fetchStats} />}
-        {activeTab === 'metrics' && <MetricsView />}
-      </main>
-
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        onSaved={() => {
-          fetchStats();
-          fetchAppData();
-        }}
-      />
-
-      {/* Footer Status Line per Task 2 */}
-      <footer className="bg-[#121620] border-t border-white/10 px-4 py-2.5 text-xs text-[#9AA3B2]">
-        <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <span>
-            Модель LightGBM · проверка на {backtestWeeks} неделе реального журнала СМВУ · демо-стенд без подключения к СМВУ/CMMS
-          </span>
-          <span className="text-[#6B7385]">
-            АО «Москоллектор» · Комплекс городского хозяйства Москвы
-          </span>
-        </div>
-      </footer>
+      {tool && (
+        <Drawer title={tool === 'signal' ? 'Разобрать сигнал' : 'Симулятор потока телеметрии'} onClose={() => setTool(null)}>
+          {tool === 'signal' ? <FalseAlarmFilter /> : <StreamSimulator onRefreshStats={load} />}
+        </Drawer>
+      )}
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} />
     </div>
   );
 };
+
+const ToolButton: React.FC<{ icon: React.ElementType; text: string; onClick: () => void }> = ({ icon: I, text, onClick }) => (
+  <button onClick={onClick} className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-[var(--surface-2)]" style={{ color: 'var(--muted)' }}>
+    <I className="w-4 h-4" />{text}
+  </button>
+);
+
+const Kpi: React.FC<{ label: string; value: string; color?: string }> = ({ label, value, color }) => (
+  <div className="px-4 border-l first:border-l-0" style={{ borderColor: 'var(--line)' }}>
+    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{label}</div>
+    <div className="num text-base font-semibold flex items-center gap-1.5">
+      {color && <span className="w-2 h-2 rounded-full" style={{ background: color }} />}{value}
+    </div>
+  </div>
+);
+
+const MobileKpi: React.FC<{ label: string; value: string; color?: string }> = ({ label, value, color }) => (
+  <div className="py-2 border-l first:border-l-0" style={{ borderColor: 'var(--line)' }}>
+    <div className="num text-sm font-semibold flex items-center justify-center gap-1.5">
+      {color && <span className="w-2 h-2 rounded-full" style={{ background: color }} />}{value}
+    </div>
+    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>{label}</div>
+  </div>
+);
+
+const ShiftButton: React.FC = () => {
+  const { dispatcher, openShift, endShift } = useSession();
+  if (!dispatcher) {
+    return <button className="btn btn-secondary h-9" onClick={openShift}><UserCheck className="w-4 h-4" />Начать смену</button>;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <div className="text-right hidden sm:block">
+        <div className="num text-xs font-semibold">{dispatcher.badge}</div>
+        <div className="text-[11px] max-w-[160px] truncate" style={{ color: 'var(--muted)' }}>{dispatcher.full_name}</div>
+      </div>
+      <span className="sm:hidden num text-xs font-semibold">{dispatcher.badge}</span>
+      <button className="icon-btn" onClick={endShift} title="Завершить смену" aria-label="Завершить смену"><LogOut className="w-4 h-4" /></button>
+    </div>
+  );
+};
+
+const Drawer: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
+  <div className="fixed inset-0 z-[1400] bg-black/60 flex justify-end" onClick={onClose}>
+    <div className="w-full max-w-[920px] h-full flex flex-col border-l" style={{ background: 'var(--bg)', borderColor: 'var(--line-2)' }} onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-5 h-14 border-b shrink-0" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
+        <div className="font-semibold">{title}</div>
+        <button className="icon-btn" onClick={onClose} aria-label="Закрыть"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
+    </div>
+  </div>
+);

@@ -98,6 +98,20 @@ class AlarmConfirmationRequest(BaseModel):
     dispatcher_pin: str = Field(..., pattern=r"^\d{6}$", description="Персональный 6-значный PIN-код диспетчера ОДС для подтверждения решения")
     notes: Optional[str] = None
 
+class DispatcherSessionRequest(BaseModel):
+    dispatcher_badge: str = Field(..., pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$")
+    dispatcher_pin: str = Field(..., pattern=r"^\d{6}$")
+
+
+class DispatcherSessionResponse(BaseModel):
+    badge: str
+    full_name: str
+    role: str
+    clearance_level: int
+    can_confirm_false_alarm: bool
+    can_force_dispatch: bool
+
+
 class AlarmConfirmationResponse(BaseModel):
     channel_id: str
     decision: str

@@ -1,3 +1,4 @@
+import { useToast } from '../lib/toast';
 import React, { useState, useEffect } from 'react';
 import { AlarmClassificationResponse, ConfirmedAlarmItem, AuthorizedDispatcher, AuditVerificationResult } from '../types';
 import { 
@@ -7,6 +8,7 @@ import {
 import { DemoAccessHint } from './DemoAccessHint';
 
 export const FalseAlarmFilter: React.FC = () => {
+  const toast = useToast();
   const [channelId, setChannelId] = useState('120578');
   const [val, setVal] = useState('Замкнут');
   const [flips, setFlips] = useState(4);
@@ -126,7 +128,7 @@ export const FalseAlarmFilter: React.FC = () => {
         verifyAuditLedger();
       } else {
         const err = await res.json();
-        alert(err.detail || 'Ошибка авторизации диспетчера');
+        toast(typeof err.detail === 'string' ? err.detail : 'Проверьте табельный номер и 6-значный PIN.', 'error');
       }
     } catch (e) {
       console.error('Confirmation error', e);
@@ -142,7 +144,7 @@ export const FalseAlarmFilter: React.FC = () => {
       setFlips(5);
       setDuration(1.2);
     } else if (presetType === 'GAS_SPIKE') {
-      setChannelId('120466');
+      setChannelId('104034'); // «ГАЗ Д9 ПК71», газовый датчик
       setVal('2.45');
       setFlips(0);
       setDuration(12.0);

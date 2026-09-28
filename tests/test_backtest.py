@@ -89,3 +89,23 @@ def test_pin_lockout_after_repeated_failures(monkeypatch, tmp_path):
         monkeypatch.delenv('LCT_DEMO_DISPATCHER_PIN')
         svc.public_demo_credentials = None
         svc.load_authorized_dispatchers()
+
+
+def test_dispatcher_session_endpoint(monkeypatch, tmp_path):
+    from backend.app.services import ml_service as mod
+    monkeypatch.setattr(mod, 'AUTH_DISPATCHERS_PATH', str(tmp_path / 'missing.json'))
+    monkeypatch.setenv('LCT_DEMO_DISPATCHER_PIN', '246810')
+    svc = mod.ml_service
+    svc.load_authorized_dispatchers()
+    svc._pin_failures.clear()
+    client = TestClient(app)
+    try:
+        ok = client.post('/api/alarms/session', json={'dispatcher_badge': 'ДИСП-0001', 'dispatcher_pin': '246810'})
+        assert ok.status_code == 200 and ok.json()['can_force_dispatch'] is True
+        bad = client.post('/api/alarms/session', json={'dispatcher_badge': 'ДИСП-0001', 'dispatcher_pin': '111111'})
+        assert bad.status_code == 401
+    finally:
+        svc._pin_failures.clear()
+        monkeypatch.delenv('LCT_DEMO_DISPATCHER_PIN')
+        svc.public_demo_credentials = None
+        svc.load_authorized_dispatchers()
