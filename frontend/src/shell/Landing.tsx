@@ -14,6 +14,8 @@ interface Props {
 /** First screen «Контуры риска»: live risk map as the backdrop, the idea in one sentence, verified numbers. */
 export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality }) => {
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+  // Short desktop screens (e.g. 1366×768 laptops): smaller headline, no step list — nothing overlaps the KPI row.
+  const short = isDesktop && window.innerHeight < 860;
   const [bt, setBt] = useState<any>(null);
   const [perf, setPerf] = useState<any>(null);
   const [objects, setObjects] = useState<ObjectItem[]>([]);
@@ -71,14 +73,14 @@ export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality }) => {
       </header>
 
       {/* content */}
-      <div className="relative z-[600] px-6 pt-[450px] pb-32 lg:p-0 lg:absolute lg:left-14 lg:top-[150px] lg:w-[560px] flex flex-col gap-5 lg:gap-[22px]">
-        <h1 className="serif font-medium tracking-[-0.035em] text-[76px] leading-[.8] lg:text-[150px] lg:leading-[.82] rise" style={{ animationDelay: '.1s' }}>
+      <div className={`relative z-[600] px-6 pt-[450px] pb-32 lg:p-0 lg:absolute lg:left-14 ${short ? 'lg:top-[100px]' : 'lg:top-[150px]'} lg:w-[560px] flex flex-col gap-5 lg:gap-[22px]`}>
+        <h1 className={`serif font-medium tracking-[-0.035em] text-[76px] leading-[.8] ${short ? 'lg:text-[100px]' : 'lg:text-[150px]'} lg:leading-[.82] rise`} style={{ animationDelay: '.1s' }}>
           Контуры<br className="hidden lg:block" /> <i style={{ color: 'var(--ac)' }}>риска</i>
         </h1>
-        <p className="text-base lg:text-xl leading-[1.45] max-w-[470px] lg:mt-3.5 rise" style={{ color: 'var(--mut)', animationDelay: '.25s' }}>
+        <p className={`text-base ${short ? 'lg:text-lg' : 'lg:text-xl'} leading-[1.45] max-w-[470px] lg:mt-3.5 rise`} style={{ color: 'var(--mut)', animationDelay: '.25s' }}>
           Каждое утро показываем на карте, где в подземных коллекторах Москвы <b className="font-medium" style={{ color: 'var(--ink)' }}>может случиться поломка в ближайшие 1–3 дня</b> — и что с этим делать.
         </p>
-        <div className="hidden lg:flex flex-col gap-2.5 rise" style={{ animationDelay: '.35s' }}>
+        <div className={`hidden ${short ? '' : 'lg:flex'} flex-col gap-2.5 rise`} style={{ animationDelay: '.35s' }}>
           {[`Модель проверяет ${channels} датчиков`, 'Отмечает на карте опасные места и объясняет почему', 'Диспетчер одним нажатием решает: ремонт, выезд или отбой'].map((t, i) => (
             <div key={i} className="flex items-center gap-3.5 text-[15px]">
               <span className="w-8 h-8 rounded-full flex items-center justify-center num text-[13px] font-semibold" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)', color: 'var(--ac)' }}>{i + 1}</span>{t}

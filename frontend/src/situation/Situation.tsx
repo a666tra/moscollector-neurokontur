@@ -167,7 +167,7 @@ export const Situation: React.FC<Props> = ({ objects, predictions, onChanged }) 
       {/* desktop overlays */}
       <aside className="hidden lg:flex absolute left-4 top-4 bottom-4 w-[320px] z-[600] glass rounded-[22px] overflow-hidden">{queuePanel}</aside>
       {hint && (
-        <div className="hidden xl:flex absolute left-[352px] top-4 z-[600] glass rounded-full items-center gap-3.5 py-2 pl-4 pr-2 text-[13px] rise" style={{ animationDuration: '.5s' }}>
+        <div className="hidden min-[1560px]:flex absolute left-[352px] top-4 z-[600] glass rounded-full items-center gap-3.5 py-2 pl-4 pr-2 text-[13px] rise" style={{ animationDuration: '.5s' }}>
           {['Нажмите на точку', 'Посмотрите, почему', 'Выберите, что делать'].map((t, i) => (
             <React.Fragment key={t}>
               {i > 0 && <ArrowRight className="w-3.5 h-3.5" style={{ color: 'var(--mut)' }} />}
@@ -187,7 +187,7 @@ export const Situation: React.FC<Props> = ({ objects, predictions, onChanged }) 
       </div>
       <div className="hidden lg:block absolute right-[476px] bottom-4 z-[600]">{zoom}</div>
       {selected && (
-        <div className="hidden lg:flex absolute right-4 top-4 bottom-4 w-[440px] z-[600] rounded-3xl overflow-hidden" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)' }}>{renderCard(false)}</div>
+        <div className="hidden lg:flex absolute right-4 top-4 bottom-4 w-[440px] z-[600] rounded-3xl overflow-hidden" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)' }}>{renderCard(typeof window !== 'undefined' && window.innerHeight < 820)}</div>
       )}
 
       {/* mobile: card under the map, queue in a sheet */}
