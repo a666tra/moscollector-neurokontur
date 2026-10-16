@@ -99,7 +99,7 @@ export const ScenarioLab: React.FC = () => {
 
             {/* Permanent Badge */}
             <span
-              className="chip text-[11px] sm:text-xs font-semibold py-1 px-3 h-auto"
+              className="chip text-[11px] sm:text-xs font-semibold py-1.5 px-3 h-auto max-w-full whitespace-normal break-words leading-relaxed rounded-xl text-left inline-block"
               style={{
                 background: 'var(--acs)',
                 color: 'var(--ac)',
@@ -110,7 +110,7 @@ export const ScenarioLab: React.FC = () => {
             </span>
           </div>
           <p className="text-xs sm:text-sm" style={{ color: 'var(--mut)' }}>
-            Быстрый контур правил против простого порога на смоделированных авариях (S1–S7). ML-слой здесь не оценивается — его качество показано в разделе «Качество модели» на реальных данных.
+            Быстрый контур правил против простого порога на смоделированных авариях (S1–S8). ML-слой здесь не оценивается — его качество показано в разделе «Качество модели» на реальных данных.
           </p>
         </div>
       </div>

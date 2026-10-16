@@ -233,6 +233,9 @@ export interface ScenarioMetricItem {
   lead_time_p10_min?: number | null;
   delay_median_sec?: number | null;
   delay_p90_sec?: number | null;
+  alerts_per_event?: number | null;
+  incidents_per_event?: number | null;
+  share_labelled_setpoint_chatter?: number | null;
 }
 
 export interface ScenarioDetectorMetrics {
@@ -242,6 +245,11 @@ export interface ScenarioDetectorMetrics {
     detection_rate: number;
   };
   scenarios: Record<string, ScenarioMetricItem>;
+  s8_metrics?: {
+    alerts_per_event: number;
+    incidents_per_event: number;
+    share_labelled_setpoint_chatter: number;
+  };
   lead_time: {
     median_min: number | null;
     p10_min: number | null;

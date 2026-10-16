@@ -26,6 +26,7 @@ const DEFAULT_SCENARIOS: Array<{
   { id: 'S5', name: 'Затопление', target_metric: 'delay' },
   { id: 'S6', name: 'Дребезг контакта', target_metric: 'delay' },
   { id: 'S7', name: 'Потеря связи', target_metric: 'delay' },
+  { id: 'S8', name: 'Колебание газа у уставки', target_metric: 'delay' },
 ];
 
 export const ScenarioComparisonTable: React.FC<ScenarioComparisonTableProps> = ({
@@ -83,10 +84,10 @@ export const ScenarioComparisonTable: React.FC<ScenarioComparisonTableProps> = (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b" style={{ borderColor: 'var(--ln)' }}>
         <div>
           <h2 className="text-base sm:text-lg font-bold">
-            Сравнение детекторов по сценариям S1–S7
+            Сравнение детекторов по сценариям S1–S8
           </h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--mut)' }}>
-            Оценка полноты обнаружения и упреждения (S1, S3) / задержки (S2, S4–S7)
+            Оценка полноты обнаружения и упреждения (S1, S3) / задержки (S2, S4–S8)
           </p>
         </div>
       </div>

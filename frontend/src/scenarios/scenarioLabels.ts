@@ -2,6 +2,7 @@
 
 export const ALERT_CLASS_MAP: Record<string, string> = {
   CHATTER: 'Дребезг контакта',
+  SETPOINT_CHATTER: 'Дребезг у уставки',
   GAS_RATE: 'Рост метана',
   GAS_WARNING: 'Метан выше порога',
   GAS_ALARM: 'Метан: авария',
@@ -11,6 +12,21 @@ export const ALERT_CLASS_MAP: Record<string, string> = {
   FIRE: 'Пожар',
   FLOOD: 'Затопление',
   COMM_LOSS: 'Потеря связи',
+};
+
+export const SCENARIO_NAMES: Record<string, string> = {
+  S1: 'Медленная утечка газа',
+  S2: 'Быстрая утечка газа',
+  S3: 'Перегрев трубопровода',
+  S4: 'Пожар',
+  S5: 'Затопление',
+  S6: 'Дребезг контакта',
+  S7: 'Потеря связи',
+  S8: 'Колебание газа у уставки',
+};
+
+export const getScenarioName = (id: string): string => {
+  return SCENARIO_NAMES[id] || id;
 };
 
 export const ALERT_CLASS_ENTRIES = Object.entries(ALERT_CLASS_MAP).map(([code, label]) => ({
