@@ -12,16 +12,22 @@ from collections import Counter
 import numpy as np
 import pytest
 
+from typing import Optional, Dict, List
 from backend.app.core.config import settings
 from backend.app.services.scenario_engine import (
     select_channels,
     generate_dataset,
+    load_states_reference,
     TARGET_CHANNEL_SPECS,
     SCENARIO_COUNTS,
+    Channel,
+    DiscreteEvent,
+    GroundTruthEvent,
+    Dataset,
+    Alert,
+    detect,
+    detect_naive,
 )
-
-
-from typing import Optional
 
 def _calc_sha256(filepath: str) -> Optional[str]:
     if not os.path.exists(filepath):
@@ -194,4 +200,344 @@ def test_scenarios_negative_control_exclusion():
                     f"Channel {ev.channel_id} has negative control event at ts={ev.ts} on day {day}, "
                     f"which is also an active event day for this channel!"
                 )
+
+
+def _make_mini_dataset(
+    channels: Dict[str, Channel],
+    analog_series: Dict[str, np.ndarray],
+    discrete_events: List[DiscreteEvent],
+    dt: float = 60.0,
+    total_seconds: float = 3600.0,
+) -> Dataset:
+    n_steps = int(total_seconds // dt)
+    timestamps = np.arange(n_steps, dtype=np.float64) * dt
+    return Dataset(
+        mode="day",
+        seed=42,
+        analog_series=analog_series,
+        discrete_events=sorted(discrete_events, key=lambda e: e.ts),
+        ground_truth=[],
+        channels=channels,
+        analog_timestamps=timestamps,
+        total_seconds=total_seconds,
+        dt=dt,
+    )
+
+
+def test_scenarios_s4_related_channel():
+    """Every S4 event has exactly one related channel of type 'Датчик температуры' on same object."""
+    for mode in ("day", "month"):
+        ds = generate_dataset(mode, seed=42)
+        s4_events = [g for g in ds.ground_truth if g.scenario_id == "S4"]
+        assert len(s4_events) > 0
+        for g in s4_events:
+            assert len(g.related_channel_ids) == 1, f"Event {g.event_id} must have exactly 1 related channel"
+            rel_cid = g.related_channel_ids[0]
+            assert rel_cid in ds.channels, f"Related channel {rel_cid} must be in dataset channels"
+            rel_c = ds.channels[rel_cid]
+            assert rel_c.sensor_type == "Датчик температуры", f"Related channel {rel_cid} must be 'Датчик температуры', got {rel_c.sensor_type}"
+            assert rel_c.object_id == g.object_id, f"Related channel {rel_cid} must be on same object {g.object_id}"
+
+        for g in ds.ground_truth:
+            if g.scenario_id != "S4":
+                assert len(g.related_channel_ids) == 0, f"Scenario {g.scenario_id} must have empty related_channel_ids"
+
+
+def test_scenarios_seed42_sha256():
+    """Verify that seed 42 datasets remain identical to before (sha256 comparison)."""
+    ds_day = generate_dataset("day", seed=42)
+    h_day = hashlib.sha256()
+    for cid in sorted(ds_day.analog_series.keys()):
+        h_day.update(cid.encode("utf-8") + ds_day.analog_series[cid].tobytes())
+    for e in ds_day.discrete_events:
+        h_day.update(f"{e.ts}:{e.channel_id}:{e.state_name}:{e.is_alarm}".encode("utf-8"))
+    assert h_day.hexdigest() == "7167f7d1c3f2f6f0fa65dd0698e1abd6ff8dd101ac89c6a14ea5f843c3b5d31e"
+
+    ds_month = generate_dataset("month", seed=42)
+    h_month = hashlib.sha256()
+    for cid in sorted(ds_month.analog_series.keys()):
+        h_month.update(cid.encode("utf-8") + ds_month.analog_series[cid].tobytes())
+    for e in ds_month.discrete_events:
+        h_month.update(f"{e.ts}:{e.channel_id}:{e.state_name}:{e.is_alarm}".encode("utf-8"))
+    assert h_month.hexdigest() == "feccf249beb29ccdda3f04bedd65dafd2aad589bba8eaed7b8153f671a952a3f"
+
+
+def test_scenarios_gas_rate_strictly_before_warning():
+    """Gas 0.05 -> 1.5 over 20 min gives GAS_RATE strictly before GAS_WARNING."""
+    cid = "gas_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 1800.0
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    vals = np.full(n_steps, 0.05)
+    vals[:21] = np.linspace(0.05, 1.5, 21)
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+
+    alerts = detect(ds)
+    gas_rate_alerts = [a for a in alerts if a.cls == "GAS_RATE"]
+    gas_warn_alerts = [a for a in alerts if a.cls == "GAS_WARNING"]
+
+    assert len(gas_rate_alerts) > 0, "Expected GAS_RATE alert"
+    assert len(gas_warn_alerts) > 0, "Expected GAS_WARNING alert"
+    assert gas_rate_alerts[0].ts < gas_warn_alerts[0].ts, (
+        f"GAS_RATE ts ({gas_rate_alerts[0].ts}) must be strictly earlier than GAS_WARNING ts ({gas_warn_alerts[0].ts})"
+    )
+
+
+def test_scenarios_spike_no_alert():
+    """A 1-2 sample spike to 0.6% gives NO alert."""
+    cid = "gas_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 3600.0
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    vals = np.full(n_steps, 0.05)
+    vals[10:12] = 0.6  # 2 samples spike to 0.6%
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+
+    alerts = detect(ds)
+    assert len(alerts) == 0, f"Expected 0 alerts for 1-2 sample spike to 0.6%, got {len(alerts)}: {alerts}"
+
+
+def test_scenarios_chatter_threshold_flips():
+    """6 flips in 60 s gives CHATTER, 4 flips gives none."""
+    cid = "kd_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="КД Люк", object_id="obj_1")}
+
+    # Case 1: 4 flips in 60 s -> no alert
+    ev_4 = [
+        DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
+        for i, t in enumerate([10, 20, 30, 40])
+    ]
+    ds_4 = _make_mini_dataset(ch, {}, ev_4, total_seconds=300.0)
+    alerts_4 = detect(ds_4)
+    assert len([a for a in alerts_4 if a.cls == "CHATTER"]) == 0, "4 flips in 60s must give NO chatter alert"
+
+    # Case 2: 6 flips in 60 s -> gives CHATTER
+    ev_6 = [
+        DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
+        for i, t in enumerate([10, 20, 30, 40, 50, 60])
+    ]
+    ds_6 = _make_mini_dataset(ch, {}, ev_6, total_seconds=300.0)
+    alerts_6 = detect(ds_6)
+    chatter_alerts = [a for a in alerts_6 if a.cls == "CHATTER"]
+    assert len(chatter_alerts) == 1, f"6 flips in 60s must give exactly 1 chatter alert, got {len(chatter_alerts)}"
+
+
+def test_scenarios_chatter_hysteresis_clear_and_retrigger():
+    """Chatter clears after quiet period and re-triggers on a new burst."""
+    cid = "kd_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="КД Люк", object_id="obj_1")}
+
+    # Burst 1: 6 flips at 10..60 s
+    ev1 = [
+        DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
+        for i, t in enumerate([10, 20, 30, 40, 50, 60])
+    ]
+    # Quiet period of 300 s (> 2x 90s = 180s)
+    # Burst 2: 6 flips at 400..450 s
+    ev2 = [
+        DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
+        for i, t in enumerate([400, 410, 420, 430, 440, 450])
+    ]
+    ds = _make_mini_dataset(ch, {}, ev1 + ev2, total_seconds=600.0)
+    alerts = detect(ds)
+    chatter_alerts = [a for a in alerts if a.cls == "CHATTER"]
+    assert len(chatter_alerts) == 2, f"Expected 2 CHATTER alerts after clear and retrigger, got {len(chatter_alerts)}"
+
+
+def test_scenarios_comm_loss_analog_gap():
+    """Comm loss after >15 min gap."""
+    cid = "temp_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Датчик температуры", object_id="obj_1")}
+    total_sec = 3600.0
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    vals = np.full(n_steps, 20.0)
+
+    # 20 min NaN gap (indices 10..29, 20 samples = 1200 s > 900 s)
+    vals[10:30] = np.nan
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+    alerts = detect(ds)
+    comm_alerts = [a for a in alerts if a.cls == "COMM_LOSS"]
+    assert len(comm_alerts) >= 1, "Expected COMM_LOSS alert for >15 min gap"
+
+    # Gap < 15 min (e.g. 10 min = 600 s) gives NO alert
+    vals_short = np.full(n_steps, 20.0)
+    vals_short[10:20] = np.nan
+    ds_short = _make_mini_dataset(ch, {cid: vals_short}, [], dt=dt, total_seconds=total_sec)
+    alerts_short = detect(ds_short)
+    assert len([a for a in alerts_short if a.cls == "COMM_LOSS"]) == 0, "10 min gap must NOT trigger COMM_LOSS"
+
+
+def test_scenarios_flood_alarm():
+    """Flood alarm gives FLOOD."""
+    cid = "flood_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Датчик затопления", object_id="obj_1")}
+    evs = [
+        DiscreteEvent(ts=120.0, channel_id=cid, object_id="obj_1", sensor_type="Датчик затопления", state_name="Затопление", is_alarm=True),
+        DiscreteEvent(ts=1800.0, channel_id=cid, object_id="obj_1", sensor_type="Датчик затопления", state_name="Норма", is_alarm=False),
+    ]
+    ds = _make_mini_dataset(ch, {}, evs, total_seconds=3600.0)
+    alerts = detect(ds)
+    flood_alerts = [a for a in alerts if a.cls == "FLOOD"]
+    assert len(flood_alerts) == 1
+    assert flood_alerts[0].ts == 120.0
+    assert flood_alerts[0].severity == "ALARM"
+
+
+def test_scenarios_fire_correlation():
+    """Heat-detector alarm + temp>=40 on the same object within 10 min gives FIRE, on different objects does not."""
+    h_cid = "heat_1"
+    t_cid = "temp_1"
+    total_sec = 1800.0
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    temp_vals = np.full(n_steps, 20.0)
+    temp_vals[3:10] = 42.0  # reaches 42 C at t=180 s
+
+    # Case 1: Same object "obj_1"
+    ch_same = {
+        h_cid: Channel(channel_id=h_cid, sensor_type="Тепловой датчик", object_id="obj_1"),
+        t_cid: Channel(channel_id=t_cid, sensor_type="Датчик температуры", object_id="obj_1"),
+    }
+    ev_heat = [
+        DiscreteEvent(ts=100.0, channel_id=h_cid, object_id="obj_1", sensor_type="Тепловой датчик", state_name="Сработка", is_alarm=True),
+        DiscreteEvent(ts=800.0, channel_id=h_cid, object_id="obj_1", sensor_type="Тепловой датчик", state_name="Норма", is_alarm=False),
+    ]
+    ds_same = _make_mini_dataset(ch_same, {t_cid: temp_vals}, ev_heat, dt=dt, total_seconds=total_sec)
+    alerts_same = detect(ds_same)
+    fire_same = [a for a in alerts_same if a.cls == "FIRE"]
+    assert len(fire_same) >= 1, f"Expected FIRE alert on same object, got {len(fire_same)}"
+    assert fire_same[0].object_id == "obj_1"
+
+    # Case 2: Different objects
+    ch_diff = {
+        h_cid: Channel(channel_id=h_cid, sensor_type="Тепловой датчик", object_id="obj_1"),
+        t_cid: Channel(channel_id=t_cid, sensor_type="Датчик температуры", object_id="obj_2"),
+    }
+    ds_diff = _make_mini_dataset(ch_diff, {t_cid: temp_vals}, ev_heat, dt=dt, total_seconds=total_sec)
+    alerts_diff = detect(ds_diff)
+    fire_diff = [a for a in alerts_diff if a.cls == "FIRE"]
+    assert len(fire_diff) == 0, f"Expected 0 FIRE alerts on different objects, got {len(fire_diff)}"
+
+
+def test_scenarios_dedup_and_reminder_30min():
+    """No duplicate alerts for one continuing incident, reminder after 30 min."""
+    cid = "gas_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 5400.0  # 90 minutes
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    vals = np.full(n_steps, 2.0)
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+    alerts = detect(ds)
+    warn_alerts = [a for a in alerts if a.cls == "GAS_WARNING"]
+    assert len(warn_alerts) in (3, 4), f"Expected 3 or 4 alerts with 30-min reminders over 90 min, got {len(warn_alerts)}"
+    assert warn_alerts[0].ts == 0.0
+    assert warn_alerts[1].ts == 1800.0
+    assert warn_alerts[2].ts == 3600.0
+
+
+def test_scenarios_detector_determinism():
+    """Detector output is deterministic."""
+    ds = generate_dataset("day", seed=42)
+    a1 = detect(ds)
+    a2 = detect(ds)
+    assert len(a1) == len(a2)
+    for x, y in zip(a1, a2):
+        assert x.ts == y.ts
+        assert x.channel_id == y.channel_id
+        assert x.object_id == y.object_id
+        assert x.cls == y.cls
+        assert x.severity == y.severity
+        assert x.value == y.value
+        assert x.reason_ru == y.reason_ru
+
+
+def test_scenarios_negative_control_zero_alerts():
+    """detect() on a dataset with no injected events (negative controls only) returns 0 alerts."""
+    rng = np.random.default_rng(42)
+    channels = select_channels()
+    total_seconds = 86400.0
+    dt = 60.0
+    n_steps = int(total_seconds // dt)
+    timestamps = np.arange(n_steps, dtype=np.float64) * dt
+    analog_series = {}
+    gas_channels = [c for c in channels.values() if c.sensor_type == "Газовый датчик"]
+    temp_channels = [c for c in channels.values() if c.sensor_type == "Датчик температуры"]
+    contact_channels = [c for c in channels.values() if c.sensor_type in ("КД Люк", "КД Дверь", "КД АВ")]
+    heat_channels = [c for c in channels.values() if c.sensor_type == "Тепловой датчик"]
+    flood_channels = [c for c in channels.values() if c.sensor_type == "Датчик затопления"]
+    states_map = load_states_reference()
+
+    for c in gas_channels:
+        analog_series[c.channel_id] = np.maximum(0.0, rng.normal(0.05, 0.02, size=n_steps))
+    diurnal_base = 17.0 - 5.0 * np.cos(2.0 * np.pi * timestamps / 86400.0)
+    for c in temp_channels:
+        analog_series[c.channel_id] = diurnal_base + rng.normal(0.0, 0.3, size=n_steps)
+
+    discrete_events = []
+    for c in heat_channels + flood_channels + contact_channels:
+        norm_st, _ = states_map.get(c.sensor_type, ("Норма", "Сработка"))
+        discrete_events.append(DiscreteEvent(ts=0.0, channel_id=c.channel_id, object_id=c.object_id, sensor_type=c.sensor_type, state_name=norm_st, is_alarm=False))
+
+    # Add negative controls noise: spikes to 0.6%, warm periods to 33 C, staff entrances
+    neg_gas = rng.choice(gas_channels, size=12, replace=False)
+    for _ in range(20):
+        target_c = rng.choice(neg_gas)
+        spike_idx = int(rng.uniform(0, n_steps - 2))
+        spike_len = int(rng.integers(1, 3))
+        spike_val = float(rng.uniform(0.2, 0.6))
+        for offset in range(spike_len):
+            analog_series[target_c.channel_id][spike_idx + offset] = spike_val
+
+    neg_temp = rng.choice(temp_channels, size=12, replace=False)
+    for target_c in rng.choice(neg_temp, size=3, replace=False):
+        warm_dur = float(rng.uniform(6.0 * 3600.0, 8.0 * 3600.0))
+        warm_st = rng.uniform(0, total_seconds - warm_dur)
+        mask = (timestamps >= warm_st) & (timestamps <= warm_st + warm_dur)
+        ts_sub = timestamps[mask]
+        bump = 6.0 * np.sin(np.pi * (ts_sub - warm_st) / warm_dur)
+        analog_series[target_c.channel_id][mask] += np.maximum(0.0, bump)
+        analog_series[target_c.channel_id][mask] = np.minimum(analog_series[target_c.channel_id][mask], 33.0)
+
+    neg_contact = rng.choice(contact_channels, size=15, replace=False)
+    for target_c in rng.choice(neg_contact, size=4, replace=False):
+        visit_st = rng.uniform(0, total_seconds - 120.0)
+        norm_st, alr_st = states_map.get(target_c.sensor_type, ("Норма", "Сработка"))
+        discrete_events.append(DiscreteEvent(ts=round(visit_st, 2), channel_id=target_c.channel_id, object_id=target_c.object_id, sensor_type=target_c.sensor_type, state_name=alr_st, is_alarm=True))
+        discrete_events.append(DiscreteEvent(ts=round(visit_st + 30.0, 2), channel_id=target_c.channel_id, object_id=target_c.object_id, sensor_type=target_c.sensor_type, state_name=norm_st, is_alarm=False))
+
+    clean_ds = Dataset(
+        mode="day",
+        seed=42,
+        analog_series=analog_series,
+        discrete_events=sorted(discrete_events, key=lambda e: e.ts),
+        ground_truth=[],
+        channels=channels,
+        analog_timestamps=timestamps,
+        total_seconds=total_seconds,
+        dt=dt,
+    )
+    alerts = detect(clean_ds)
+    assert len(alerts) == 0, f"detect() on negative controls only must return 0 alerts, got {len(alerts)}: {alerts}"
+
+
+def test_scenarios_performance_month_detect():
+    """Performance: detect() on month < 20 s."""
+    ds_month = generate_dataset("month", seed=42)
+    t0 = time.time()
+    alerts = detect(ds_month)
+    elapsed = time.time() - t0
+    assert elapsed < 20.0, f"detect() on month took {elapsed:.2f} s >= 20.0 s"
+    assert len(alerts) > 0
+
+
+def test_scenarios_naive_baseline():
+    """detect_naive produces static threshold alerts without dedup."""
+    ds = generate_dataset("day", seed=42)
+    naive_alerts = detect_naive(ds)
+    fast_alerts = detect(ds)
+    assert len(naive_alerts) > len(fast_alerts)
 
