@@ -4,7 +4,7 @@ import time
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional, List, Dict, Any
 from backend.app.models.schemas import (
-    PredictionItem, PredictionListResponse, RealtimeScoreRequest, RealtimeScoreResponse
+    PredictionItem, PredictionListResponse, RealtimeScoreRequest, RealtimeScoreResponse, RiskLevel
 )
 from backend.app.services.data_service import data_service
 from backend.app.services.ml_service import ml_service
@@ -54,7 +54,7 @@ def action_for_risk(prediction: Dict[str, Any], risk: str) -> str:
 @router.get("", response_model=PredictionListResponse)
 def get_predictions(
     object_id: Optional[str] = Query(None, description="Фильтр по ID объекта"),
-    risk_level: Optional[str] = Query(None, description="Фильтр: CRITICAL, WARNING, ATTENTION, NORMAL"),
+    risk_level: Optional[RiskLevel] = Query(None, description="Фильтр: CRITICAL, WARNING, ATTENTION, NORMAL"),
     sensor_type: Optional[str] = Query(None, description="Фильтр по типу датчика"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0)
@@ -78,7 +78,7 @@ def get_predictions(
 
     # Filter by dynamically evaluated risk level
     if risk_level:
-        target_risk = risk_level.upper()
+        target_risk = risk_level
         preds = [p for p in preds if classify_risk(p["failure_probability"], thresh) == target_risk]
 
     sorted_preds = sorted(preds, key=lambda x: -x["failure_probability"])
@@ -158,6 +158,8 @@ def get_model_benchmark():
 @router.post("/score", response_model=RealtimeScoreResponse)
 def score_sensor_live(req: RealtimeScoreRequest):
     """Динамический инференс ML-модели с ошибкой при недоступности модели."""
+    if req.channel_id not in data_service.sensors:
+        raise HTTPException(status_code=404, detail="Канал датчика не найден")
     try:
         res = ml_service.score_realtime(
             channel_id=req.channel_id,

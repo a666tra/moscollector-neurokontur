@@ -1,6 +1,8 @@
 from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
+RiskLevel = Literal["CRITICAL", "WARNING", "ATTENTION", "NORMAL"]
+
 class SensorChannel(BaseModel):
     channel_id: str
     system_type: str
@@ -20,7 +22,7 @@ class ObjectSummary(BaseModel):
     route_name: str
     corridor: str
     picket: str
-    risk_level: str = "NORMAL"
+    risk_level: RiskLevel = "NORMAL"
     sensor_count: int = 0
     predicted_failures_count: int = 0
 
@@ -40,7 +42,7 @@ class PredictionItem(BaseModel):
     is_calibrated: bool = Field(False, description="Флаг подтверждённой калибровки; отсутствие данных не означает успешную калибровку")
     calibration_status: str = Field("CALIBRATION_UNAVAILABLE", description="Статус калибровки")
     failure_probability: float = Field(0.0, description="DEPRECATED alias: совпадает с raw_model_score для обратной совместимости")
-    risk_level: str  # NORMAL, ATTENTION, WARNING, CRITICAL
+    risk_level: RiskLevel  # NORMAL, ATTENTION, WARNING, CRITICAL
     is_predicted_failure_24h: bool = Field(..., description="Устаревший псевдоним порогового флага; не означает подтверждённый отказ за 24 часа")
     is_proxy_alert_24_72h: bool = Field(..., description="Пороговый флаг балла модели для proxy-отклонения телеметрии в окне 24–72 ч")
     recommended_action: str
@@ -74,11 +76,11 @@ class AlarmEvent(BaseModel):
     provenance: Optional[str] = "Архивный телеметрический поток СМВУ (Москоллектор)"
 
 class AlarmClassificationRequest(BaseModel):
-    channel_id: str
-    current_value: str
-    recent_events_count_1h: int = 1
-    recent_flips_count_1h: int = 0
-    duration_minutes: float = 2.0
+    channel_id: str = Field(..., min_length=1, max_length=64)
+    current_value: str = Field(..., min_length=1, max_length=256)
+    recent_events_count_1h: int = Field(1, ge=0, le=10_000_000)
+    recent_flips_count_1h: int = Field(0, ge=0, le=10_000_000)
+    duration_minutes: float = Field(2.0, ge=0.0, le=24 * 365 * 60.0, allow_inf_nan=False)
 
 class AlarmClassificationResponse(BaseModel):
     channel_id: str
@@ -138,23 +140,23 @@ class AuditVerificationResponse(BaseModel):
     details: List[Dict[str, Any]] = []
 
 class RealtimeScoreRequest(BaseModel):
-    channel_id: str
-    cnt_24h: Optional[int] = 10
-    cnt_7d: Optional[int] = 70
-    alarms_24h: Optional[int] = 0
-    alarms_7d: Optional[int] = 1
-    chatter_cnt: Optional[int] = 0
-    silence_hours: Optional[float] = 1.0
-    battery_glitches: Optional[int] = 0
-    date_corruptions: Optional[int] = 0
-    gas_spikes: Optional[int] = 0
-    temp_spikes: Optional[int] = 0
-    mean_val: Optional[float] = 0.0
-    std_val: Optional[float] = 0.0
-    num_max: Optional[float] = 0.0
-    last_value: Optional[str] = "Норма"
-    unique_states: Optional[int] = None
-    model_name: Optional[str] = "champion_lightgbm"
+    channel_id: str = Field(..., min_length=1, max_length=64)
+    cnt_24h: Optional[int] = Field(10, ge=0, le=10_000_000)
+    cnt_7d: Optional[int] = Field(70, ge=0, le=10_000_000)
+    alarms_24h: Optional[int] = Field(0, ge=0, le=10_000_000)
+    alarms_7d: Optional[int] = Field(1, ge=0, le=10_000_000)
+    chatter_cnt: Optional[int] = Field(0, ge=0, le=10_000_000)
+    silence_hours: Optional[float] = Field(1.0, ge=0.0, le=24 * 365.0, allow_inf_nan=False)
+    battery_glitches: Optional[int] = Field(0, ge=0, le=10_000_000)
+    date_corruptions: Optional[int] = Field(0, ge=0, le=10_000_000)
+    gas_spikes: Optional[int] = Field(0, ge=0, le=10_000_000)
+    temp_spikes: Optional[int] = Field(0, ge=0, le=10_000_000)
+    mean_val: Optional[float] = Field(0.0, ge=-1_000_000.0, le=1_000_000.0, allow_inf_nan=False)
+    std_val: Optional[float] = Field(0.0, ge=0.0, le=1_000_000.0, allow_inf_nan=False)
+    num_max: Optional[float] = Field(0.0, ge=-1_000_000.0, le=1_000_000.0, allow_inf_nan=False)
+    last_value: Optional[str] = Field("Норма", max_length=256)
+    unique_states: Optional[int] = Field(None, ge=0, le=10_000_000)
+    model_name: Optional[str] = Field("champion_lightgbm", max_length=64)
 
 class RealtimeScoreResponse(BaseModel):
     channel_id: str
@@ -168,7 +170,7 @@ class RealtimeScoreResponse(BaseModel):
     calibrated_proxy_probability: Optional[float] = None
     is_calibrated: Optional[bool] = None
     calibration_status: Optional[str] = None
-    risk_level: str
+    risk_level: RiskLevel
     threshold_used: float
     raw_threshold: Optional[float] = None
     calibrated_threshold: Optional[float] = None

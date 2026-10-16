@@ -1155,3 +1155,85 @@ def test_settings_reset_to_defaults():
     assert get_res.status_code == 200
     assert get_res.json() == default_schema.model_dump()
 
+
+def test_validation_score_negative_counter():
+    """POST /api/predictions/score отклоняет отрицательные счетчики с HTTP 422."""
+    res = client.post("/api/predictions/score", json={
+        "channel_id": "120578",
+        "cnt_24h": -5
+    })
+    assert res.status_code == 422
+
+    res_alarms = client.post("/api/predictions/score", json={
+        "channel_id": "120578",
+        "alarms_24h": -1
+    })
+    assert res_alarms.status_code == 422
+
+
+def test_validation_score_negative_silence_hours():
+    """POST /api/predictions/score отклоняет отрицательное silence_hours с HTTP 422."""
+    res = client.post("/api/predictions/score", json={
+        "channel_id": "120578",
+        "silence_hours": -100.0
+    })
+    assert res.status_code == 422
+
+
+def test_validation_score_huge_numbers():
+    """POST /api/predictions/score отклоняет огромные числа (1e308, > 10**7) с HTTP 422."""
+    res_huge_silence = client.post("/api/predictions/score", json={
+        "channel_id": "120578",
+        "silence_hours": 1e308
+    })
+    assert res_huge_silence.status_code == 422
+
+    res_huge_count = client.post("/api/predictions/score", json={
+        "channel_id": "120578",
+        "cnt_24h": 100_000_000
+    })
+    assert res_huge_count.status_code == 422
+
+
+def test_validation_score_unknown_channel():
+    """POST /api/predictions/score для неизвестного channel_id возвращает HTTP 404."""
+    res = client.post("/api/predictions/score", json={
+        "channel_id": "unknown_channel_999999"
+    })
+    assert res.status_code == 404
+    assert "не найден" in res.json()["detail"]
+
+
+def test_validation_predictions_invalid_risk_level():
+    """GET /api/predictions с risk_level=FOO возвращает HTTP 422, а с валидным — HTTP 200."""
+    res_invalid = client.get("/api/predictions?risk_level=FOO")
+    assert res_invalid.status_code == 422
+
+    res_valid = client.get("/api/predictions?risk_level=CRITICAL")
+    assert res_valid.status_code == 200
+
+
+def test_validation_alarms_classify_negative():
+    """POST /api/alarms/classify отклоняет отрицательные значения с HTTP 422."""
+    res_events = client.post("/api/alarms/classify", json={
+        "channel_id": "120578",
+        "current_value": "Замкнут",
+        "recent_events_count_1h": -1
+    })
+    assert res_events.status_code == 422
+
+    res_flips = client.post("/api/alarms/classify", json={
+        "channel_id": "120578",
+        "current_value": "Замкнут",
+        "recent_flips_count_1h": -1
+    })
+    assert res_flips.status_code == 422
+
+    res_duration = client.post("/api/alarms/classify", json={
+        "channel_id": "120578",
+        "current_value": "Замкнут",
+        "duration_minutes": -1.0
+    })
+    assert res_duration.status_code == 422
+
+
