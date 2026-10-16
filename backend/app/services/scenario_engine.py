@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Tuple, Any, Set
 import os
 import json
+import time
 import numpy as np
 
 from backend.app.core.config import settings
@@ -1623,3 +1624,242 @@ def detect_naive(dataset: Dataset) -> List[Alert]:
 
     alerts.sort(key=lambda a: (a.ts, a.channel_id, a.cls))
     return alerts
+
+
+COMPATIBLE_CLASSES: Dict[str, Set[str]] = {
+    "GAS": {"GAS", "GAS_WARNING", "GAS_ALARM", "GAS_RATE"},
+    "TEMP": {"TEMP", "TEMP_WARNING", "TEMP_ALARM", "TEMP_RATE"},
+    "FIRE": {"FIRE"},
+    "FLOOD": {"FLOOD"},
+    "CHATTER": {"CHATTER"},
+    "COMM_LOSS": {"COMM_LOSS"},
+}
+
+
+def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
+    """
+    Evaluates detector alerts against dataset ground truth per docs/SCENARIOS_SPEC.md Section 5:
+    - Detection rate per-scenario (S1-S7) and overall.
+    - Matching rule: alert of a compatible class on same channel (FIRE: same object)
+      with ts in [start_ts, end_ts + 600 s (10 min grace)].
+    - Lead time (median, p10 in minutes) for S1, S3: (hazard_ts - first_alert.ts) / 60.0.
+    - Delay (median, p90 in seconds) for S2, S4, S5, S6, S7: first_alert.ts - start_ts.
+    - False alarms: count and per 100 channels per day. Alerts outside every event window
+      (+10 min grace) are false alarms. Alerts on a ground-truth event's related_channel_ids
+      inside its window count as attributable to that event (not false).
+    - Stream compression: raw events/samples -> incidents (counting only non-reminder alerts).
+    """
+    scenario_stats: Dict[str, Dict[str, Any]] = {}
+    for sc_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7"):
+        scenario_stats[sc_id] = {
+            "total": 0,
+            "detected": 0,
+            "rate": 0.0,
+            "lead_times_min": [],
+            "delays_sec": [],
+        }
+
+    total_gt = len(dataset.ground_truth)
+    total_detected = 0
+
+    all_lead_times_min: List[float] = []
+    all_delays_sec: List[float] = []
+
+    for g in dataset.ground_truth:
+        sc_id = g.scenario_id
+        stats = scenario_stats[sc_id]
+        stats["total"] += 1
+        comp_classes = COMPATIBLE_CLASSES.get(g.cls, {g.cls})
+
+        matching_alerts: List[Alert] = []
+        for a in alerts:
+            if a.cls not in comp_classes:
+                continue
+            if not (g.start_ts <= a.ts <= (g.end_ts + 600.0)):
+                continue
+            if g.cls == "FIRE":
+                if a.object_id == g.object_id:
+                    matching_alerts.append(a)
+            else:
+                if a.channel_id == g.channel_id:
+                    matching_alerts.append(a)
+
+        if matching_alerts:
+            matching_alerts.sort(key=lambda x: x.ts)
+            first_a = matching_alerts[0]
+            stats["detected"] += 1
+            total_detected += 1
+
+            if sc_id in ("S1", "S3"):
+                if g.hazard_ts is not None:
+                    lead_min = round(float((g.hazard_ts - first_a.ts) / 60.0), 2)
+                    stats["lead_times_min"].append(lead_min)
+                    all_lead_times_min.append(lead_min)
+            else:
+                del_sec = round(float(first_a.ts - g.start_ts), 1)
+                stats["delays_sec"].append(del_sec)
+                all_delays_sec.append(del_sec)
+
+    scenarios_summary: Dict[str, Dict[str, Any]] = {}
+    for sc_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7"):
+        st = scenario_stats[sc_id]
+        tot = st["total"]
+        det = st["detected"]
+        rate = round(float(det / tot), 4) if tot > 0 else 0.0
+
+        item: Dict[str, Any] = {
+            "total": int(tot),
+            "detected": int(det),
+            "detection_rate": rate,
+        }
+        if sc_id in ("S1", "S3"):
+            lt_list = st["lead_times_min"]
+            item["lead_time_median_min"] = round(float(np.median(lt_list)), 2) if lt_list else None
+            item["lead_time_p10_min"] = round(float(np.percentile(lt_list, 10)), 2) if lt_list else None
+        else:
+            del_list = st["delays_sec"]
+            item["delay_median_sec"] = round(float(np.median(del_list)), 1) if del_list else None
+            item["delay_p90_sec"] = round(float(np.percentile(del_list, 90)), 1) if del_list else None
+
+        scenarios_summary[sc_id] = item
+
+    false_alerts_count = 0
+    for a in alerts:
+        is_attributable = False
+        for g in dataset.ground_truth:
+            if g.start_ts <= a.ts <= (g.end_ts + 600.0):
+                if a.channel_id == g.channel_id or a.channel_id in g.related_channel_ids or (g.cls == "FIRE" and a.object_id == g.object_id):
+                    is_attributable = True
+                    break
+        if not is_attributable:
+            false_alerts_count += 1
+
+    n_days = max(1.0, dataset.total_seconds / 86400.0)
+    n_channels = len(dataset.channels) if dataset.channels else 185
+    false_alarms_per_100_channels_per_day = round(
+        float((false_alerts_count / (n_channels * n_days)) * 100.0), 3
+    )
+
+    raw_analog = sum(len(s) for s in dataset.analog_series.values())
+    raw_discrete = len(dataset.discrete_events)
+    raw_total = int(raw_analog + raw_discrete)
+
+    incidents_count = len([a for a in alerts if not a.is_reminder])
+    reminders_count = len([a for a in alerts if a.is_reminder])
+    total_alerts_count = len(alerts)
+
+    compression_ratio = round(float(raw_total / max(1, incidents_count)), 1)
+    overall_detection_rate = round(float(total_detected / total_gt), 4) if total_gt > 0 else 0.0
+
+    return {
+        "overall": {
+            "total_events": int(total_gt),
+            "detected_events": int(total_detected),
+            "detection_rate": overall_detection_rate,
+        },
+        "scenarios": scenarios_summary,
+        "lead_time": {
+            "median_min": round(float(np.median(all_lead_times_min)), 2) if all_lead_times_min else None,
+            "p10_min": round(float(np.percentile(all_lead_times_min, 10)), 2) if all_lead_times_min else None,
+            "count": len(all_lead_times_min),
+        },
+        "delay": {
+            "median_sec": round(float(np.median(all_delays_sec)), 1) if all_delays_sec else None,
+            "p90_sec": round(float(np.percentile(all_delays_sec, 90)), 1) if all_delays_sec else None,
+            "count": len(all_delays_sec),
+        },
+        "false_alarms": {
+            "count": int(false_alerts_count),
+            "per_100_channels_per_day": false_alarms_per_100_channels_per_day,
+        },
+        "stream_compression": {
+            "raw_samples": raw_total,
+            "incidents": int(incidents_count),
+            "ratio": compression_ratio,
+        },
+        "alerts_count": {
+            "total": int(total_alerts_count),
+            "incidents": int(incidents_count),
+            "reminders": int(reminders_count),
+        },
+    }
+
+
+_SCENARIO_CACHE: Dict[Tuple[str, int], Dict[str, Any]] = {}
+
+
+def clear_scenario_cache():
+    """Clears in-memory cache of scenario runs."""
+    _SCENARIO_CACHE.clear()
+
+
+def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any]:
+    """
+    Executes end-to-end scenario run per docs/SCENARIOS_SPEC.md Sections 5 & 7:
+    - Generates deterministic dataset
+    - Runs detect() (fast reactive contour), detect_static_dedup() (strengthened baseline),
+      and detect_naive() (naive baseline)
+    - Evaluates all three detectors
+    - Returns JSON-serializable response structure with data_origin='SYNTHETIC', seed, mode,
+      elapsed_seconds, comparison block (three columns), and sorted incident list (max 200).
+    - Caches results by (mode, seed).
+    """
+    if mode not in ("day", "month"):
+        raise ValueError(f"Invalid mode: {mode}. Must be 'day' or 'month'.")
+
+    cache_key = (mode, int(seed))
+    if cache_key in _SCENARIO_CACHE:
+        return _SCENARIO_CACHE[cache_key]
+
+    t0 = time.time()
+    dataset = generate_dataset(mode, seed=seed)
+
+    alerts_fast = detect(dataset)
+    alerts_static = detect_static_dedup(dataset)
+    alerts_naive = detect_naive(dataset)
+
+    eval_fast = evaluate(dataset, alerts_fast)
+    eval_static = evaluate(dataset, alerts_static)
+    eval_naive = evaluate(dataset, alerts_naive)
+
+    incident_list: List[Dict[str, Any]] = []
+    for a in alerts_fast:
+        matched_gt_id: Optional[str] = None
+        for g in dataset.ground_truth:
+            if g.start_ts <= a.ts <= (g.end_ts + 600.0):
+                if a.channel_id == g.channel_id or a.channel_id in g.related_channel_ids or (g.cls == "FIRE" and a.object_id == g.object_id):
+                    matched_gt_id = g.event_id
+                    break
+        incident_list.append({
+            "ts": float(a.ts),
+            "channel_id": str(a.channel_id),
+            "object_id": str(a.object_id),
+            "cls": str(a.cls),
+            "severity": str(a.severity),
+            "value": float(a.value) if a.value is not None else None,
+            "reason_ru": str(a.reason_ru),
+            "is_reminder": bool(a.is_reminder),
+            "matched_truth_event_id": matched_gt_id,
+        })
+
+    incident_list.sort(key=lambda x: x["ts"])
+    incident_list = incident_list[:200]
+
+    elapsed = round(float(time.time() - t0), 3)
+
+    result = {
+        "data_origin": "SYNTHETIC",
+        "seed": int(seed),
+        "mode": mode,
+        "elapsed_seconds": elapsed,
+        "summary": eval_fast,
+        "comparison": {
+            "fast": eval_fast,
+            "static_dedup": eval_static,
+            "naive": eval_naive,
+        },
+        "incident_list": incident_list,
+    }
+
+    _SCENARIO_CACHE[cache_key] = result
+    return result

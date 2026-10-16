@@ -13,6 +13,7 @@ from backend.app.api.tickets import router as tickets_router
 from backend.app.api.simulation import router as simulation_router
 from backend.app.api.settings import router as settings_router
 from backend.app.api.synthetic import router as synthetic_router
+from backend.app.api.scenarios import router as scenarios_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -44,6 +45,7 @@ app.include_router(tickets_router, prefix="/api/tickets", tags=["Заявки Т
 app.include_router(simulation_router, prefix="/api/simulation", tags=["Симулятор потока телеметрии"])
 app.include_router(settings_router, prefix="/api/settings", tags=["Настройки и Безопасность"])
 app.include_router(synthetic_router, prefix="/api/synthetic", tags=["Синтетическая валидация"])
+app.include_router(scenarios_router, prefix="/api/scenarios", tags=["Сценарный полигон"])
 
 
 @app.get("/api/health", tags=["Система"])

@@ -28,7 +28,12 @@ from backend.app.services.scenario_engine import (
     detect,
     detect_naive,
     detect_static_dedup,
+    evaluate,
+    run_scenario,
+    clear_scenario_cache,
 )
+from fastapi.testclient import TestClient
+from backend.app.main import app
 
 def _calc_sha256(filepath: str) -> Optional[str]:
     if not os.path.exists(filepath):
@@ -617,4 +622,208 @@ def test_scenarios_naive_baseline():
     naive_alerts = detect_naive(ds)
     fast_alerts = detect(ds)
     assert len(naive_alerts) > len(fast_alerts)
+
+
+def test_scenarios_evaluate_tiny_handmade_dataset():
+    """Evaluation on a tiny hand-made dataset with known answer."""
+    cid_gas = "c_gas"
+    cid_temp = "c_temp"
+    channels = {
+        cid_gas: Channel(channel_id=cid_gas, sensor_type="Газовый датчик", object_id="obj_1"),
+        cid_temp: Channel(channel_id=cid_temp, sensor_type="Датчик температуры", object_id="obj_1"),
+    }
+    # Ground truth:
+    # Event 1 (S1): start 100s, hazard 700s, end 2000s, cls GAS (will be detected with lead time)
+    # Event 2 (S2): start 2500s, hazard None, end 3000s, cls GAS (will be missed)
+    gt = [
+        GroundTruthEvent(
+            event_id="gt_0001",
+            scenario_id="S1",
+            cls="GAS",
+            channel_id=cid_gas,
+            object_id="obj_1",
+            start_ts=100.0,
+            end_ts=2000.0,
+            hazard_ts=700.0,
+        ),
+        GroundTruthEvent(
+            event_id="gt_0002",
+            scenario_id="S2",
+            cls="GAS",
+            channel_id=cid_gas,
+            object_id="obj_1",
+            start_ts=2500.0,
+            end_ts=3000.0,
+            hazard_ts=None,
+        ),
+    ]
+
+    # Hand-made alerts:
+    # a1: ts=300s on c_gas, GAS_RATE -> matches S1! lead time = (700 - 300) / 60 = 6.67 min
+    # a2: ts=800s on c_gas, GAS_WARNING (reminder) -> inside S1 window, attributable, not false alarm
+    # a3: ts=5000s on c_temp, TEMP_WARNING -> outside all event windows! False alarm!
+    alerts = [
+        Alert(ts=300.0, channel_id=cid_gas, object_id="obj_1", cls="GAS_RATE", severity="WARNING", value=0.5, reason_ru="Рост", is_reminder=False),
+        Alert(ts=800.0, channel_id=cid_gas, object_id="obj_1", cls="GAS_WARNING", severity="WARNING", value=1.2, reason_ru="Превышение", is_reminder=True),
+        Alert(ts=5000.0, channel_id=cid_temp, object_id="obj_1", cls="TEMP_WARNING", severity="WARNING", value=42.0, reason_ru="Перегрев", is_reminder=False),
+    ]
+
+    total_sec = 7200.0
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    timestamps = np.arange(n_steps, dtype=np.float64) * dt
+    ds = Dataset(
+        mode="day",
+        seed=42,
+        analog_series={cid_gas: np.zeros(n_steps), cid_temp: np.zeros(n_steps)},
+        discrete_events=[],
+        ground_truth=gt,
+        channels=channels,
+        analog_timestamps=timestamps,
+        total_seconds=total_sec,
+        dt=dt,
+    )
+
+    metrics = evaluate(ds, alerts)
+
+    # Total ground truth: 2, detected: 1, missed: 1 => rate = 0.5
+    assert metrics["overall"]["total_events"] == 2
+    assert metrics["overall"]["detected_events"] == 1
+    assert metrics["overall"]["detection_rate"] == 0.5
+
+    # Scenario S1: detected with lead time = (700 - 300) / 60 = 6.67 min
+    assert metrics["scenarios"]["S1"]["total"] == 1
+    assert metrics["scenarios"]["S1"]["detected"] == 1
+    assert metrics["scenarios"]["S1"]["detection_rate"] == 1.0
+    assert metrics["scenarios"]["S1"]["lead_time_median_min"] == 6.67
+    assert metrics["scenarios"]["S1"]["lead_time_p10_min"] == 6.67
+
+    # Scenario S2: missed
+    assert metrics["scenarios"]["S2"]["total"] == 1
+    assert metrics["scenarios"]["S2"]["detected"] == 0
+    assert metrics["scenarios"]["S2"]["detection_rate"] == 0.0
+
+    # False alarms: a3 is outside all windows => count = 1
+    assert metrics["false_alarms"]["count"] == 1
+
+    # Incidents: a1 and a3 (non-reminders = 2), reminders: a2 (1), total: 3
+    assert metrics["alerts_count"]["total"] == 3
+    assert metrics["alerts_count"]["incidents"] == 2
+    assert metrics["alerts_count"]["reminders"] == 1
+
+
+def test_scenarios_api_catalog():
+    """GET /api/scenarios/catalog contract test."""
+    client = TestClient(app)
+    resp = client.get("/api/scenarios/catalog")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["data_origin"] == "SYNTHETIC"
+    assert len(data["scenarios"]) == 7
+    assert len(data["thresholds"]) >= 10
+    assert data["channel_composition"]["total_channels"] == 185
+    assert len(data["channel_composition"]["channels"]) == 185
+
+
+def test_scenarios_api_run_success_and_validation():
+    """POST /api/scenarios/run success and 422 validation tests."""
+    client = TestClient(app)
+
+    # Valid day run
+    resp = client.post("/api/scenarios/run", json={"mode": "day", "seed": 42})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["data_origin"] == "SYNTHETIC"
+    assert data["seed"] == 42
+    assert data["mode"] == "day"
+    assert "comparison" in data
+    assert "fast" in data["comparison"]
+    assert "static_dedup" in data["comparison"]
+    assert "naive" in data["comparison"]
+    assert "incident_list" in data
+    assert len(data["incident_list"]) <= 200
+    assert "elapsed_seconds" in data
+
+    # 422 on invalid mode
+    resp_inv_mode = client.post("/api/scenarios/run", json={"mode": "year", "seed": 42})
+    assert resp_inv_mode.status_code == 422
+
+    # 422 on seed < 0
+    resp_neg_seed = client.post("/api/scenarios/run", json={"mode": "day", "seed": -1})
+    assert resp_neg_seed.status_code == 422
+
+    # 422 on seed > 10000
+    resp_big_seed = client.post("/api/scenarios/run", json={"mode": "day", "seed": 10001})
+    assert resp_big_seed.status_code == 422
+
+
+def test_scenarios_api_series_success_and_404_422():
+    """POST /api/scenarios/series success, 404 on unknown channel, 422 on invalid input."""
+    client = TestClient(app)
+
+    # Get one valid channel from select_channels
+    channels = select_channels()
+    valid_cid = list(channels.keys())[0]
+
+    # Success
+    resp = client.post("/api/scenarios/series", json={"mode": "day", "seed": 42, "channel_id": valid_cid})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["data_origin"] == "SYNTHETIC"
+    assert data["channel_id"] == valid_cid
+    assert len(data["series"]) <= 600
+    assert "thresholds" in data
+    assert "true_events" in data
+    assert "alerts" in data
+
+    # 404 on non-existent channel
+    resp_404 = client.post("/api/scenarios/series", json={"mode": "day", "seed": 42, "channel_id": "non_existent_channel_99999"})
+    assert resp_404.status_code == 404
+
+    # 422 on invalid mode
+    resp_422 = client.post("/api/scenarios/series", json={"mode": "invalid", "seed": 42, "channel_id": valid_cid})
+    assert resp_422.status_code == 422
+
+
+def test_scenarios_run_determinism():
+    """run_scenario produces identical results for the same seed."""
+    clear_scenario_cache()
+    r1 = run_scenario("day", seed=42)
+    clear_scenario_cache()
+    r2 = run_scenario("day", seed=42)
+
+    assert r1["summary"] == r2["summary"]
+    assert r1["comparison"] == r2["comparison"]
+    assert len(r1["incident_list"]) == len(r2["incident_list"])
+    for i1, i2 in zip(r1["incident_list"], r2["incident_list"]):
+        assert i1 == i2
+
+
+def test_scenarios_run_no_disk_modifications():
+    """run_scenario does NOT modify tickets_db.json / confirmed_alarms.json / system_settings.json."""
+    files_to_check = [
+        os.path.join(settings.DATA_DIR, "tickets_db.json"),
+        os.path.join(settings.DATA_DIR, "confirmed_alarms.json"),
+        os.path.join(settings.DATA_DIR, "system_settings.json"),
+    ]
+    before_hashes = {f: _calc_sha256(f) for f in files_to_check}
+
+    clear_scenario_cache()
+    run_scenario("day", seed=42)
+
+    after_hashes = {f: _calc_sha256(f) for f in files_to_check}
+    for f in files_to_check:
+        assert before_hashes[f] == after_hashes[f], f"File {f} was modified during run_scenario!"
+
+
+def test_scenarios_month_run_time_budget():
+    """Month run executes within 30 seconds per docs/SCENARIOS_SPEC.md Section 7."""
+    clear_scenario_cache()
+    t0 = time.time()
+    res = run_scenario("month", seed=42)
+    elapsed = time.time() - t0
+    assert elapsed <= 30.0, f"run_scenario('month') took {elapsed:.2f} s > 30.0 s"
+    assert res["data_origin"] == "SYNTHETIC"
+    assert res["summary"]["overall"]["total_events"] == sum(SCENARIO_COUNTS["month"].values())
+
 
