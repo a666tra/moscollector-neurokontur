@@ -18,8 +18,19 @@ import time
 import numpy as np
 
 from backend.app.core.config import settings
-from backend.app.api.settings import get_current_settings
+from backend.app.api.settings import SystemSettingsSchema
 from backend.app.services.data_service import data_service
+
+
+def get_scenario_settings_snapshot() -> Dict[str, Any]:
+    """
+    Returns pinned immutable snapshot of system settings for the scenario polygon
+    per docs/SCENARIOS_SPEC.md deviation log No.3.
+    Uses SystemSettingsSchema() defaults (decision values: gas warning 1.0,
+    chatter window 90 s, min flips 5).
+    """
+    return SystemSettingsSchema().model_dump()
+
 
 # Target channel composition per docs/SCENARIOS_SPEC.md Section 4:
 # газовые 40 («Газовый датчик»), температурные 40 («Датчик температуры»),
@@ -867,6 +878,7 @@ class Alert:
     value: Optional[float]
     reason_ru: str
     is_reminder: bool = False
+    is_escalation: bool = False
 
 
 # --- Threshold constants matching existing ml_service.classify_alarm / features.py ---
@@ -930,7 +942,7 @@ def _calc_least_squares_slope(
     Returns 0.0 if fewer than 3 valid points.
     """
     t_curr = timestamps[current_idx]
-    t_min = t_curr - window_sec
+    t_min = t_curr - window_sec - 1e-5
     dt = timestamps[1] - timestamps[0] if len(timestamps) > 1 else 60.0
     approx_steps = int(np.ceil(window_sec / dt))
     start_idx = max(0, current_idx - approx_steps)
@@ -964,10 +976,10 @@ def detect(dataset: Dataset) -> List[Alert]:
     - One open incident per (channel, class), 30-min reminders, hysteresis closing conditions
     - Streaming/stateful per channel, deterministic output
     """
-    settings = get_current_settings()
-    gas_warn_thresh = float(settings.gas_warning_threshold_vol_pct)
-    chatter_min_flips = int(settings.chatter_min_flips)
-    chatter_window_sec = float(settings.chatter_window_seconds)
+    settings = get_scenario_settings_snapshot()
+    gas_warn_thresh = float(settings["gas_warning_threshold_vol_pct"])
+    chatter_min_flips = int(settings["chatter_min_flips"])
+    chatter_window_sec = float(settings["chatter_window_seconds"])
     chatter_clear_sec = CHATTER_CLEAR_SECONDS
 
     alerts: List[Alert] = []
@@ -1096,7 +1108,7 @@ def detect(dataset: Dataset) -> List[Alert]:
                     and values[i - 1] >= GAS_RATE_VALUE_THRESHOLD
                     and values[i - 2] >= GAS_RATE_VALUE_THRESHOLD
                 )
-                slope = _calc_least_squares_slope(timestamps, values, i, window_sec=max(GAS_RATE_WINDOW_SECONDS, 2 * dt)) if persists else 0.0
+                slope = _calc_least_squares_slope(timestamps, values, i, window_sec=max(GAS_RATE_WINDOW_SECONDS, 3 * dt)) if persists else 0.0
                 if persists and slope >= GAS_RATE_SLOPE_THRESHOLD:
                     rate_clear_sec = 0.0
                     if not rate_open:
@@ -1287,7 +1299,35 @@ def detect(dataset: Dataset) -> List[Alert]:
                 else:
                     incident_open = False
 
-    # 3. Fire correlation on the same object within 10 min
+        elif stype == "Тепловой датчик":
+            incident_open = False
+            last_alert_ts = -1e9
+            for ev in ev_list:
+                t = ev.ts
+                if ev.is_alarm:
+                    if not incident_open:
+                        incident_open = True
+                        last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="FIRE", severity="HIGH",
+                            value=1.0,
+                            reason_ru=f"Пожарная тревога: сработка теплового датчика '{ev.state_name}'",
+                            is_reminder=False,
+                            is_escalation=False,
+                        ))
+                    elif (t - last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                        last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="FIRE", severity="HIGH",
+                            value=1.0,
+                            reason_ru=f"Напоминание: продолжается сработка теплового датчика ('{ev.state_name}')",
+                            is_reminder=True,
+                            is_escalation=False,
+                        ))
+                else:
+                    incident_open = False
+
+    # 3. Fire escalation: when temperature >= 40 C is seen on the same object within 10 min
     for cid, ev_list in events_by_channel.items():
         c_info = dataset.channels.get(cid)
         if not c_info or c_info.sensor_type != "Тепловой датчик":
@@ -1311,11 +1351,13 @@ def detect(dataset: Dataset) -> List[Alert]:
         for h_start, h_end in alarm_episodes:
             matching_temps = [
                 (t_temp, val) for t_temp, val in temps_on_obj
-                if (h_start - FIRE_CORRELATION_WINDOW_SECONDS) <= t_temp <= (h_end + FIRE_CORRELATION_WINDOW_SECONDS)
+                if (h_start - FIRE_CORRELATION_WINDOW_SECONDS) <= t_temp <= (h_start + FIRE_CORRELATION_WINDOW_SECONDS)
+                and t_temp <= (h_end + 600.0)
             ]
             if not matching_temps:
                 continue
 
+            matching_temps.sort(key=lambda x: x[0])
             t_first_temp, v_first = matching_temps[0]
             trigger_t = max(h_start, t_first_temp)
             alerts.append(Alert(
@@ -1323,27 +1365,12 @@ def detect(dataset: Dataset) -> List[Alert]:
                 channel_id=cid,
                 object_id=oid,
                 cls="FIRE",
-                severity="ALARM",
+                severity="CRITICAL",
                 value=round(v_first, 1),
-                reason_ru=f"Пожарная тревога: сработка теплового датчика и температура {v_first:.1f} °C на объекте {oid}",
+                reason_ru=f"Подтверждение пожара (эскалация): температура {v_first:.1f} °C на объекте {oid}",
                 is_reminder=False,
+                is_escalation=True,
             ))
-
-            # 30-min reminders if fire condition persists
-            last_fire_alert_t = trigger_t
-            for next_t_temp, next_val in matching_temps:
-                if next_t_temp >= last_fire_alert_t + INCIDENT_REMINDER_SECONDS and next_t_temp <= h_end:
-                    last_fire_alert_t = next_t_temp
-                    alerts.append(Alert(
-                        ts=round(next_t_temp, 2),
-                        channel_id=cid,
-                        object_id=oid,
-                        cls="FIRE",
-                        severity="ALARM",
-                        value=round(next_val, 1),
-                        reason_ru=f"Напоминание: продолжается пожарная тревога (температура {next_val:.1f} °C на объекте {oid})",
-                        is_reminder=True,
-                    ))
 
     alerts.sort(key=lambda a: (a.ts, a.channel_id, a.cls))
     return alerts
@@ -1360,8 +1387,8 @@ def detect_static_dedup(dataset: Dataset) -> List[Alert]:
     - Without rate-of-rise rules (no GAS_RATE, TEMP_RATE), chatter detection (no 5 flips in 90s),
       comm loss detection, and fire correlation.
     """
-    settings = get_current_settings()
-    gas_warn_thresh = float(settings.gas_warning_threshold_vol_pct)
+    settings = get_scenario_settings_snapshot()
+    gas_warn_thresh = float(settings["gas_warning_threshold_vol_pct"])
     alerts: List[Alert] = []
     timestamps = dataset.analog_timestamps
     dt = dataset.dt
@@ -1568,8 +1595,8 @@ def detect_naive(dataset: Dataset) -> List[Alert]:
         - Contact sensors -> CHATTER
     - No rate rules, no hysteresis, no dedup, no correlation, no comm loss detection.
     """
-    settings = get_current_settings()
-    gas_warn_thresh = float(settings.gas_warning_threshold_vol_pct)
+    settings = get_scenario_settings_snapshot()
+    gas_warn_thresh = float(settings["gas_warning_threshold_vol_pct"])
     alerts: List[Alert] = []
     timestamps = dataset.analog_timestamps
 
@@ -1725,6 +1752,8 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
 
     false_alerts_count = 0
     for a in alerts:
+        if a.is_escalation:
+            continue
         is_attributable = False
         for g in dataset.ground_truth:
             if g.start_ts <= a.ts <= (g.end_ts + 600.0):
@@ -1740,15 +1769,11 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
         float((false_alerts_count / (n_channels * n_days)) * 100.0), 3
     )
 
-    raw_analog = sum(len(s) for s in dataset.analog_series.values())
-    raw_discrete = len(dataset.discrete_events)
-    raw_total = int(raw_analog + raw_discrete)
-
-    incidents_count = len([a for a in alerts if not a.is_reminder])
+    incidents_count = len([a for a in alerts if not a.is_reminder and not a.is_escalation])
     reminders_count = len([a for a in alerts if a.is_reminder])
+    escalations_count = len([a for a in alerts if a.is_escalation])
     total_alerts_count = len(alerts)
 
-    compression_ratio = round(float(raw_total / max(1, incidents_count)), 1)
     overall_detection_rate = round(float(total_detected / total_gt), 4) if total_gt > 0 else 0.0
 
     return {
@@ -1772,20 +1797,18 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
             "count": int(false_alerts_count),
             "per_100_channels_per_day": false_alarms_per_100_channels_per_day,
         },
-        "stream_compression": {
-            "raw_samples": raw_total,
-            "incidents": int(incidents_count),
-            "ratio": compression_ratio,
-        },
+        "alerts_total": int(total_alerts_count),
+        "incidents": int(incidents_count),
         "alerts_count": {
             "total": int(total_alerts_count),
             "incidents": int(incidents_count),
             "reminders": int(reminders_count),
+            "escalations": int(escalations_count),
         },
     }
 
 
-_SCENARIO_CACHE: Dict[Tuple[str, int], Dict[str, Any]] = {}
+_SCENARIO_CACHE: Dict[Tuple[str, int, str], Dict[str, Any]] = {}
 
 
 def clear_scenario_cache():
@@ -1795,19 +1818,22 @@ def clear_scenario_cache():
 
 def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any]:
     """
-    Executes end-to-end scenario run per docs/SCENARIOS_SPEC.md Sections 5 & 7:
+    Executes end-to-end scenario run per docs/SCENARIOS_SPEC.md Sections 5 & 7 and deviation logs 3-6:
+    - Uses pinned snapshot of SystemSettingsSchema defaults
     - Generates deterministic dataset
     - Runs detect() (fast reactive contour), detect_static_dedup() (strengthened baseline),
       and detect_naive() (naive baseline)
     - Evaluates all three detectors
+    - Computes honest compression ratios: naive_alerts / fast_incidents and static_dedup_incidents / fast_incidents
     - Returns JSON-serializable response structure with data_origin='SYNTHETIC', seed, mode,
-      elapsed_seconds, comparison block (three columns), and sorted incident list (max 200).
-    - Caches results by (mode, seed).
+      thresholds_used, elapsed_seconds, comparison block (three columns), and sorted incident list (max 200).
+    - Caches results by (mode, seed, snapshot_json).
     """
     if mode not in ("day", "month"):
         raise ValueError(f"Invalid mode: {mode}. Must be 'day' or 'month'.")
 
-    cache_key = (mode, int(seed))
+    snapshot = get_scenario_settings_snapshot()
+    cache_key = (mode, int(seed), json.dumps(snapshot, sort_keys=True))
     if cache_key in _SCENARIO_CACHE:
         return _SCENARIO_CACHE[cache_key]
 
@@ -1821,6 +1847,13 @@ def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any
     eval_fast = evaluate(dataset, alerts_fast)
     eval_static = evaluate(dataset, alerts_static)
     eval_naive = evaluate(dataset, alerts_naive)
+
+    fast_incidents = int(eval_fast["incidents"])
+    naive_alerts = int(eval_naive["alerts_total"])
+    static_dedup_incidents = int(eval_static["incidents"])
+
+    ratio_naive_to_fast = round(float(naive_alerts / max(1, fast_incidents)), 2)
+    ratio_static_to_fast = round(float(static_dedup_incidents / max(1, fast_incidents)), 2)
 
     incident_list: List[Dict[str, Any]] = []
     for a in alerts_fast:
@@ -1839,6 +1872,7 @@ def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any
             "value": float(a.value) if a.value is not None else None,
             "reason_ru": str(a.reason_ru),
             "is_reminder": bool(a.is_reminder),
+            "is_escalation": bool(a.is_escalation),
             "matched_truth_event_id": matched_gt_id,
         })
 
@@ -1852,11 +1886,18 @@ def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any
         "seed": int(seed),
         "mode": mode,
         "elapsed_seconds": elapsed,
+        "thresholds_used": snapshot,
         "summary": eval_fast,
         "comparison": {
             "fast": eval_fast,
             "static_dedup": eval_static,
             "naive": eval_naive,
+        },
+        "naive_alerts_to_fast_incidents": ratio_naive_to_fast,
+        "static_dedup_incidents_to_fast_incidents": ratio_static_to_fast,
+        "ratios": {
+            "naive_alerts_to_fast_incidents": ratio_naive_to_fast,
+            "static_dedup_incidents_to_fast_incidents": ratio_static_to_fast,
         },
         "incident_list": incident_list,
     }

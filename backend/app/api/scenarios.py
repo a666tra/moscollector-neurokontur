@@ -25,6 +25,37 @@ from backend.app.services.scenario_engine import (
 router = APIRouter()
 
 
+class ScenarioDetectorMetrics(BaseModel):
+    overall: Dict[str, Any]
+    scenarios: Dict[str, Any]
+    lead_time: Dict[str, Any]
+    delay: Dict[str, Any]
+    false_alarms: Dict[str, Any]
+    alerts_total: int
+    incidents: int
+    alerts_count: Optional[Dict[str, int]] = None
+
+
+class ScenarioComparison(BaseModel):
+    fast: ScenarioDetectorMetrics
+    static_dedup: ScenarioDetectorMetrics
+    naive: ScenarioDetectorMetrics
+
+
+class ScenarioRunResponse(BaseModel):
+    data_origin: str = "SYNTHETIC"
+    seed: int
+    mode: str
+    elapsed_seconds: float
+    thresholds_used: Dict[str, Any]
+    summary: ScenarioDetectorMetrics
+    comparison: ScenarioComparison
+    naive_alerts_to_fast_incidents: float
+    static_dedup_incidents_to_fast_incidents: float
+    ratios: Dict[str, float]
+    incident_list: List[Dict[str, Any]]
+
+
 class ScenarioRunRequest(BaseModel):
     mode: Literal["day", "month"]
     seed: int = Field(default=42, ge=0, le=10000)
@@ -37,6 +68,7 @@ class ScenarioSeriesRequest(BaseModel):
 
 
 @router.get("/catalog")
+
 def get_scenarios_catalog() -> Dict[str, Any]:
     """
     Returns scenario descriptions, threshold rules, and channel composition
@@ -111,14 +143,14 @@ def get_scenarios_catalog() -> Dict[str, Any]:
     thresholds_meta = [
         {"parameter": "CH4, предупреждение", "value": "≥ 1,0 % об.", "source": "[З] заказчик/эксперты"},
         {"parameter": "CH4, авария", "value": "≥ 5,0 % об.", "source": "[К] classify_alarm"},
-        {"parameter": "CH4, ранний признак (GAS_RATE)", "value": "значение ≥ 0,3 % в 3 подряд замерах И наклон МНК по окну 5 мин ≥ 0,05 %/мин", "source": "[Д] допущение"},
+        {"parameter": "CH4, ранний признак (GAS_RATE)", "value": "значение ≥ 0,3 % в 3 подряд замерах И наклон МНК по окну max(5 мин; 3 шага) ≥ 0,05 %/мин", "source": "[Д] допущение"},
         {"parameter": "Температура, предупреждение", "value": "≥ 40 °C", "source": "[К] classify_alarm"},
         {"parameter": "Температура, авария", "value": "≥ 45 °C", "source": "[К] features.py"},
         {"parameter": "Температура, ранний признак (TEMP_RATE)", "value": "значение ≥ 28 °C И наклон МНК по окну max(10 мин; 3 замера) ≥ 0,2 °C/мин", "source": "[Д] допущение"},
         {"parameter": "Дребезг (CHATTER)", "value": "≥ 5 переключений за 90 с; снятие после 15 мин без переключений", "source": "[К]+[Д] spec v1.1"},
         {"parameter": "Потеря связи (COMM_LOSS)", "value": "нет замеров > max(15 мин; 3 шага)", "source": "[Д] допущение"},
         {"parameter": "Затопление (FLOOD)", "value": "состояние «тревога» датчика затопления любой длительности", "source": "[Д] допущение"},
-        {"parameter": "Пожар (FIRE), корреляция", "value": "тревога теплового датчика + температура ≥ 40 °C на том же объекте в окне 10 мин", "source": "[Д] допущение"},
+        {"parameter": "Пожар (FIRE), эскалация", "value": "немедленно по тепловому датчику («высокая»), эскалация до «критической» при температуре ≥ 40 °C на том же объекте в окне 10 мин", "source": "[Д] допущение"},
         {"parameter": "Повтор оповещения", "value": "один открытый инцидент на (канал, класс); напоминание не чаще 1 раза в 30 мин; закрытие по гистерезису", "source": "[Д] допущение"},
     ]
 
@@ -146,7 +178,7 @@ def get_scenarios_catalog() -> Dict[str, Any]:
     }
 
 
-@router.post("/run")
+@router.post("/run", response_model=ScenarioRunResponse)
 def post_run_scenario(req: ScenarioRunRequest) -> Dict[str, Any]:
     """
     Runs synthetic scenario simulation, detects alerts across fast, static_dedup,
@@ -238,6 +270,7 @@ def post_channel_series(req: ScenarioSeriesRequest) -> Dict[str, Any]:
             "value": float(a.value) if a.value is not None else None,
             "reason_ru": str(a.reason_ru),
             "is_reminder": bool(a.is_reminder),
+            "is_escalation": bool(a.is_escalation),
         }
         for a in alerts
         if a.channel_id == req.channel_id or (a.cls == "FIRE" and a.object_id == oid)

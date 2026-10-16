@@ -269,7 +269,7 @@ def test_scenarios_seed42_sha256():
 
 
 def test_scenarios_gas_rate_strictly_before_warning():
-    """Gas 0.05 -> 1.5 over 20 min gives GAS_RATE strictly before GAS_WARNING."""
+    """Gas 0.05 -> 1.5 over 20 min gives GAS_RATE strictly before GAS_WARNING (60 s step dataset)."""
     cid = "gas_1"
     ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
     total_sec = 1800.0
@@ -283,8 +283,31 @@ def test_scenarios_gas_rate_strictly_before_warning():
     gas_rate_alerts = [a for a in alerts if a.cls == "GAS_RATE"]
     gas_warn_alerts = [a for a in alerts if a.cls == "GAS_WARNING"]
 
-    assert len(gas_rate_alerts) > 0, "Expected GAS_RATE alert"
-    assert len(gas_warn_alerts) > 0, "Expected GAS_WARNING alert"
+    assert len(gas_rate_alerts) > 0, "Expected GAS_RATE alert for 60s step"
+    assert len(gas_warn_alerts) > 0, "Expected GAS_WARNING alert for 60s step"
+    assert gas_rate_alerts[0].ts < gas_warn_alerts[0].ts, (
+        f"GAS_RATE ts ({gas_rate_alerts[0].ts}) must be strictly earlier than GAS_WARNING ts ({gas_warn_alerts[0].ts})"
+    )
+
+
+def test_scenarios_gas_rate_strictly_before_warning_300s():
+    """Slow gas ramp gives GAS_RATE strictly before GAS_WARNING (300 s step dataset, month mode)."""
+    cid = "gas_1"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 7200.0
+    dt = 300.0
+    n_steps = int(total_sec // dt)
+    vals = np.full(n_steps, 0.05)
+    # Slow ramp: t=0: 0.30, t=300: 0.60, t=600: 0.90 (<1.0), t=900: 1.20 (>=1.0)
+    vals[:5] = np.linspace(0.30, 1.50, 5)
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+
+    alerts = detect(ds)
+    gas_rate_alerts = [a for a in alerts if a.cls == "GAS_RATE"]
+    gas_warn_alerts = [a for a in alerts if a.cls == "GAS_WARNING"]
+
+    assert len(gas_rate_alerts) > 0, "Expected GAS_RATE alert for 300s step"
+    assert len(gas_warn_alerts) > 0, "Expected GAS_WARNING alert for 300s step"
     assert gas_rate_alerts[0].ts < gas_warn_alerts[0].ts, (
         f"GAS_RATE ts ({gas_rate_alerts[0].ts}) must be strictly earlier than GAS_WARNING ts ({gas_warn_alerts[0].ts})"
     )
@@ -468,7 +491,7 @@ def test_scenarios_flood_alarm():
 
 
 def test_scenarios_fire_correlation():
-    """Heat-detector alarm + temp>=40 on the same object within 10 min gives FIRE, on different objects does not."""
+    """Immediate FIRE at alarm time; escalation only when temp >= 40 C on same object within 10 min; nothing on diff object."""
     h_cid = "heat_1"
     t_cid = "temp_1"
     total_sec = 1800.0
@@ -489,8 +512,15 @@ def test_scenarios_fire_correlation():
     ds_same = _make_mini_dataset(ch_same, {t_cid: temp_vals}, ev_heat, dt=dt, total_seconds=total_sec)
     alerts_same = detect(ds_same)
     fire_same = [a for a in alerts_same if a.cls == "FIRE"]
-    assert len(fire_same) >= 1, f"Expected FIRE alert on same object, got {len(fire_same)}"
-    assert fire_same[0].object_id == "obj_1"
+    assert len(fire_same) == 2, f"Expected immediate FIRE + 1 escalation on same object, got {len(fire_same)}"
+    # Immediate alert at alarm time
+    assert fire_same[0].ts == 100.0
+    assert fire_same[0].severity == "HIGH"
+    assert fire_same[0].is_escalation is False
+    # Escalation alert when temp >= 40 C
+    assert fire_same[1].ts == 180.0
+    assert fire_same[1].severity == "CRITICAL"
+    assert fire_same[1].is_escalation is True
 
     # Case 2: Different objects
     ch_diff = {
@@ -500,7 +530,13 @@ def test_scenarios_fire_correlation():
     ds_diff = _make_mini_dataset(ch_diff, {t_cid: temp_vals}, ev_heat, dt=dt, total_seconds=total_sec)
     alerts_diff = detect(ds_diff)
     fire_diff = [a for a in alerts_diff if a.cls == "FIRE"]
-    assert len(fire_diff) == 0, f"Expected 0 FIRE alerts on different objects, got {len(fire_diff)}"
+    # Immediate alert on obj_1 is present
+    assert len(fire_diff) == 1, f"Expected 1 immediate FIRE on obj_1, got {len(fire_diff)}"
+    assert fire_diff[0].ts == 100.0
+    assert fire_diff[0].object_id == "obj_1"
+    assert fire_diff[0].is_escalation is False
+    # But NO escalation on different object
+    assert len([a for a in fire_diff if a.is_escalation]) == 0
 
 
 def test_scenarios_dedup_and_reminder_30min():
@@ -710,6 +746,9 @@ def test_scenarios_evaluate_tiny_handmade_dataset():
     assert metrics["alerts_count"]["total"] == 3
     assert metrics["alerts_count"]["incidents"] == 2
     assert metrics["alerts_count"]["reminders"] == 1
+    assert metrics["alerts_total"] == 3
+    assert metrics["incidents"] == 2
+    assert "stream_compression" not in metrics
 
 
 def test_scenarios_api_catalog():
@@ -736,10 +775,17 @@ def test_scenarios_api_run_success_and_validation():
     assert data["data_origin"] == "SYNTHETIC"
     assert data["seed"] == 42
     assert data["mode"] == "day"
+    assert "thresholds_used" in data
+    assert data["thresholds_used"]["gas_warning_threshold_vol_pct"] == 1.0
     assert "comparison" in data
     assert "fast" in data["comparison"]
     assert "static_dedup" in data["comparison"]
     assert "naive" in data["comparison"]
+    assert "alerts_total" in data["comparison"]["fast"]
+    assert "incidents" in data["comparison"]["fast"]
+    assert "naive_alerts_to_fast_incidents" in data
+    assert "static_dedup_incidents_to_fast_incidents" in data
+    assert "stream_compression" not in data["summary"]
     assert "incident_list" in data
     assert len(data["incident_list"]) <= 200
     assert "elapsed_seconds" in data
@@ -825,5 +871,44 @@ def test_scenarios_month_run_time_budget():
     assert elapsed <= 30.0, f"run_scenario('month') took {elapsed:.2f} s > 30.0 s"
     assert res["data_origin"] == "SYNTHETIC"
     assert res["summary"]["overall"]["total_events"] == sum(SCENARIO_COUNTS["month"].values())
+
+
+def test_scenarios_live_settings_mutation_does_not_affect_polygon():
+    """Mutating live settings singleton does NOT change polygon results (pinned snapshot)."""
+    from backend.app.api.settings import current_system_settings
+
+    orig_gas = current_system_settings.gas_warning_threshold_vol_pct
+    orig_window = current_system_settings.chatter_window_seconds
+    orig_flips = current_system_settings.chatter_min_flips
+    try:
+        clear_scenario_cache()
+        baseline = run_scenario("day", seed=42)
+        assert baseline["thresholds_used"]["gas_warning_threshold_vol_pct"] == 1.0
+
+        # Mutate live settings singleton
+        current_system_settings.gas_warning_threshold_vol_pct = 3.5
+        current_system_settings.chatter_window_seconds = 300
+        current_system_settings.chatter_min_flips = 10
+
+        clear_scenario_cache()
+        mutated_run = run_scenario("day", seed=42)
+
+        # Thresholds used must stay pinned
+        assert mutated_run["thresholds_used"]["gas_warning_threshold_vol_pct"] == 1.0
+        assert mutated_run["thresholds_used"]["chatter_window_seconds"] == 90
+        assert mutated_run["thresholds_used"]["chatter_min_flips"] == 5
+
+        # Results must be identical
+        assert mutated_run["summary"]["overall"] == baseline["summary"]["overall"]
+        assert mutated_run["comparison"]["fast"]["alerts_total"] == baseline["comparison"]["fast"]["alerts_total"]
+        assert mutated_run["comparison"]["fast"]["incidents"] == baseline["comparison"]["fast"]["incidents"]
+        assert mutated_run["naive_alerts_to_fast_incidents"] == baseline["naive_alerts_to_fast_incidents"]
+        assert mutated_run["static_dedup_incidents_to_fast_incidents"] == baseline["static_dedup_incidents_to_fast_incidents"]
+    finally:
+        current_system_settings.gas_warning_threshold_vol_pct = orig_gas
+        current_system_settings.chatter_window_seconds = orig_window
+        current_system_settings.chatter_min_flips = orig_flips
+        clear_scenario_cache()
+
 
 
