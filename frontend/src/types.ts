@@ -1,3 +1,5 @@
+export type UserRole = 'tech' | 'disp';
+
 export interface SystemSettings {
   decision_threshold: number;
   chatter_window_seconds: number;

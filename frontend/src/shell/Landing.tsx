@@ -7,13 +7,13 @@ import { probabilityOf } from '../lib/plain';
 import { ObjectItem, PredictionItem } from '../types';
 
 interface Props {
-  onEnter: () => void;
+  onSelectRole: (role: 'tech' | 'disp') => void;
   onOpenQuality: () => void;
   onOpenScenarios?: () => void;
 }
 
 /** First screen «Контуры риска»: live risk map as the backdrop, the idea in one sentence, verified numbers. */
-export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality, onOpenScenarios }) => {
+export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenScenarios }) => {
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
   // Short desktop screens (e.g. 1366×768 laptops): smaller headline, no step list — nothing overlaps the KPI row.
   const short = isDesktop && window.innerHeight < 860;
@@ -70,12 +70,13 @@ export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality, onOpenScenari
           <button onClick={onOpenQuality} className="px-3.5 text-sm hover:underline">Как проверяли модель</button>
           {onOpenScenarios && <button onClick={onOpenScenarios} className="px-3.5 text-sm hover:underline font-medium" style={{ color: 'var(--ac)' }}>Сценарии</button>}
           <ThemeButton className="w-10 h-10 rounded-full flex items-center justify-center" />
-          <button onClick={onEnter} className="btn btn-primary">Начать смену <ArrowUpRight className="w-4 h-4" /></button>
+          <button onClick={() => onSelectRole('tech')} className="btn btn-secondary text-sm">Я техник — обход объектов</button>
+          <button onClick={() => onSelectRole('disp')} className="btn btn-primary text-sm">Я диспетчер — обстановка и качество <ArrowUpRight className="w-4 h-4" /></button>
         </div>
       </header>
 
       {/* content */}
-      <div className={`relative z-[600] px-6 pt-[450px] pb-32 lg:p-0 lg:absolute lg:left-14 ${short ? 'lg:top-[100px]' : 'lg:top-[150px]'} lg:w-[560px] flex flex-col gap-5 lg:gap-[22px]`}>
+      <div className={`relative z-[600] px-6 pt-[450px] pb-44 lg:p-0 lg:absolute lg:left-14 ${short ? 'lg:top-[100px]' : 'lg:top-[150px]'} lg:w-[560px] flex flex-col gap-5 lg:gap-[22px]`}>
         <h1 className={`serif font-medium tracking-[-0.035em] text-[76px] leading-[.8] ${short ? 'lg:text-[100px]' : 'lg:text-[150px]'} lg:leading-[.82] rise`} style={{ animationDelay: '.1s' }}>
           Контуры<br className="hidden lg:block" /> <i style={{ color: 'var(--ac)' }}>риска</i>
         </h1>
@@ -110,9 +111,21 @@ export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality, onOpenScenari
       </div>
 
       {/* mobile CTA */}
-      <div className="lg:hidden fixed z-[800] left-5 right-5 bottom-6 flex flex-col gap-2">
-        <button onClick={onEnter} className="h-[60px] rounded-full text-[17px] font-semibold flex items-center justify-center gap-2.5" style={{ background: 'var(--ac)', color: 'var(--act)' }}>
-          Начать смену <ArrowUpRight className="w-5 h-5" />
+      <div className="lg:hidden fixed z-[800] inset-x-0 bottom-0 px-4 pt-4 pb-5 flex flex-col gap-2.5"
+           style={{ background: 'linear-gradient(180deg, transparent 0%, var(--bg) 25%, var(--bg) 100%)' }}>
+        <button
+          onClick={() => onSelectRole('tech')}
+          className="h-[48px] rounded-2xl text-[15px] font-semibold flex items-center justify-center gap-2 border shadow-sm transition-transform active:scale-[0.98]"
+          style={{ background: 'var(--sf)', borderColor: 'var(--ln2)', color: 'var(--ink)' }}
+        >
+          Я техник — обход объектов
+        </button>
+        <button
+          onClick={() => onSelectRole('disp')}
+          className="h-[48px] rounded-2xl text-[15px] font-semibold flex items-center justify-center gap-1.5 shadow-md transition-transform active:scale-[0.98]"
+          style={{ background: 'var(--ac)', color: 'var(--act)' }}
+        >
+          <span>Я диспетчер — обстановка и качество</span> <ArrowUpRight className="w-4 h-4 shrink-0" />
         </button>
       </div>
     </div>

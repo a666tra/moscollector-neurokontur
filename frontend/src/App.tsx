@@ -13,9 +13,10 @@ import { SettingsModal } from './components/SettingsModal';
 import { SessionProvider, useSession } from './lib/session';
 import { ToastProvider } from './lib/toast';
 import { ThemeProvider, ThemeButton } from './lib/theme';
-import { ConfirmedAlarmItem, ObjectItem, PredictionItem } from './types';
+import { ConfirmedAlarmItem, ObjectItem, PredictionItem, UserRole } from './types';
+import { FieldView } from './field/FieldView';
 
-type View = 'situation' | 'tickets' | 'quality' | 'scenarios';
+type View = 'field' | 'situation' | 'tickets' | 'quality' | 'scenarios';
 type Tool = 'signal' | 'simulator' | null;
 
 const VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
@@ -24,14 +25,28 @@ const VIEWS: Array<{ id: View; title: string; short: string; icon: React.Element
   { id: 'quality', title: 'Качество модели', short: 'Качество', icon: LineChart },
   { id: 'scenarios', title: 'Сценарии', short: 'Сценарии', icon: FlaskConical },
 ];
+
+const TECH_VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
+  { id: 'field', title: 'Поле', short: 'Поле', icon: MapIcon },
+  { id: 'tickets', title: 'Заявки', short: 'Заявки', icon: ClipboardList },
+];
+
 const TOOLS = [
   { id: 'signal', icon: Stethoscope, title: 'Разобрать сигнал', sub: 'настоящая тревога или ложная' },
   { id: 'simulator', icon: PlayCircle, title: 'Симулятор потока', sub: 'проиграть события датчиков' },
   { id: 'settings', icon: SlidersHorizontal, title: 'Параметры и пороги', sub: 'когда считать риск высоким' },
 ] as const;
 
-const readView = (): View => {
-  const v = new URLSearchParams(window.location.search).get('view');
+const readRole = (): UserRole => {
+  const r = new URLSearchParams(window.location.search).get('role');
+  return r === 'tech' ? 'tech' : 'disp';
+};
+
+const readView = (role: UserRole): View => {
+  const v = new URLSearchParams(window.location.search).get('view') as View;
+  if (role === 'tech') {
+    return v === 'tickets' ? 'tickets' : 'field';
+  }
   return v === 'tickets' || v === 'quality' || v === 'scenarios' ? v : 'situation';
 };
 
@@ -46,21 +61,66 @@ export const App: React.FC = () => (
 );
 
 const Root: React.FC = () => {
+  const [role, setRoleState] = useState<UserRole>(readRole);
   const [entered, setEntered] = useState(() => new URLSearchParams(window.location.search).has('view'));
-  const [view, setViewState] = useState<View>(readView);
+  const [view, setViewState] = useState<View>(() => readView(readRole()));
   const { openShift, dispatcher } = useSession();
+
+  const handleSelectRole = (nextRole: UserRole) => {
+    setRoleState(nextRole);
+    const nextView: View = nextRole === 'tech' ? 'field' : 'situation';
+    setViewState(nextView);
+    setEntered(true);
+    if (nextRole === 'disp' && !dispatcher) {
+      openShift();
+    }
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('role', nextRole);
+      u.searchParams.set('view', nextView);
+      window.history.replaceState({}, '', u);
+    } catch { /* ignore */ }
+  };
+
   const setView = (v: View) => {
     setViewState(v);
     setEntered(true);
-    try { const u = new URL(window.location.href); u.searchParams.set('view', v); window.history.replaceState({}, '', u); } catch { /* ignore */ }
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('role', role);
+      u.searchParams.set('view', v);
+      window.history.replaceState({}, '', u);
+    } catch { /* ignore */ }
   };
+
+  const handleExit = () => {
+    setEntered(false);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('view');
+      window.history.replaceState({}, '', u);
+    } catch { /* ignore */ }
+  };
+
   if (!entered) {
-    return <Landing onEnter={() => { setView('situation'); if (!dispatcher) openShift(); }} onOpenQuality={() => setView('quality')} onOpenScenarios={() => setView('scenarios')} />;
+    return (
+      <Landing
+        onSelectRole={handleSelectRole}
+        onOpenQuality={() => {
+          setRoleState('disp');
+          setView('quality');
+        }}
+        onOpenScenarios={() => {
+          setRoleState('disp');
+          setView('scenarios');
+        }}
+      />
+    );
   }
-  return <Workspace view={view} setView={setView} onExit={() => setEntered(false)} />;
+  return <Workspace role={role} view={view} setView={setView} onExit={handleExit} />;
 };
 
-const Workspace: React.FC<{ view: View; setView: (v: View) => void; onExit: () => void }> = ({ view, setView, onExit }) => {
+const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => void; onExit: () => void }> = ({ role, view, setView, onExit }) => {
   const [objects, setObjects] = useState<ObjectItem[]>([]);
   const [predictions, setPredictions] = useState<PredictionItem[]>([]);
   const [confirmed, setConfirmed] = useState<ConfirmedAlarmItem[]>([]);
@@ -84,39 +144,81 @@ const Workspace: React.FC<{ view: View; setView: (v: View) => void; onExit: () =
   const now = new Date();
   const stamp = `${now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}, ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
 
+  const isTech = role === 'tech';
+
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* desktop header */}
-      <header className="hidden lg:flex shrink-0 h-16 items-center gap-5 px-5 border-b relative z-[900]" style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}>
-        <button onClick={onExit} className="serif italic font-semibold text-[26px] leading-none mr-2" title="О проекте">НейроКонтур</button>
-        <nav className="flex p-1 rounded-full" style={{ background: 'var(--sf2)' }}>
-          {VIEWS.map(v => {
-            const active = v.id === view;
-            return (
-              <button key={v.id} onClick={() => setView(v.id)} aria-current={active ? 'page' : undefined}
-                      className="h-9 px-4 rounded-full flex items-center gap-2 text-sm whitespace-nowrap transition-colors"
-                      style={active ? { background: 'var(--sf)', boxShadow: '0 1px 3px rgba(0,0,0,.12)', fontWeight: 600 } : { color: 'var(--mut)' }}>
-                <v.icon className="w-4 h-4" style={active ? { color: 'var(--ac)' } : undefined} />{v.title}
-              </button>
-            );
-          })}
-        </nav>
-        <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline" style={{ color: 'var(--mut)' }}>{stamp} · прогноз на 1–3 дня</span>
-        <ToolsMenu open={toolsOpen} setOpen={setToolsOpen} onPick={openTool} />
-        <ThemeButton />
-        <ShiftButton />
-      </header>
+      {isTech ? (
+        <header className="hidden lg:flex shrink-0 h-16 items-center gap-5 px-5 border-b relative z-[900]" style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}>
+          <button onClick={onExit} className="serif italic font-semibold text-[26px] leading-none mr-2" title="О проекте">НейроКонтур</button>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider" style={{ background: 'var(--sf2)', color: 'var(--mut)', border: '1px solid var(--ln)' }}>
+            Режим техника
+          </span>
+          <nav className="flex p-1 rounded-full" style={{ background: 'var(--sf2)' }}>
+            {TECH_VIEWS.map(v => {
+              const active = v.id === view;
+              return (
+                <button key={v.id} onClick={() => setView(v.id)} aria-current={active ? 'page' : undefined}
+                        className="h-9 px-4 rounded-full flex items-center gap-2 text-sm whitespace-nowrap transition-colors"
+                        style={active ? { background: 'var(--sf)', boxShadow: '0 1px 3px rgba(0,0,0,.12)', fontWeight: 600 } : { color: 'var(--mut)' }}>
+                  <v.icon className="w-4 h-4" style={active ? { color: 'var(--ac)' } : undefined} />{v.title}
+                </button>
+              );
+            })}
+          </nav>
+          <button onClick={onExit} className="ml-auto text-sm underline transition-colors" style={{ color: 'var(--mut)' }}>
+            Сменить роль
+          </button>
+          <ThemeButton />
+        </header>
+      ) : (
+        <header className="hidden lg:flex shrink-0 h-16 items-center gap-5 px-5 border-b relative z-[900]" style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}>
+          <button onClick={onExit} className="serif italic font-semibold text-[26px] leading-none mr-2" title="О проекте">НейроКонтур</button>
+          <nav className="flex p-1 rounded-full" style={{ background: 'var(--sf2)' }}>
+            {VIEWS.map(v => {
+              const active = v.id === view;
+              return (
+                <button key={v.id} onClick={() => setView(v.id)} aria-current={active ? 'page' : undefined}
+                        className="h-9 px-4 rounded-full flex items-center gap-2 text-sm whitespace-nowrap transition-colors"
+                        style={active ? { background: 'var(--sf)', boxShadow: '0 1px 3px rgba(0,0,0,.12)', fontWeight: 600 } : { color: 'var(--mut)' }}>
+                  <v.icon className="w-4 h-4" style={active ? { color: 'var(--ac)' } : undefined} />{v.title}
+                </button>
+              );
+            })}
+          </nav>
+          <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline" style={{ color: 'var(--mut)' }}>{stamp} · прогноз на 1–3 дня</span>
+          <ToolsMenu open={toolsOpen} setOpen={setToolsOpen} onPick={openTool} />
+          <ThemeButton />
+          <ShiftButton />
+        </header>
+      )}
 
       {/* mobile header */}
-      <header className="lg:hidden absolute z-[900] left-4 right-4 top-4 glass rounded-full flex items-center gap-2 py-1.5 pl-4 pr-1.5">
-        <button onClick={onExit} className="font-semibold text-[17px]">{VIEWS.find(v => v.id === view)!.title}</button>
-        <div className="ml-auto flex items-center gap-1.5">
-          <ThemeButton className="w-10 h-10 rounded-full flex items-center justify-center" />
-          <ShiftButton compact />
-        </div>
-      </header>
+      {isTech ? (
+        <header className="lg:hidden absolute z-[900] left-3.5 right-3.5 top-4 glass rounded-full flex items-center justify-between gap-2 py-1.5 pl-4 pr-1.5">
+          <span className="font-semibold text-[17px] truncate">
+            {view === 'tickets' ? 'Заявки' : 'Поле'}
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={onExit} className="text-xs font-semibold underline px-2 py-1.5" style={{ color: 'var(--mut)' }}>
+              Сменить роль
+            </button>
+            <ThemeButton className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" />
+          </div>
+        </header>
+      ) : (
+        <header className="lg:hidden absolute z-[900] left-4 right-4 top-4 glass rounded-full flex items-center gap-2 py-1.5 pl-4 pr-1.5">
+          <button onClick={onExit} className="font-semibold text-[17px]">{VIEWS.find(v => v.id === view)!.title}</button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <ThemeButton className="w-10 h-10 rounded-full flex items-center justify-center" />
+            <ShiftButton compact />
+          </div>
+        </header>
+      )}
 
       <main className="flex-1 min-h-0 relative pb-16 lg:pb-0">
+        {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={() => setView('tickets')} />}
         {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
         {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets onRefreshStats={load} /></div></div>}
         {view === 'quality' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
@@ -124,24 +226,38 @@ const Workspace: React.FC<{ view: View; setView: (v: View) => void; onExit: () =
       </main>
 
       {/* mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-5 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
-        {VIEWS.map(v => (
-          <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium"
-                  style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
-            <v.icon className="w-5 h-5" />{v.short}
-          </button>
-        ))}
-        <button onClick={() => setToolsOpen(true)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium" style={{ color: 'var(--mut)' }}>
-          <Briefcase className="w-5 h-5" />Ещё
-        </button>
-      </nav>
-      {toolsOpen && (
-        <div className="lg:hidden fixed inset-0 z-[1300] flex items-end" style={{ background: 'rgba(10,10,12,.45)' }} onClick={() => setToolsOpen(false)}>
-          <div className="w-full rounded-t-[28px] p-3 pb-6" style={{ background: 'var(--sf)' }} onClick={e => e.stopPropagation()}>
-            {TOOLS.map(t => <ToolItem key={t.id} {...t} onClick={() => openTool(t.id)} />)}
-            <ToolItem icon={Info} title="О проекте" sub="первый экран и цифры проверки" onClick={() => { setToolsOpen(false); onExit(); }} />
-          </div>
-        </div>
+      {isTech ? (
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-2 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
+          {TECH_VIEWS.map(v => (
+            <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[13px] font-semibold min-h-[48px]"
+                    style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
+              <v.icon className="w-5 h-5 shrink-0" />
+              <span>{v.short}</span>
+            </button>
+          ))}
+        </nav>
+      ) : (
+        <>
+          <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-5 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
+            {VIEWS.map(v => (
+              <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium"
+                      style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
+                <v.icon className="w-5 h-5" />{v.short}
+              </button>
+            ))}
+            <button onClick={() => setToolsOpen(true)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium" style={{ color: 'var(--mut)' }}>
+              <Briefcase className="w-5 h-5" />Ещё
+            </button>
+          </nav>
+          {toolsOpen && (
+            <div className="lg:hidden fixed inset-0 z-[1300] flex items-end" style={{ background: 'rgba(10,10,12,.45)' }} onClick={() => setToolsOpen(false)}>
+              <div className="w-full rounded-t-[28px] p-3 pb-6" style={{ background: 'var(--sf)' }} onClick={e => e.stopPropagation()}>
+                {TOOLS.map(t => <ToolItem key={t.id} {...t} onClick={() => openTool(t.id)} />)}
+                <ToolItem icon={Info} title="О проекте" sub="первый экран и цифры проверки" onClick={() => { setToolsOpen(false); onExit(); }} />
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {tool && (
