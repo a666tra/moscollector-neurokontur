@@ -55,7 +55,7 @@ class MLService:
         self.sys_map: Dict[str, int] = {}
         self.authorized_dispatchers: Dict[str, Dict[str, Any]] = {}
         self.public_demo_credentials: Optional[Dict[str, str]] = None
-        self._pin_failures: Dict[str, List[float]] = {}
+        self._pin_failures: Dict[Any, List[float]] = {}
         self._pin_failures_lock = threading.Lock()
         self.optimal_thresholds: Dict[str, float] = {
             "champion_lightgbm": 0.845,
@@ -206,6 +206,7 @@ class MLService:
         dispatcher_badge: Optional[str],
         dispatcher_pin: Optional[str],
         min_clearance_level: int = 1,
+        client_id: Optional[str] = None,
     ) -> tuple[str, Dict[str, Any]]:
         """Verify an employee badge, six-digit PIN and minimum clearance."""
         if not self.authorized_dispatchers:
@@ -220,10 +221,11 @@ class MLService:
                 "Отказ в аутентификации: табельный номер не зарегистрирован."
             )
 
+        lockout_key = (badge, client_id) if client_id is not None else badge
         now = time.time()
         with self._pin_failures_lock:
-            recent = [t for t in self._pin_failures.get(badge, []) if now - t < PIN_LOCKOUT_SECONDS]
-            self._pin_failures[badge] = recent
+            recent = [t for t in self._pin_failures.get(lockout_key, []) if now - t < PIN_LOCKOUT_SECONDS]
+            self._pin_failures[lockout_key] = recent
         if len(recent) >= MAX_PIN_FAILURES:
             wait = int(PIN_LOCKOUT_SECONDS - (now - recent[0])) + 1
             raise DispatcherAuthenticationError(
@@ -237,12 +239,12 @@ class MLService:
             or not self._verify_pin(pin, stored_hash)
         ):
             with self._pin_failures_lock:
-                self._pin_failures.setdefault(badge, []).append(now)
+                self._pin_failures.setdefault(lockout_key, []).append(now)
             raise DispatcherAuthenticationError(
                 "Отказ в аутентификации: неверный badge или 6-значный PIN-код."
             )
         with self._pin_failures_lock:
-            self._pin_failures.pop(badge, None)
+            self._pin_failures.pop(lockout_key, None)
 
         clearance = dispatcher.get("clearance_level")
         if type(min_clearance_level) is not int or min_clearance_level not in (1, 2, 3):
@@ -636,7 +638,8 @@ class MLService:
         decision: str,
         dispatcher_badge: str,
         dispatcher_pin: str = "",
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        client_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         with self._audit_lock:
             return self._confirm_alarm_locked(
@@ -645,6 +648,7 @@ class MLService:
                 dispatcher_badge=dispatcher_badge,
                 dispatcher_pin=dispatcher_pin,
                 notes=notes,
+                client_id=client_id,
             )
 
     def _confirm_alarm_locked(
@@ -653,7 +657,8 @@ class MLService:
         decision: str,
         dispatcher_badge: str,
         dispatcher_pin: str = "",
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        client_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Confirm a dispatcher decision after badge/PIN checks and RBAC validation."""
         active_settings = get_current_settings()
@@ -671,7 +676,7 @@ class MLService:
 
         # Verify identity, explicit clearance, and capability through one strict code path.
         norm_badge, disp = self.authenticate_dispatcher(
-            dispatcher_badge, dispatcher_pin, min_clearance_level=2
+            dispatcher_badge, dispatcher_pin, min_clearance_level=2, client_id=client_id
         )
 
         # Enforce RBAC permissions

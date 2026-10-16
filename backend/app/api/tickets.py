@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Optional
 from backend.app.models.schemas import (
     MaintenanceTicket,
@@ -17,16 +17,17 @@ def get_tickets(status: Optional[TicketStatus] = Query(None, description="Фил
     return maintenance_service.get_tickets(status)
 
 @router.post("/generate", response_model=MaintenanceTicket)
-def generate_ticket(req: CreateTicketRequest):
+def generate_ticket(req: CreateTicketRequest, request: Request):
     from backend.app.services.ml_service import (
         DispatcherAuthenticationError,
         DispatcherAuthorizationError,
         ml_service,
     )
 
+    client_id = request.client.host if request.client else None
     try:
         badge, dispatcher = ml_service.authenticate_dispatcher(
-            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=2
+            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=2, client_id=client_id
         )
     except DispatcherAuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
@@ -49,16 +50,17 @@ def generate_ticket(req: CreateTicketRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 @router.patch("/{ticket_id}/status", response_model=MaintenanceTicket)
-def update_ticket_status(ticket_id: str, req: UpdateTicketStatusRequest):
+def update_ticket_status(ticket_id: str, req: UpdateTicketStatusRequest, request: Request):
     from backend.app.services.ml_service import (
         DispatcherAuthenticationError,
         DispatcherAuthorizationError,
         ml_service,
     )
 
+    client_id = request.client.host if request.client else None
     try:
         ml_service.authenticate_dispatcher(
-            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=2
+            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=2, client_id=client_id
         )
     except DispatcherAuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc

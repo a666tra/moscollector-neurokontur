@@ -1,7 +1,7 @@
 import os
 import json
 import tempfile
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
 from backend.app.core.config import settings
@@ -69,7 +69,7 @@ class UpdateSettingsRequest(SystemSettingsSchema):
     dispatcher_pin: Optional[str] = Field(None, pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера")
 
 @router.post("", response_model=SystemSettingsSchema)
-def update_settings(req: UpdateSettingsRequest):
+def update_settings(req: UpdateSettingsRequest, request: Request):
     """Обновление настроек после проверки PIN и уровня допуска Level-3."""
     from backend.app.services.ml_service import (
         DispatcherAuthenticationError,
@@ -77,9 +77,10 @@ def update_settings(req: UpdateSettingsRequest):
         ml_service,
     )
 
+    client_id = request.client.host if request.client else None
     try:
         ml_service.authenticate_dispatcher(
-            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=3
+            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=3, client_id=client_id
         )
     except DispatcherAuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
@@ -90,5 +91,34 @@ def update_settings(req: UpdateSettingsRequest):
     candidate = SystemSettingsSchema(**(current_system_settings.model_dump() | update_dict))
     save_settings(candidate)
     for k, v in candidate.model_dump().items():
+        setattr(current_system_settings, k, v)
+    return current_system_settings
+
+class ResetSettingsRequest(BaseModel):
+    dispatcher_badge: Optional[str] = Field(None, min_length=1, max_length=32, description="Табельный номер уполномоченного лица (Главный инженер)")
+    dispatcher_pin: Optional[str] = Field(None, pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера")
+
+@router.post("/reset", response_model=SystemSettingsSchema)
+def reset_settings(req: ResetSettingsRequest, request: Request):
+    """Сброс настроек до заводских (по умолчанию) после проверки PIN и уровня допуска Level-3."""
+    from backend.app.services.ml_service import (
+        DispatcherAuthenticationError,
+        DispatcherAuthorizationError,
+        ml_service,
+    )
+
+    client_id = request.client.host if request.client else None
+    try:
+        ml_service.authenticate_dispatcher(
+            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=3, client_id=client_id
+        )
+    except DispatcherAuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except DispatcherAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    defaults = SystemSettingsSchema()
+    save_settings(defaults)
+    for k, v in defaults.model_dump().items():
         setattr(current_system_settings, k, v)
     return current_system_settings

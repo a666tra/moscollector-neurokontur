@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List, Dict, Any
 from datetime import datetime
 from backend.app.core.config import settings
@@ -33,15 +33,17 @@ def classify_alarm(req: AlarmClassificationRequest):
     return AlarmClassificationResponse(**res)
 
 @router.post("/confirm", response_model=AlarmConfirmationResponse)
-def confirm_alarm_decision(req: AlarmConfirmationRequest):
+def confirm_alarm_decision(req: AlarmConfirmationRequest, request: Request):
     """Записать демонстрационное решение с проверкой локального табельного номера и PIN."""
+    client_id = request.client.host if request.client else None
     try:
         res = ml_service.confirm_alarm(
             channel_id=req.channel_id,
             decision=req.decision,
             dispatcher_badge=req.dispatcher_badge,
             dispatcher_pin=req.dispatcher_pin,
-            notes=req.notes
+            notes=req.notes,
+            client_id=client_id,
         )
         return AlarmConfirmationResponse(**res)
     except DispatcherAuthenticationError as exc:
@@ -54,10 +56,13 @@ def confirm_alarm_decision(req: AlarmConfirmationRequest):
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 @router.post("/session", response_model=DispatcherSessionResponse)
-def start_dispatcher_session(req: DispatcherSessionRequest):
+def start_dispatcher_session(req: DispatcherSessionRequest, request: Request):
     """Проверить табельный номер и PIN в начале смены (интерфейс хранит их только в памяти вкладки)."""
+    client_id = request.client.host if request.client else None
     try:
-        badge, d = ml_service.authenticate_dispatcher(req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=1)
+        badge, d = ml_service.authenticate_dispatcher(
+            req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=1, client_id=client_id
+        )
     except DispatcherAuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     except DispatcherAuthorizationError as exc:

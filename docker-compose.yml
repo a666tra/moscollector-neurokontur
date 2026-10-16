@@ -14,6 +14,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - LCT_DEMO_DISPATCHER_PIN=135790
+      - LCT_DEMO_DISPATCHER_BADGE=ДИСП-0001
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 20s

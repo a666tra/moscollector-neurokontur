@@ -974,3 +974,184 @@ def test_high_risk_and_top_k_metrics():
 
     delta = ext["brier_delta_analysis"]
     assert delta["delta_brier_absolute"] == 0.00115
+
+
+def test_pin_lockout_scoped_by_client_ip():
+    """Проверка блокировки по паре (badge, client_id):
+    5 неверных PIN с IP A блокируют IP A, но не блокируют IP B;
+    верный PIN сбрасывает счетчик только для своей пары IP/badge.
+    При client_id=None логика работает по badge как раньше.
+    """
+    from backend.app.services.ml_service import (
+        DispatcherAuthenticationError,
+        MAX_PIN_FAILURES,
+        ml_service,
+    )
+
+    badge, pin = require_dispatcher_credentials()
+    wrong_pin = different_pin(pin)
+    ip_a = "192.168.1.10"
+    ip_b = "192.168.1.20"
+
+    with ml_service._pin_failures_lock:
+        ml_service._pin_failures.pop((badge, ip_a), None)
+        ml_service._pin_failures.pop((badge, ip_b), None)
+        ml_service._pin_failures.pop(badge, None)
+
+    try:
+        # IP A вводит 5 неверных PIN
+        for _ in range(MAX_PIN_FAILURES):
+            with pytest.raises(DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
+                ml_service.authenticate_dispatcher(badge, wrong_pin, client_id=ip_a)
+
+        # 6-я попытка с IP A заблокирована даже с верным PIN
+        with pytest.raises(DispatcherAuthenticationError, match="Слишком много неверных попыток PIN"):
+            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_a)
+
+        # IP B с тем же badge НЕ заблокирован и успешно аутентифицируется
+        res_b_badge, _ = ml_service.authenticate_dispatcher(badge, pin, client_id=ip_b)
+        assert res_b_badge == badge
+
+        # IP A всё ещё заблокирован после успешного входа IP B
+        with pytest.raises(DispatcherAuthenticationError, match="Слишком много неверных попыток PIN"):
+            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_a)
+
+        # IP B делает 1 неудачную попытку
+        with pytest.raises(DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
+            ml_service.authenticate_dispatcher(badge, wrong_pin, client_id=ip_b)
+        assert len(ml_service._pin_failures.get((badge, ip_b), [])) == 1
+
+        # Верный PIN с IP B сбрасывает счетчик ТОЛЬКО для пары (badge, ip_b)
+        ml_service.authenticate_dispatcher(badge, pin, client_id=ip_b)
+        assert (badge, ip_b) not in ml_service._pin_failures
+
+        # IP A всё ещё заблокирован
+        with pytest.raises(DispatcherAuthenticationError, match="Слишком много неверных попыток PIN"):
+            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_a)
+
+        # Если client_id is None, поведение остается привязанным к badge
+        with pytest.raises(DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
+            ml_service.authenticate_dispatcher(badge, wrong_pin, client_id=None)
+        assert badge in ml_service._pin_failures
+    finally:
+        with ml_service._pin_failures_lock:
+            ml_service._pin_failures.pop((badge, ip_a), None)
+            ml_service._pin_failures.pop((badge, ip_b), None)
+            ml_service._pin_failures.pop(badge, None)
+
+
+def test_pin_lockout_via_api_client_ip():
+    """Интеграционный тест: API-обработчики изолируют блокировки по request.client.host."""
+    from backend.app.services.ml_service import ml_service, MAX_PIN_FAILURES
+
+    badge, pin = require_dispatcher_credentials()
+    wrong_pin = different_pin(pin)
+    ip_a = "10.10.10.1"
+    ip_b = "10.10.10.2"
+
+    client_a = TestClient(app, client=(ip_a, 50000))
+    client_b = TestClient(app, client=(ip_b, 50000))
+
+    with ml_service._pin_failures_lock:
+        ml_service._pin_failures.pop((badge, ip_a), None)
+        ml_service._pin_failures.pop((badge, ip_b), None)
+
+    try:
+        # 5 неверных попыток с IP A
+        for _ in range(MAX_PIN_FAILURES):
+            res = client_a.post("/api/alarms/session", json={
+                "dispatcher_badge": badge,
+                "dispatcher_pin": wrong_pin,
+            })
+            assert res.status_code == 401
+            assert "неверный badge или 6-значный PIN-код" in res.json()["detail"]
+
+        # IP A заблокирован
+        locked_a = client_a.post("/api/alarms/session", json={
+            "dispatcher_badge": badge,
+            "dispatcher_pin": pin,
+        })
+        assert locked_a.status_code == 401
+        assert "Слишком много неверных попыток PIN" in locked_a.json()["detail"]
+
+        # IP B НЕ заблокирован и может войти
+        ok_b = client_b.post("/api/alarms/session", json={
+            "dispatcher_badge": badge,
+            "dispatcher_pin": pin,
+        })
+        assert ok_b.status_code == 200
+        assert ok_b.json()["badge"] == badge
+
+        # IP A всё ещё заблокирован
+        still_locked_a = client_a.post("/api/alarms/session", json={
+            "dispatcher_badge": badge,
+            "dispatcher_pin": pin,
+        })
+        assert still_locked_a.status_code == 401
+        assert "Слишком много неверных попыток PIN" in still_locked_a.json()["detail"]
+    finally:
+        with ml_service._pin_failures_lock:
+            ml_service._pin_failures.pop((badge, ip_a), None)
+            ml_service._pin_failures.pop((badge, ip_b), None)
+
+
+def test_settings_reset_to_defaults():
+    """Тест POST /api/settings/reset: сброс параметров до значений по умолчанию."""
+    from backend.app.api.settings import SystemSettingsSchema
+
+    badge, pin = require_dispatcher_credentials()
+    default_schema = SystemSettingsSchema()
+
+    # Изменяем настройки на нестандартные значения
+    modified_threshold = 0.58
+    modified_window = 150
+    update_res = client.post("/api/settings", json={
+        "decision_threshold": modified_threshold,
+        "chatter_window_seconds": modified_window,
+        "chatter_min_flips": 8,
+        "gas_warning_threshold_vol_pct": 2.5,
+        "callout_cost_rub": 25000.0,
+        "preventive_cost_rub": 4000.0,
+        "require_dispatcher_confirmation": False,
+        "auto_suppress_chatter": False,
+        "selected_model": "logistic_regression",
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin
+    })
+    assert update_res.status_code == 200
+    assert update_res.json()["decision_threshold"] == modified_threshold
+    assert update_res.json()["chatter_window_seconds"] == modified_window
+
+    # Запрос сброса без авторизации -> 401
+    unauth = client.post("/api/settings/reset", json={})
+    assert unauth.status_code == 401
+
+    # Запрос сброса с неверным PIN -> 401
+    bad_pin = client.post("/api/settings/reset", json={
+        "dispatcher_badge": badge,
+        "dispatcher_pin": different_pin(pin),
+    })
+    assert bad_pin.status_code == 401
+
+    # Запрос сброса с валидными Level-3 правами -> 200
+    reset_res = client.post("/api/settings/reset", json={
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+    })
+    assert reset_res.status_code == 200
+    data = reset_res.json()
+    assert data["decision_threshold"] == default_schema.decision_threshold
+    assert data["chatter_window_seconds"] == default_schema.chatter_window_seconds
+    assert data["chatter_min_flips"] == default_schema.chatter_min_flips
+    assert data["gas_warning_threshold_vol_pct"] == default_schema.gas_warning_threshold_vol_pct
+    assert data["callout_cost_rub"] == default_schema.callout_cost_rub
+    assert data["preventive_cost_rub"] == default_schema.preventive_cost_rub
+    assert data["require_dispatcher_confirmation"] == default_schema.require_dispatcher_confirmation
+    assert data["auto_suppress_chatter"] == default_schema.auto_suppress_chatter
+    assert data["selected_model"] == default_schema.selected_model
+
+    # Проверка через GET /api/settings, что дефолты сохранены и отдаются
+    get_res = client.get("/api/settings")
+    assert get_res.status_code == 200
+    assert get_res.json() == default_schema.model_dump()
+

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any, List, Optional, Literal
 from pydantic import BaseModel, Field
 import random
@@ -34,7 +34,7 @@ class SimulationScenarioResponse(BaseModel):
 step_counter = 0
 
 @router.post("/step", response_model=SimulationScenarioResponse)
-def run_simulation_step(req: SimulationScenarioRequest):
+def run_simulation_step(req: SimulationScenarioRequest, request: Request):
     global step_counter
 
     scenario = req.scenario_type
@@ -45,9 +45,10 @@ def run_simulation_step(req: SimulationScenarioRequest):
             DispatcherAuthenticationError,
             DispatcherAuthorizationError,
         )
+        client_id = request.client.host if request.client else None
         try:
             badge, dispatcher = ml_service.authenticate_dispatcher(
-                req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=2
+                req.dispatcher_badge, req.dispatcher_pin, min_clearance_level=2, client_id=client_id
             )
         except DispatcherAuthenticationError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
