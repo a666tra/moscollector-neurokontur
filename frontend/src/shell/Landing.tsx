@@ -9,10 +9,11 @@ import { ObjectItem, PredictionItem } from '../types';
 interface Props {
   onEnter: () => void;
   onOpenQuality: () => void;
+  onOpenScenarios?: () => void;
 }
 
 /** First screen «Контуры риска»: live risk map as the backdrop, the idea in one sentence, verified numbers. */
-export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality }) => {
+export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality, onOpenScenarios }) => {
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
   // Short desktop screens (e.g. 1366×768 laptops): smaller headline, no step list — nothing overlaps the KPI row.
   const short = isDesktop && window.innerHeight < 860;
@@ -67,6 +68,7 @@ export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality }) => {
         <span className="num text-[11px] tracking-[.08em]" style={{ color: 'var(--mut)' }}>АО «МОСКОЛЛЕКТОР» · ЛЦТ 2026</span>
         <div className="ml-auto flex items-center gap-2 p-1.5 rounded-full glass">
           <button onClick={onOpenQuality} className="px-3.5 text-sm hover:underline">Как проверяли модель</button>
+          {onOpenScenarios && <button onClick={onOpenScenarios} className="px-3.5 text-sm hover:underline font-medium" style={{ color: 'var(--ac)' }}>Сценарии</button>}
           <ThemeButton className="w-10 h-10 rounded-full flex items-center justify-center" />
           <button onClick={onEnter} className="btn btn-primary">Начать смену <ArrowUpRight className="w-4 h-4" /></button>
         </div>
@@ -90,7 +92,10 @@ export const Landing: React.FC<Props> = ({ onEnter, onOpenQuality }) => {
         <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:hidden border-t-[1.5px] pt-2.5" style={{ borderColor: 'var(--ink)' }}>
           {kpis.map((k, i) => <Kpi key={i} {...k} small />)}
         </div>
-        <button onClick={onOpenQuality} className="lg:hidden self-start text-sm underline" style={{ color: 'var(--mut)' }}>Как проверяли модель</button>
+        <div className="flex items-center gap-4 lg:hidden">
+          <button onClick={onOpenQuality} className="text-sm underline" style={{ color: 'var(--mut)' }}>Как проверяли модель</button>
+          {onOpenScenarios && <button onClick={onOpenScenarios} className="text-sm underline font-medium" style={{ color: 'var(--ac)' }}>Сценарии</button>}
+        </div>
       </div>
       <div className="hidden lg:grid absolute z-[600] left-14 bottom-11 w-[620px] grid-cols-4 gap-6 rise" style={{ animationDelay: '.45s' }}>
         {kpis.map((k, i) => <Kpi key={i} {...k} />)}

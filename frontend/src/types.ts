@@ -189,3 +189,157 @@ export interface SimulationResult {
   avoided_callout_rub: number;
   scenario_potential_rub?: number;
 }
+
+export interface ScenarioMeta {
+  id: string;
+  name: string;
+  shape: string;
+  cls: string;
+  day_count: number;
+  month_count: number;
+  target_metric: 'lead_time' | 'delay';
+}
+
+export interface ScenarioThresholdMeta {
+  parameter: string;
+  value: string;
+  source: string;
+}
+
+export interface ScenarioChannelMeta {
+  channel_id: string;
+  sensor_type: string;
+  object_id: string;
+  sensor_name: string;
+  system_type: string;
+}
+
+export interface ScenarioCatalogResponse {
+  data_origin: string;
+  scenarios: ScenarioMeta[];
+  thresholds: ScenarioThresholdMeta[];
+  channel_composition: {
+    total_channels: number;
+    specs: Array<{ sensor_type: string; count: number }>;
+    channels: ScenarioChannelMeta[];
+  };
+}
+
+export interface ScenarioMetricItem {
+  total: number;
+  detected: number;
+  detection_rate: number;
+  lead_time_median_min?: number | null;
+  lead_time_p10_min?: number | null;
+  delay_median_sec?: number | null;
+  delay_p90_sec?: number | null;
+}
+
+export interface ScenarioDetectorMetrics {
+  overall: {
+    total_events: number;
+    detected_events: number;
+    detection_rate: number;
+  };
+  scenarios: Record<string, ScenarioMetricItem>;
+  lead_time: {
+    median_min: number | null;
+    p10_min: number | null;
+    count: number;
+  };
+  delay: {
+    median_sec: number | null;
+    p90_sec: number | null;
+    count: number;
+  };
+  false_alarms: {
+    count: number;
+    per_100_channels_per_day: number;
+  };
+  alerts_total: number;
+  incidents: number;
+  alerts_count?: {
+    total: number;
+    incidents: number;
+    reminders: number;
+    escalations: number;
+  };
+}
+
+export interface ScenarioComparison {
+  fast: ScenarioDetectorMetrics;
+  static_dedup: ScenarioDetectorMetrics;
+  naive: ScenarioDetectorMetrics;
+}
+
+export interface ScenarioIncidentItem {
+  ts: number;
+  channel_id: string;
+  object_id: string;
+  cls: string;
+  severity: string;
+  value: number | null;
+  reason_ru: string;
+  is_reminder: boolean;
+  is_escalation: boolean;
+  matched_truth_event_id: string | null;
+}
+
+export interface ScenarioRunResponse {
+  data_origin: string;
+  seed: number;
+  mode: 'day' | 'month';
+  elapsed_seconds: number;
+  thresholds_used: Record<string, any>;
+  summary: ScenarioDetectorMetrics;
+  comparison: ScenarioComparison;
+  naive_alerts_to_fast_incidents: number;
+  static_dedup_incidents_to_fast_incidents: number;
+  ratios: {
+    naive_alerts_to_fast_incidents: number;
+    static_dedup_incidents_to_fast_incidents: number;
+  };
+  incident_list: ScenarioIncidentItem[];
+}
+
+export interface ScenarioSeriesPoint {
+  ts: number;
+  value?: number | null;
+  state_name?: string;
+  is_alarm?: boolean;
+}
+
+export interface ScenarioTrueEvent {
+  event_id: string;
+  scenario_id: string;
+  cls: string;
+  start_ts: number;
+  end_ts: number;
+  hazard_ts: number | null;
+}
+
+export interface ScenarioAlertItem {
+  ts: number;
+  cls: string;
+  severity: string;
+  value: number | null;
+  reason_ru: string;
+  is_reminder: boolean;
+  is_escalation: boolean;
+}
+
+export interface ScenarioSeriesResponse {
+  data_origin: string;
+  seed: number;
+  mode: 'day' | 'month';
+  channel_id: string;
+  sensor_type: string;
+  object_id: string;
+  thresholds: {
+    warning?: number | null;
+    alarm?: number | null;
+  };
+  series: ScenarioSeriesPoint[];
+  true_events: ScenarioTrueEvent[];
+  alerts: ScenarioAlertItem[];
+}

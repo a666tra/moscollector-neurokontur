@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Map as MapIcon, ClipboardList, LineChart, Stethoscope, PlayCircle, SlidersHorizontal, Briefcase, UserCircle, X, Info,
+  Map as MapIcon, ClipboardList, LineChart, Stethoscope, PlayCircle, SlidersHorizontal, Briefcase, UserCircle, X, Info, FlaskConical,
 } from 'lucide-react';
 import { Landing } from './shell/Landing';
 import { Situation } from './situation/Situation';
 import { MaintenanceTickets } from './components/MaintenanceTickets';
 import { MetricsView } from './components/MetricsView';
+import { ScenarioLab } from './scenarios/ScenarioLab';
 import { FalseAlarmFilter } from './components/FalseAlarmFilter';
 import { StreamSimulator } from './components/StreamSimulator';
 import { SettingsModal } from './components/SettingsModal';
@@ -14,13 +15,14 @@ import { ToastProvider } from './lib/toast';
 import { ThemeProvider, ThemeButton } from './lib/theme';
 import { ConfirmedAlarmItem, ObjectItem, PredictionItem } from './types';
 
-type View = 'situation' | 'tickets' | 'quality';
+type View = 'situation' | 'tickets' | 'quality' | 'scenarios';
 type Tool = 'signal' | 'simulator' | null;
 
 const VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
   { id: 'situation', title: 'Обстановка', short: 'Обстановка', icon: MapIcon },
   { id: 'tickets', title: 'Заявки и журнал', short: 'Заявки', icon: ClipboardList },
   { id: 'quality', title: 'Качество модели', short: 'Качество', icon: LineChart },
+  { id: 'scenarios', title: 'Сценарии', short: 'Сценарии', icon: FlaskConical },
 ];
 const TOOLS = [
   { id: 'signal', icon: Stethoscope, title: 'Разобрать сигнал', sub: 'настоящая тревога или ложная' },
@@ -30,7 +32,7 @@ const TOOLS = [
 
 const readView = (): View => {
   const v = new URLSearchParams(window.location.search).get('view');
-  return v === 'tickets' || v === 'quality' ? v : 'situation';
+  return v === 'tickets' || v === 'quality' || v === 'scenarios' ? v : 'situation';
 };
 
 export const App: React.FC = () => (
@@ -53,7 +55,7 @@ const Root: React.FC = () => {
     try { const u = new URL(window.location.href); u.searchParams.set('view', v); window.history.replaceState({}, '', u); } catch { /* ignore */ }
   };
   if (!entered) {
-    return <Landing onEnter={() => { setView('situation'); if (!dispatcher) openShift(); }} onOpenQuality={() => setView('quality')} />;
+    return <Landing onEnter={() => { setView('situation'); if (!dispatcher) openShift(); }} onOpenQuality={() => setView('quality')} onOpenScenarios={() => setView('scenarios')} />;
   }
   return <Workspace view={view} setView={setView} onExit={() => setEntered(false)} />;
 };
@@ -118,10 +120,11 @@ const Workspace: React.FC<{ view: View; setView: (v: View) => void; onExit: () =
         {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
         {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets onRefreshStats={load} /></div></div>}
         {view === 'quality' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
+        {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
       </main>
 
       {/* mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-4 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-5 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
         {VIEWS.map(v => (
           <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium"
                   style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
