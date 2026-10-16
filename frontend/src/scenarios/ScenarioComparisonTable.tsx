@@ -2,6 +2,12 @@ import React from 'react';
 import { Layers, ShieldAlert, Info, HelpCircle } from 'lucide-react';
 import { ScenarioComparison, ScenarioMeta } from '../types';
 import { fmtPct } from '../lib/api';
+import {
+  formatSignedLeadTime,
+  isNegativeLeadTime,
+  formatDelaySec,
+  ALERT_CLASS_ENTRIES,
+} from './scenarioLabels';
 
 interface ScenarioComparisonTableProps {
   comparison: ScenarioComparison;
@@ -43,18 +49,13 @@ export const ScenarioComparisonTable: React.FC<ScenarioComparisonTableProps> = (
     if (targetMetric === 'lead_time') {
       const val = metricItem.lead_time_median_min;
       if (typeof val === 'number' && Number.isFinite(val)) {
-        const sign = val > 0 ? '+' : '';
-        metricText = `${sign}${val.toFixed(1).replace('.', ',')} мин`;
-        if (val < 0) isWarning = true;
+        metricText = formatSignedLeadTime(val);
+        if (isNegativeLeadTime(val)) isWarning = true;
       }
     } else {
       const val = metricItem.delay_median_sec;
       if (typeof val === 'number' && Number.isFinite(val)) {
-        if (val < 60) {
-          metricText = `${val.toFixed(1).replace('.', ',')} с`;
-        } else {
-          metricText = `${(val / 60).toFixed(1).replace('.', ',')} мин`;
-        }
+        metricText = formatDelaySec(val);
       }
     }
 
@@ -170,6 +171,19 @@ export const ScenarioComparisonTable: React.FC<ScenarioComparisonTableProps> = (
             <b style={{ color: 'var(--ink)' }}>Простой порог:</b> мгновенный наивный порог — генерирует новое оповещение диспетчеру на каждый замер выше нормы и на каждое переключение дребезга.
           </li>
         </ul>
+        <div className="pt-2.5 border-t flex flex-wrap items-center gap-1.5 text-[11px]" style={{ borderColor: 'var(--ln)' }}>
+          <span className="font-semibold mr-1" style={{ color: 'var(--ink)' }}>Классы тревог:</span>
+          {ALERT_CLASS_ENTRIES.map(entry => (
+            <span
+              key={entry.code}
+              className="px-2 py-0.5 rounded font-medium"
+              style={{ background: 'var(--sf)', border: '1px solid var(--ln)', color: 'var(--ink)' }}
+              title={entry.code}
+            >
+              {entry.label} <span className="font-mono text-[10px] opacity-60">[{entry.code}]</span>
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

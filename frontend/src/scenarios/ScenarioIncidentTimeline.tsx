@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { ScenarioIncidentItem } from '../types';
+import { getAlertClassLabel, getSeverityLabel } from './scenarioLabels';
 
 interface ScenarioIncidentTimelineProps {
   incidents: ScenarioIncidentItem[];
@@ -55,32 +56,6 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
     return 'ALL';
   };
 
-  const getClassLabel = (cls: string): string => {
-    switch (cls) {
-      case 'GAS_RATE':
-        return 'Рост газа (ранний)';
-      case 'GAS_WARNING':
-        return 'Порог газа (пред.)';
-      case 'GAS_ALARM':
-        return 'Порог газа (авария)';
-      case 'TEMP_RATE':
-        return 'Рост темп. (ранний)';
-      case 'TEMP_WARNING':
-        return 'Перегрев (пред.)';
-      case 'TEMP_ALARM':
-        return 'Перегрев (авария)';
-      case 'FIRE':
-        return 'Пожар';
-      case 'FLOOD':
-        return 'Затопление';
-      case 'CHATTER':
-        return 'Дребезг';
-      case 'COMM_LOSS':
-        return 'Связь потеряна';
-      default:
-        return cls;
-    }
-  };
 
   const getClassIcon = (cls: string) => {
     if (cls.startsWith('GAS')) return <Wind className="w-3.5 h-3.5" />;
@@ -156,6 +131,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ink)', color: 'var(--bg)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Все инциденты"
           >
             Все ({countsByCategory.ALL})
           </button>
@@ -170,8 +146,9 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ac)', color: 'var(--act)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Метан (GAS_RATE, GAS_WARNING, GAS_ALARM)"
           >
-            Газ ({countsByCategory.GAS})
+            Метан ({countsByCategory.GAS})
           </button>
           <button
             type="button"
@@ -184,8 +161,9 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ac)', color: 'var(--act)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Температура (TEMP_RATE, TEMP_WARNING, TEMP_ALARM)"
           >
-            Темп ({countsByCategory.TEMP})
+            Температура ({countsByCategory.TEMP})
           </button>
           <button
             type="button"
@@ -198,6 +176,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ac)', color: 'var(--act)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Пожар (FIRE)"
           >
             Пожар ({countsByCategory.FIRE})
           </button>
@@ -212,6 +191,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ac)', color: 'var(--act)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Затопление (FLOOD)"
           >
             Затопление ({countsByCategory.FLOOD})
           </button>
@@ -226,6 +206,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ac)', color: 'var(--act)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Дребезг контакта (CHATTER)"
           >
             Дребезг ({countsByCategory.CHATTER})
           </button>
@@ -240,8 +221,9 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                 ? { background: 'var(--ac)', color: 'var(--act)' }
                 : { background: 'var(--sf2)', color: 'var(--mut)' }
             }
+            title="Потеря связи (COMM_LOSS)"
           >
-            Связь ({countsByCategory.COMM_LOSS})
+            Потеря связи ({countsByCategory.COMM_LOSS})
           </button>
         </div>
       </div>
@@ -272,7 +254,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                     onSelectChannel(inc.channel_id);
                   }
                 }}
-                aria-label={`Инцидент ${inc.cls} на канале ${inc.channel_id}`}
+                aria-label={`Инцидент ${getAlertClassLabel(inc.cls)} (${inc.cls}) на канале ${inc.channel_id}`}
               >
                 {/* Left: Time, Badges, Reason */}
                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -287,17 +269,19 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
                     <span
                       className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
                       style={getSeverityStyle(inc.severity)}
+                      title={inc.severity}
                     >
-                      {inc.severity}
+                      {getSeverityLabel(inc.severity)}
                     </span>
 
                     {/* Class Badge */}
                     <span
                       className="px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1"
                       style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
+                      title={inc.cls}
                     >
                       {getClassIcon(inc.cls)}
-                      <span>{getClassLabel(inc.cls)}</span>
+                      <span>{getAlertClassLabel(inc.cls)}</span>
                     </span>
 
                     {/* Channel ID */}
@@ -307,12 +291,12 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
 
                     {/* Reminders / Escalations */}
                     {inc.is_reminder && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--sf2)', color: 'var(--mut)' }}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--sf2)', color: 'var(--mut)' }} title="Напоминание">
                         напоминание
                       </span>
                     )}
                     {inc.is_escalation && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--crs)', color: 'var(--cr)' }}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--crs)', color: 'var(--cr)' }} title="Эскалация (is_escalation)">
                         эскалация
                       </span>
                     )}

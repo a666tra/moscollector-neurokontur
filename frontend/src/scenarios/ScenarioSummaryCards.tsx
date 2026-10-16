@@ -2,6 +2,7 @@ import React from 'react';
 import { Target, Clock, ShieldAlert, ArrowDownRight, Layers } from 'lucide-react';
 import { ScenarioRunResponse } from '../types';
 import { fmtInt, fmtNum, fmtPct } from '../lib/api';
+import { formatSignedLeadTime, isNegativeLeadTime } from './scenarioLabels';
 
 interface ScenarioSummaryCardsProps {
   data: ScenarioRunResponse;
@@ -11,15 +12,6 @@ export const ScenarioSummaryCards: React.FC<ScenarioSummaryCardsProps> = ({ data
   const { summary, comparison, ratios } = data;
   const s1Lead = summary.scenarios?.S1?.lead_time_median_min;
   const s3Lead = summary.scenarios?.S3?.lead_time_median_min;
-  const overallLead = summary.lead_time?.median_min;
-
-  const formatSignedMin = (val?: number | null) => {
-    if (val === null || val === undefined || !Number.isFinite(val)) return '—';
-    const sign = val > 0 ? '+' : '';
-    return `${sign}${val.toFixed(1).replace('.', ',')} мин`;
-  };
-
-  const isNegative = (val?: number | null) => typeof val === 'number' && val < 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -51,35 +43,28 @@ export const ScenarioSummaryCards: React.FC<ScenarioSummaryCardsProps> = ({ data
           <span className="eyebrow">Заранее до порога</span>
           <Clock className="w-4 h-4" style={{ color: 'var(--ac)' }} />
         </div>
-        <div>
+        <div className="flex flex-col gap-2 my-auto">
           <div
-            className="serif font-semibold text-3xl sm:text-4xl leading-none"
+            className="serif font-semibold text-xl sm:text-2xl leading-tight"
             style={{
-              color: isNegative(overallLead) ? 'var(--wr)' : 'var(--ac)',
+              color: isNegativeLeadTime(s1Lead) ? 'var(--wr)' : 'var(--ac)',
             }}
           >
-            {formatSignedMin(overallLead)}
+            Газ (S1): {formatSignedLeadTime(s1Lead)}
           </div>
-          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
-            <span
-              className="px-2 py-0.5 rounded-full font-medium"
-              style={{
-                background: isNegative(s1Lead) ? 'var(--wrs)' : 'var(--acs)',
-                color: isNegative(s1Lead) ? 'var(--wr)' : 'var(--ac)',
-              }}
-            >
-              S1 (газ): {formatSignedMin(s1Lead)}
-            </span>
-            <span
-              className="px-2 py-0.5 rounded-full font-medium"
-              style={{
-                background: isNegative(s3Lead) ? 'var(--wrs)' : 'var(--acs)',
-                color: isNegative(s3Lead) ? 'var(--wr)' : 'var(--ac)',
-              }}
-            >
-              S3 (перегрев): {formatSignedMin(s3Lead)}
-            </span>
+          <div
+            className="serif font-semibold text-xl sm:text-2xl leading-tight"
+            style={{
+              color: isNegativeLeadTime(s3Lead) ? 'var(--wr)' : 'var(--ac)',
+            }}
+          >
+            Перегрев (S3): {formatSignedLeadTime(s3Lead)}
           </div>
+          {data.mode === 'month' && isNegativeLeadTime(s1Lead) && (
+            <p className="text-[11px] leading-snug mt-1" style={{ color: 'var(--wr)' }}>
+              Шаг замера 5 мин: три замера подряд накапливаются дольше, чем растёт утечка до порога. Нужны замеры газа не реже 1 раза в минуту.
+            </p>
+          )}
         </div>
         <div className="text-xs pt-2 border-t" style={{ borderColor: 'var(--ln)', color: 'var(--mut)' }}>
           Медиана упреждения до аварийного порога (МНК-наклон)

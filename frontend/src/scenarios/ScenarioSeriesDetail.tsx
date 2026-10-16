@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { X, Loader2, AlertTriangle, ShieldCheck, Activity, Info, Clock, CheckCircle2 } from 'lucide-react';
 import { ScenarioSeriesResponse, ScenarioSeriesPoint, ScenarioAlertItem, ScenarioTrueEvent } from '../types';
 import { api } from '../lib/api';
+import { getAlertClassLabel, getSeverityLabel, formatScenarioCounts } from './scenarioLabels';
 
 interface ScenarioSeriesDetailProps {
   channelId: string;
@@ -71,11 +72,11 @@ export const ScenarioSeriesDetail: React.FC<ScenarioSeriesDetailProps> = ({
 
   // SVG Chart Geometry
   const svgWidth = 760;
-  const svgHeight = 270;
-  const padLeft = 52;
+  const svgHeight = 280;
+  const padLeft = 60;
   const padRight = 30;
   const padTop = 30;
-  const padBottom = 35;
+  const padBottom = 40;
   const chartW = svgWidth - padLeft - padRight;
   const chartH = svgHeight - padTop - padBottom;
 
@@ -248,7 +249,7 @@ export const ScenarioSeriesDetail: React.FC<ScenarioSeriesDetailProps> = ({
                     {data.true_events.length}
                   </div>
                   <div className="text-[11px] mt-0.5" style={{ color: 'var(--mut)' }}>
-                    {data.true_events.map(e => e.scenario_id).join(', ') || 'нет'}
+                    {formatScenarioCounts(data.true_events)}
                   </div>
                 </div>
 
@@ -304,202 +305,228 @@ export const ScenarioSeriesDetail: React.FC<ScenarioSeriesDetailProps> = ({
                   </div>
                 </div>
 
-                {/* Inline SVG Chart */}
-                <div className="relative w-full border rounded-xl p-2 bg-[var(--sf)]" style={{ borderColor: 'var(--ln)' }}>
-                  <svg
-                    viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-                    className="w-full h-auto select-none"
-                    style={{ maxHeight: '340px' }}
-                  >
-                    {/* Background Grid */}
-                    <rect x={padLeft} y={padTop} width={chartW} height={chartH} fill="var(--sf2)" rx="6" />
+                {/* Horizontally scrollable chart container */}
+                <div className="relative w-full overflow-x-auto scroll-thin border rounded-xl p-2.5 bg-[var(--sf)]" style={{ borderColor: 'var(--ln)' }}>
+                  <div style={{ minWidth: '660px' }}>
+                    <svg
+                      viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                      className="w-full h-auto select-none block"
+                      style={{ minWidth: '660px', maxHeight: '340px' }}
+                    >
+                      {/* Background Grid */}
+                      <rect x={padLeft} y={padTop} width={chartW} height={chartH} fill="var(--sf2)" rx="6" />
 
-                    {/* Shaded True Event Windows */}
-                    {data.true_events.map((ev, i) => {
-                      const x1 = Math.max(padLeft, chartModel.getX(ev.start_ts));
-                      const x2 = Math.min(padLeft + chartW, chartModel.getX(ev.end_ts));
-                      const w = Math.max(4, x2 - x1);
-                      return (
-                        <g key={ev.event_id || i}>
-                          <rect
-                            x={x1}
-                            y={padTop}
-                            width={w}
-                            height={chartH}
-                            fill="rgba(229, 65, 45, 0.16)"
-                            stroke="var(--cr)"
-                            strokeWidth="1.2"
-                            strokeDasharray="4,3"
-                          />
-                          <text
-                            x={x1 + 6}
-                            y={padTop + 14}
-                            fill="var(--cr)"
-                            fontSize="10"
-                            fontWeight="600"
-                            className="num"
-                          >
-                            Эталон {ev.scenario_id} ({ev.cls})
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {/* Analog Threshold Horizontal Lines */}
-                    {!chartModel.isDiscrete && (
-                      <>
-                        {typeof data.thresholds.warning === 'number' && chartModel.getY && (
-                          <g>
-                            <line
-                              x1={padLeft}
-                              y1={chartModel.getY(data.thresholds.warning)}
-                              x2={padLeft + chartW}
-                              y2={chartModel.getY(data.thresholds.warning)}
-                              stroke="var(--wr)"
-                              strokeWidth="1.2"
-                              strokeDasharray="4,4"
-                            />
-                            <text
-                              x={padLeft + chartW - 6}
-                              y={chartModel.getY(data.thresholds.warning) - 4}
-                              textAnchor="end"
-                              fill="var(--wr)"
-                              fontSize="10"
-                              fontWeight="500"
-                              className="num"
-                            >
-                              Порог пред.: {data.thresholds.warning}
-                            </text>
-                          </g>
-                        )}
-                        {typeof data.thresholds.alarm === 'number' && chartModel.getY && (
-                          <g>
-                            <line
-                              x1={padLeft}
-                              y1={chartModel.getY(data.thresholds.alarm)}
-                              x2={padLeft + chartW}
-                              y2={chartModel.getY(data.thresholds.alarm)}
+                      {/* Shaded True Event Windows */}
+                      {data.true_events.map((ev, i) => {
+                        const x1 = Math.max(padLeft, chartModel.getX(ev.start_ts));
+                        const x2 = Math.min(padLeft + chartW, chartModel.getX(ev.end_ts));
+                        const w = Math.max(4, x2 - x1);
+                        return (
+                          <g key={ev.event_id || i}>
+                            <rect
+                              x={x1}
+                              y={padTop}
+                              width={w}
+                              height={chartH}
+                              fill="rgba(229, 65, 45, 0.16)"
                               stroke="var(--cr)"
-                              strokeWidth="1.4"
-                              strokeDasharray="4,4"
+                              strokeWidth="1.2"
+                              strokeDasharray="4,3"
                             />
                             <text
-                              x={padLeft + chartW - 6}
-                              y={chartModel.getY(data.thresholds.alarm) - 4}
-                              textAnchor="end"
+                              x={x1 + 6}
+                              y={padTop + 16}
                               fill="var(--cr)"
-                              fontSize="10"
+                              fontSize="13"
                               fontWeight="600"
                               className="num"
                             >
-                              Порог аварии: {data.thresholds.alarm}
+                              Эталон {ev.scenario_id} ({getAlertClassLabel(ev.cls)})
                             </text>
                           </g>
-                        )}
-                      </>
-                    )}
+                        );
+                      })}
 
-                    {/* Telemetry Data Path */}
-                    <path
-                      d={chartModel.pathD}
-                      fill="none"
-                      stroke="var(--ac)"
-                      strokeWidth={chartModel.isDiscrete ? 2 : 2.2}
-                      strokeLinejoin="round"
-                    />
+                      {/* Analog Threshold Horizontal Lines */}
+                      {!chartModel.isDiscrete && (
+                        <>
+                          {typeof data.thresholds.warning === 'number' && chartModel.getY && (
+                            <g>
+                              <line
+                                x1={padLeft}
+                                y1={chartModel.getY(data.thresholds.warning)}
+                                x2={padLeft + chartW}
+                                y2={chartModel.getY(data.thresholds.warning)}
+                                stroke="var(--wr)"
+                                strokeWidth="1.2"
+                                strokeDasharray="4,4"
+                              />
+                              <text
+                                x={padLeft + chartW - 6}
+                                y={chartModel.getY(data.thresholds.warning) - 4}
+                                textAnchor="end"
+                                fill="var(--wr)"
+                                fontSize="12"
+                                fontWeight="500"
+                                className="num"
+                              >
+                                Порог пред.: {data.thresholds.warning}
+                              </text>
+                            </g>
+                          )}
+                          {typeof data.thresholds.alarm === 'number' && chartModel.getY && (
+                            <g>
+                              <line
+                                x1={padLeft}
+                                y1={chartModel.getY(data.thresholds.alarm)}
+                                x2={padLeft + chartW}
+                                y2={chartModel.getY(data.thresholds.alarm)}
+                                stroke="var(--cr)"
+                                strokeWidth="1.4"
+                                strokeDasharray="4,4"
+                              />
+                              <text
+                                x={padLeft + chartW - 6}
+                                y={chartModel.getY(data.thresholds.alarm) - 4}
+                                textAnchor="end"
+                                fill="var(--cr)"
+                                fontSize="12"
+                                fontWeight="600"
+                                className="num"
+                              >
+                                Порог аварии: {data.thresholds.alarm}
+                              </text>
+                            </g>
+                          )}
+                        </>
+                      )}
 
-                    {/* Vertical Alert Markers */}
-                    {data.alerts.map((al, idx) => {
-                      const ax = chartModel.getX(al.ts);
-                      const isCrit = al.severity === 'CRITICAL' || al.cls.includes('ALARM');
-                      const alertCol = isCrit ? 'var(--cr)' : 'var(--wr)';
+                      {/* Telemetry Data Path */}
+                      <path
+                        d={chartModel.pathD}
+                        fill="none"
+                        stroke="var(--ac)"
+                        strokeWidth={chartModel.isDiscrete ? 2 : 2.2}
+                        strokeLinejoin="round"
+                      />
 
-                      return (
-                        <g
-                          key={idx}
-                          className="cursor-pointer"
-                          onMouseEnter={() => setHoveredAlert(al)}
-                          onMouseLeave={() => setHoveredAlert(null)}
-                        >
-                          <line
-                            x1={ax}
-                            y1={padTop}
-                            x2={ax}
-                            y2={padTop + chartH}
-                            stroke={alertCol}
-                            strokeWidth="1.5"
-                            strokeDasharray="3,3"
-                          />
-                          <circle
-                            cx={ax}
-                            cy={padTop + 6}
-                            r="4.5"
-                            fill={alertCol}
-                            stroke="var(--sf)"
-                            strokeWidth="1.5"
-                          />
-                        </g>
-                      );
-                    })}
+                      {/* Vertical Alert Markers */}
+                      {data.alerts.map((al, idx) => {
+                        const ax = chartModel.getX(al.ts);
+                        const isCrit = al.severity === 'CRITICAL' || al.cls.includes('ALARM');
+                        const alertCol = isCrit ? 'var(--cr)' : 'var(--wr)';
 
-                    {/* Y-Axis Labels */}
-                    {chartModel.isDiscrete ? (
-                      <>
-                        <text x={padLeft - 8} y={chartModel.yAlarm + 4} textAnchor="end" fontSize="10" fill="var(--cr)" fontWeight="500">
-                          Тревога
-                        </text>
-                        <text x={padLeft - 8} y={chartModel.yNorm + 4} textAnchor="end" fontSize="10" fill="var(--ok)" fontWeight="500">
-                          Норма
-                        </text>
-                      </>
-                    ) : (
-                      <>
-                        <text x={padLeft - 6} y={padTop + 10} textAnchor="end" fontSize="10" fill="var(--mut)" className="num">
-                          {chartModel.maxVal?.toFixed(1)}
-                        </text>
-                        <text x={padLeft - 6} y={padTop + chartH} textAnchor="end" fontSize="10" fill="var(--mut)" className="num">
-                          {chartModel.minVal?.toFixed(1)}
-                        </text>
-                      </>
-                    )}
-
-                    {/* X-Axis Time Ticks */}
-                    {[0, 0.25, 0.5, 0.75, 1].map(frac => {
-                      const curTs = chartModel.minTs + frac * (chartModel.maxTs - chartModel.minTs);
-                      const tx = padLeft + frac * chartW;
-                      return (
-                        <g key={frac}>
-                          <line x1={tx} y1={padTop + chartH} x2={tx} y2={padTop + chartH + 4} stroke="var(--ln2)" />
-                          <text
-                            x={tx}
-                            y={padTop + chartH + 16}
-                            textAnchor={frac === 0 ? 'start' : frac === 1 ? 'end' : 'middle'}
-                            fontSize="10"
-                            fill="var(--mut)"
-                            className="num"
+                        return (
+                          <g
+                            key={idx}
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredAlert(al)}
+                            onMouseLeave={() => setHoveredAlert(null)}
                           >
-                            {formatTs(curTs, mode)}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
+                            <line
+                              x1={ax}
+                              y1={padTop}
+                              x2={ax}
+                              y2={padTop + chartH}
+                              stroke={alertCol}
+                              strokeWidth="1.5"
+                              strokeDasharray="3,3"
+                            />
+                            <circle
+                              cx={ax}
+                              cy={padTop + 6}
+                              r="4.5"
+                              fill={alertCol}
+                              stroke="var(--sf)"
+                              strokeWidth="1.5"
+                            />
+                          </g>
+                        );
+                      })}
 
-                  {/* Tooltip on hovered alert */}
-                  {hoveredAlert && (
-                    <div
-                      className="absolute top-4 right-4 panel p-2.5 shadow-lg text-xs space-y-1 max-w-[280px]"
-                      style={{ background: 'var(--sf)' }}
-                    >
-                      <div className="font-semibold flex items-center justify-between border-b pb-1" style={{ borderColor: 'var(--ln)' }}>
-                        <span>{hoveredAlert.cls}</span>
-                        <span className="num">{formatTs(hoveredAlert.ts, mode)}</span>
+                      {/* Y-Axis Labels */}
+                      {chartModel.isDiscrete ? (
+                        <>
+                          <text x={padLeft - 8} y={chartModel.yAlarm + 4} textAnchor="end" fontSize="13" fill="var(--cr)" fontWeight="500">
+                            Тревога
+                          </text>
+                          <text x={padLeft - 8} y={chartModel.yNorm + 4} textAnchor="end" fontSize="13" fill="var(--ok)" fontWeight="500">
+                            Норма
+                          </text>
+                        </>
+                      ) : (
+                        <>
+                          <text x={padLeft - 6} y={padTop + 10} textAnchor="end" fontSize="12" fill="var(--mut)" className="num">
+                            {chartModel.maxVal?.toFixed(1)}
+                          </text>
+                          <text x={padLeft - 6} y={padTop + chartH} textAnchor="end" fontSize="12" fill="var(--mut)" className="num">
+                            {chartModel.minVal?.toFixed(1)}
+                          </text>
+                        </>
+                      )}
+
+                      {/* X-Axis Time Ticks */}
+                      {[0, 0.25, 0.5, 0.75, 1].map(frac => {
+                        const curTs = chartModel.minTs + frac * (chartModel.maxTs - chartModel.minTs);
+                        const tx = padLeft + frac * chartW;
+                        return (
+                          <g key={frac}>
+                            <line x1={tx} y1={padTop + chartH} x2={tx} y2={padTop + chartH + 4} stroke="var(--ln2)" />
+                            <text
+                              x={tx}
+                              y={padTop + chartH + 18}
+                              textAnchor={frac === 0 ? 'start' : frac === 1 ? 'end' : 'middle'}
+                              fontSize="12"
+                              fill="var(--mut)"
+                              className="num"
+                            >
+                              {formatTs(curTs, mode)}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </svg>
+
+                    {/* Tooltip on hovered alert */}
+                    {hoveredAlert && (
+                      <div
+                        className="absolute top-4 right-4 panel p-2.5 shadow-lg text-xs space-y-1 max-w-[280px]"
+                        style={{ background: 'var(--sf)' }}
+                      >
+                        <div className="font-semibold flex items-center justify-between border-b pb-1" style={{ borderColor: 'var(--ln)' }}>
+                          <span title={hoveredAlert.cls}>{getAlertClassLabel(hoveredAlert.cls)}</span>
+                          <span className="num">{formatTs(hoveredAlert.ts, mode)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span
+                            className="px-1.5 py-0.5 rounded font-semibold"
+                            style={{
+                              background: hoveredAlert.severity === 'CRITICAL' ? 'var(--crs)' : 'var(--wrs)',
+                              color: hoveredAlert.severity === 'CRITICAL' ? 'var(--cr)' : 'var(--wr)',
+                            }}
+                            title={hoveredAlert.severity}
+                          >
+                            {getSeverityLabel(hoveredAlert.severity)}
+                          </span>
+                          {hoveredAlert.is_escalation && (
+                            <span
+                              className="px-1.5 py-0.5 rounded font-medium"
+                              style={{ background: 'var(--crs)', color: 'var(--cr)' }}
+                              title="Эскалация (is_escalation)"
+                            >
+                              эскалация
+                            </span>
+                          )}
+                          {hoveredAlert.is_reminder && (
+                            <span className="text-[var(--mut)]">(напоминание)</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] leading-snug" style={{ color: 'var(--ink)' }}>
+                          {hoveredAlert.reason_ru}
+                        </div>
                       </div>
-                      <div className="text-[11px] leading-snug" style={{ color: 'var(--ink)' }}>
-                        {hoveredAlert.reason_ru}
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Required note under the chart */}
@@ -523,7 +550,7 @@ export const ScenarioSeriesDetail: React.FC<ScenarioSeriesDetailProps> = ({
                     {data.alerts.map((a, i) => (
                       <div key={i} className="py-2.5 flex items-start justify-between gap-3">
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="num font-semibold text-[11px]" style={{ color: 'var(--ink)' }}>
                               {formatTs(a.ts, mode)}
                             </span>
@@ -533,12 +560,24 @@ export const ScenarioSeriesDetail: React.FC<ScenarioSeriesDetailProps> = ({
                                 background: a.severity === 'CRITICAL' ? 'var(--crs)' : 'var(--wrs)',
                                 color: a.severity === 'CRITICAL' ? 'var(--cr)' : 'var(--wr)',
                               }}
+                              title={a.severity}
                             >
-                              {a.severity}
+                              {getSeverityLabel(a.severity)}
                             </span>
-                            <span className="font-medium">{a.cls}</span>
+                            <span className="font-medium" title={a.cls}>
+                              {getAlertClassLabel(a.cls)}
+                            </span>
                             {a.is_reminder && (
                               <span className="text-[10px] text-[var(--mut)]">(напоминание)</span>
+                            )}
+                            {a.is_escalation && (
+                              <span
+                                className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                                style={{ background: 'var(--crs)', color: 'var(--cr)' }}
+                                title="Эскалация (is_escalation)"
+                              >
+                                эскалация
+                              </span>
                             )}
                           </div>
                           <div className="text-[11px]" style={{ color: 'var(--mut)' }}>
