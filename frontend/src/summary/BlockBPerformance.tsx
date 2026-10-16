@@ -119,7 +119,7 @@ export const BlockBPerformance: React.FC<Props> = ({ performance, httpBenchmark,
         <div className="rounded-xl p-3.5 border flex flex-col justify-between min-w-0" style={{ background: 'var(--sf2)', borderColor: 'var(--ln)' }}>
           <div className="flex items-center justify-between gap-1">
             <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--mut)' }}>
-              HTTP задержка P50 / P95
+              HTTP на этом же компьютере (loopback)
             </span>
             <span className="num text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
               замер
@@ -167,6 +167,11 @@ export const BlockBPerformance: React.FC<Props> = ({ performance, httpBenchmark,
           </div>
         </div>
       </div>
+
+      {/* Clarification note directly under measured numbers */}
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-normal -mt-1">
+        Замер — только скоринг готовой таблицы признаков на одном процессоре ноутбука; подготовка признаков из сырого журнала в замер не входит.
+      </p>
 
       {/* Extrapolation Table: "Что будет при росте числа каналов" */}
       <div className="flex flex-col gap-2.5 min-w-0 w-full">

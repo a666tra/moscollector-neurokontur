@@ -395,11 +395,45 @@ export interface BacktestWeek {
   };
 }
 
+export interface BacktestMetricSummary {
+  mean: number;
+  median: number;
+  p25: number;
+  p75: number;
+  min: number;
+  max: number;
+  weeks: number;
+}
+
+export interface BacktestVariantSummary {
+  roc_auc: BacktestMetricSummary;
+  pr_auc: BacktestMetricSummary;
+  precision_at_50: BacktestMetricSummary;
+  precision_at_100: BacktestMetricSummary;
+  precision_at_200: BacktestMetricSummary;
+  recall_at_100: BacktestMetricSummary;
+  precision?: BacktestMetricSummary | null;
+  recall?: BacktestMetricSummary | null;
+  total_hits_at_100?: number;
+  total_positives?: number;
+}
+
+export interface BacktestPopulationSummary {
+  deployed: BacktestVariantSummary;
+  lgbm_weekly: BacktestVariantSummary;
+  logreg_weekly?: BacktestVariantSummary;
+  persistence: BacktestVariantSummary;
+  prevalence?: BacktestMetricSummary;
+}
+
 export interface BacktestResponse {
   test_weeks: number;
   channels: number;
   weeks: BacktestWeek[];
-  summary?: any;
+  summary?: {
+    all: BacktestPopulationSummary;
+    new_incidents: BacktestPopulationSummary;
+  };
 }
 
 export interface PerformanceBenchmark {
