@@ -33,6 +33,6 @@ class Settings(BaseModel):
     AVERAGE_CALLOUT_COST_RUB: float = 18500.0
     PREVENTIVE_MAINTENANCE_COST_RUB: float = 3200.0
     TOTAL_COLLECTOR_KM: float = 825.0
-    TOTAL_MONITORED_CHANNELS: int = 10712
+    TOTAL_MONITORED_CHANNELS: int = 11485
 
 settings = Settings()
