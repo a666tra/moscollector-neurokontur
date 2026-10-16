@@ -27,6 +27,7 @@ from backend.app.services.scenario_engine import (
     Alert,
     detect,
     detect_naive,
+    detect_static_dedup,
 )
 
 def _calc_sha256(filepath: str) -> Optional[str]:
@@ -325,7 +326,7 @@ def test_scenarios_chatter_threshold_flips():
 
 
 def test_scenarios_chatter_hysteresis_clear_and_retrigger():
-    """Chatter clears after quiet period and re-triggers on a new burst."""
+    """Chatter clears after 15 min (900 s) quiet period and re-triggers on a new burst."""
     cid = "kd_1"
     ch = {cid: Channel(channel_id=cid, sensor_type="КД Люк", object_id="obj_1")}
 
@@ -334,16 +335,91 @@ def test_scenarios_chatter_hysteresis_clear_and_retrigger():
         DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
         for i, t in enumerate([10, 20, 30, 40, 50, 60])
     ]
-    # Quiet period of 300 s (> 2x 90s = 180s)
-    # Burst 2: 6 flips at 400..450 s
+    # Quiet period of 400 s (< 15 min = 900 s) -> still open incident, no new alert
     ev2 = [
         DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
-        for i, t in enumerate([400, 410, 420, 430, 440, 450])
+        for i, t in enumerate([460, 470, 480, 490, 500, 510])
     ]
-    ds = _make_mini_dataset(ch, {}, ev1 + ev2, total_seconds=600.0)
+    # Quiet period of 1000 s (> 900 s = 15 min) -> incident clears!
+    # Burst 3: 6 flips at 1600..1650 s -> new incident alert!
+    ev3 = [
+        DiscreteEvent(ts=float(t), channel_id=cid, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут" if i % 2 == 1 else "Норма", is_alarm=(i % 2 == 1))
+        for i, t in enumerate([1600, 1610, 1620, 1630, 1640, 1650])
+    ]
+    ds = _make_mini_dataset(ch, {}, ev1 + ev2 + ev3, total_seconds=2000.0)
     alerts = detect(ds)
     chatter_alerts = [a for a in alerts if a.cls == "CHATTER"]
-    assert len(chatter_alerts) == 2, f"Expected 2 CHATTER alerts after clear and retrigger, got {len(chatter_alerts)}"
+    assert len(chatter_alerts) == 2, f"Expected 2 CHATTER alerts after 15 min clear and retrigger, got {len(chatter_alerts)}"
+    assert chatter_alerts[0].ts == 50.0
+    assert chatter_alerts[1].ts == 1640.0
+
+
+def test_scenarios_static_dedup_deduplicates_and_reminds():
+    """detect_static_dedup deduplicates static threshold alerts and sends 30-min reminders."""
+    cid_gas = "gas_1"
+    cid_kd = "kd_1"
+    ch = {
+        cid_gas: Channel(channel_id=cid_gas, sensor_type="Газовый датчик", object_id="obj_1"),
+        cid_kd: Channel(channel_id=cid_kd, sensor_type="КД Люк", object_id="obj_1"),
+    }
+    total_sec = 5400.0  # 90 min
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    # Gas stays at 2.0% (above warning threshold 1.0%)
+    vals = np.full(n_steps, 2.0)
+    # Contact sensor flips to alarm at t=100s, another alarm event at t=2000s (>= 30 min later), normal at t=4000s
+    evs = [
+        DiscreteEvent(ts=100.0, channel_id=cid_kd, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут", is_alarm=True),
+        DiscreteEvent(ts=2000.0, channel_id=cid_kd, object_id="obj_1", sensor_type="КД Люк", state_name="Не замкнут", is_alarm=True),
+        DiscreteEvent(ts=4000.0, channel_id=cid_kd, object_id="obj_1", sensor_type="КД Люк", state_name="Норма", is_alarm=False),
+    ]
+    ds = _make_mini_dataset(ch, {cid_gas: vals}, evs, dt=dt, total_seconds=total_sec)
+
+    alerts = detect_static_dedup(ds)
+    gas_alerts = [a for a in alerts if a.cls == "GAS_WARNING"]
+    kd_alerts = [a for a in alerts if a.cls == "CHATTER"]
+
+    # Gas: initial alert at 0s, reminder at 1800s, reminder at 3600s
+    assert len(gas_alerts) == 3
+    assert gas_alerts[0].is_reminder is False
+    assert gas_alerts[1].is_reminder is True
+    assert gas_alerts[2].is_reminder is True
+
+    # Contact: single flip triggers CHATTER-less single alert without needing 5 flips
+    assert len(kd_alerts) == 2  # initial at 100s, reminder at 1900s
+    assert kd_alerts[0].ts == 100.0
+    assert kd_alerts[0].is_reminder is False
+    assert kd_alerts[1].ts == 2000.0
+    assert kd_alerts[1].is_reminder is True
+
+
+def test_scenarios_static_dedup_no_rate_no_correlation():
+    """detect_static_dedup has no rate-of-rise rules and triggers FIRE without temp correlation."""
+    cid_gas = "gas_1"
+    cid_heat = "heat_1"
+    ch = {
+        cid_gas: Channel(channel_id=cid_gas, sensor_type="Газовый датчик", object_id="obj_1"),
+        cid_heat: Channel(channel_id=cid_heat, sensor_type="Тепловой датчик", object_id="obj_1"),
+    }
+    total_sec = 1800.0
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    # Gas slowly rises 0.05 -> 0.8% (below warning threshold 1.0%, but rate would trigger GAS_RATE in detect())
+    vals = np.linspace(0.05, 0.8, n_steps)
+    # Heat sensor triggers alarm without any temp sensor on obj_1
+    evs = [
+        DiscreteEvent(ts=300.0, channel_id=cid_heat, object_id="obj_1", sensor_type="Тепловой датчик", state_name="Сработка", is_alarm=True),
+        DiscreteEvent(ts=600.0, channel_id=cid_heat, object_id="obj_1", sensor_type="Тепловой датчик", state_name="Норма", is_alarm=False),
+    ]
+    ds = _make_mini_dataset(ch, {cid_gas: vals}, evs, dt=dt, total_seconds=total_sec)
+
+    alerts_static = detect_static_dedup(ds)
+    # No GAS_RATE alert should be emitted
+    assert len([a for a in alerts_static if a.cls == "GAS_RATE"]) == 0
+    # Heat sensor directly triggers FIRE without requiring temp correlation
+    fire_alerts = [a for a in alerts_static if a.cls == "FIRE"]
+    assert len(fire_alerts) == 1
+    assert fire_alerts[0].ts == 300.0
 
 
 def test_scenarios_comm_loss_analog_gap():
@@ -453,6 +529,7 @@ def test_scenarios_detector_determinism():
         assert x.severity == y.severity
         assert x.value == y.value
         assert x.reason_ru == y.reason_ru
+        assert x.is_reminder == y.is_reminder
 
 
 def test_scenarios_negative_control_zero_alerts():

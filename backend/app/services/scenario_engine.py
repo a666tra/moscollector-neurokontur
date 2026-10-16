@@ -865,6 +865,7 @@ class Alert:
     severity: str
     value: Optional[float]
     reason_ru: str
+    is_reminder: bool = False
 
 
 # --- Threshold constants matching existing ml_service.classify_alarm / features.py ---
@@ -888,9 +889,10 @@ TEMP_RATE_SLOPE_THRESHOLD: float = 0.2  # °C / min
 TEMP_RATE_PERSISTENCE_SAMPLES: int = 3  # consecutive samples
 TEMP_RATE_WINDOW_SECONDS: float = 600.0  # 10 minutes
 
-# Section 3, line 38: Chatter hysteresis clear multiplier
-# снятие после 2×окно без переключений
-CHATTER_CLEAR_WINDOW_MULTIPLIER: float = 2.0  # 2x chatter_window_seconds without flips
+# Section 3, line 38 & deviation log No.1: Chatter clearing window
+# снятие после 15 мин (900 с) без переключений
+CHATTER_CLEAR_SECONDS: float = 900.0  # 15 minutes without flips
+CHATTER_CLEAR_WINDOW_MULTIPLIER: float = 2.0  # kept for backwards compatibility if needed
 
 # Section 3, line 39: Analog comm loss
 # нет замеров > max(15 мин; 3 шага)
@@ -965,7 +967,7 @@ def detect(dataset: Dataset) -> List[Alert]:
     gas_warn_thresh = float(settings.gas_warning_threshold_vol_pct)
     chatter_min_flips = int(settings.chatter_min_flips)
     chatter_window_sec = float(settings.chatter_window_seconds)
-    chatter_clear_sec = chatter_window_sec * CHATTER_CLEAR_WINDOW_MULTIPLIER
+    chatter_clear_sec = CHATTER_CLEAR_SECONDS
 
     alerts: List[Alert] = []
     timestamps = dataset.analog_timestamps
@@ -1012,14 +1014,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="COMM_LOSS", severity="WARNING",
                             value=round((t - last_valid_t) / 60.0, 1),
-                            reason_ru=f"Потеря связи: нет данных {round((t - last_valid_t) / 60.0)} мин"
+                            reason_ru=f"Потеря связи: нет данных {round((t - last_valid_t) / 60.0)} мин",
+                            is_reminder=False,
                         ))
                     elif (t - comm_loss_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         comm_loss_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="COMM_LOSS", severity="WARNING",
                             value=round((t - last_valid_t) / 60.0, 1),
-                            reason_ru=f"Напоминание: потеря связи продолжается {round((t - last_valid_t) / 60.0)} мин"
+                            reason_ru=f"Напоминание: потеря связи продолжается {round((t - last_valid_t) / 60.0)} мин",
+                            is_reminder=True,
                         ))
                 continue
 
@@ -1037,14 +1041,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="GAS_ALARM", severity="ALARM",
                             value=round(float(v), 2),
-                            reason_ru=f"Аварийная концентрация метана: {v:.2f} % (порог {GAS_ALARM_THRESHOLD_VOL_PCT:.1f} %)"
+                            reason_ru=f"Аварийная концентрация метана: {v:.2f} % (порог {GAS_ALARM_THRESHOLD_VOL_PCT:.1f} %)",
+                            is_reminder=False,
                         ))
                     elif (t - alarm_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         alarm_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="GAS_ALARM", severity="ALARM",
                             value=round(float(v), 2),
-                            reason_ru=f"Напоминание: аварийная концентрация метана ({v:.2f} %)"
+                            reason_ru=f"Напоминание: аварийная концентрация метана ({v:.2f} %)",
+                            is_reminder=True,
                         ))
                 elif alarm_open:
                     if v < GAS_HYSTERESIS_FACTOR * GAS_ALARM_THRESHOLD_VOL_PCT:
@@ -1054,7 +1060,7 @@ def detect(dataset: Dataset) -> List[Alert]:
                     else:
                         alarm_clear_sec = 0.0
 
-                # GAS_WARNING (1.0%)
+            # GAS_WARNING (1.0%)
                 if v >= gas_warn_thresh:
                     warn_clear_sec = 0.0
                     if not warn_open:
@@ -1063,14 +1069,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="GAS_WARNING", severity="WARNING",
                             value=round(float(v), 2),
-                            reason_ru=f"Превышение предупредительного порога метана: {v:.2f} % (порог {gas_warn_thresh:.1f} %)"
+                            reason_ru=f"Превышение предупредительного порога метана: {v:.2f} % (порог {gas_warn_thresh:.1f} %)",
+                            is_reminder=False,
                         ))
                     elif (t - warn_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         warn_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="GAS_WARNING", severity="WARNING",
                             value=round(float(v), 2),
-                            reason_ru=f"Напоминание: концентрация метана выше нормы ({v:.2f} %)"
+                            reason_ru=f"Напоминание: концентрация метана выше нормы ({v:.2f} %)",
+                            is_reminder=True,
                         ))
                 elif warn_open:
                     if v < GAS_HYSTERESIS_FACTOR * gas_warn_thresh:
@@ -1096,14 +1104,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="GAS_RATE", severity="WARNING",
                             value=round(float(v), 2),
-                            reason_ru=f"Рост метана {slope:.2f} %/мин, значение {v:.2f} %"
+                            reason_ru=f"Рост метана {slope:.2f} %/мин, значение {v:.2f} %",
+                            is_reminder=False,
                         ))
                     elif (t - rate_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         rate_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="GAS_RATE", severity="WARNING",
                             value=round(float(v), 2),
-                            reason_ru=f"Напоминание: продолжается рост метана ({slope:.2f} %/мин, {v:.2f} %)"
+                            reason_ru=f"Напоминание: продолжается рост метана ({slope:.2f} %/мин, {v:.2f} %)",
+                            is_reminder=True,
                         ))
                 elif rate_open:
                     rate_clear_sec += dt
@@ -1123,14 +1133,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="TEMP_ALARM", severity="ALARM",
                             value=round(float(v), 1),
-                            reason_ru=f"Аварийный перегрев: {v:.1f} °C (порог {TEMP_ALARM_THRESHOLD_C:.1f} °C)"
+                            reason_ru=f"Аварийный перегрев: {v:.1f} °C (порог {TEMP_ALARM_THRESHOLD_C:.1f} °C)",
+                            is_reminder=False,
                         ))
                     elif (t - alarm_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         alarm_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="TEMP_ALARM", severity="ALARM",
                             value=round(float(v), 1),
-                            reason_ru=f"Напоминание: аварийный перегрев ({v:.1f} °C)"
+                            reason_ru=f"Напоминание: аварийный перегрев ({v:.1f} °C)",
+                            is_reminder=True,
                         ))
                 elif alarm_open:
                     if v < (TEMP_ALARM_THRESHOLD_C - TEMP_HYSTERESIS_DELTA):
@@ -1149,14 +1161,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="TEMP_WARNING", severity="WARNING",
                             value=round(float(v), 1),
-                            reason_ru=f"Превышение температуры: {v:.1f} °C (порог {TEMP_WARNING_THRESHOLD_C:.1f} °C)"
+                            reason_ru=f"Превышение температуры: {v:.1f} °C (порог {TEMP_WARNING_THRESHOLD_C:.1f} °C)",
+                            is_reminder=False,
                         ))
                     elif (t - warn_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         warn_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="TEMP_WARNING", severity="WARNING",
                             value=round(float(v), 1),
-                            reason_ru=f"Напоминание: повышенная температура ({v:.1f} °C)"
+                            reason_ru=f"Напоминание: повышенная температура ({v:.1f} °C)",
+                            is_reminder=True,
                         ))
                 elif warn_open:
                     if v < (TEMP_WARNING_THRESHOLD_C - TEMP_HYSTERESIS_DELTA):
@@ -1182,14 +1196,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="TEMP_RATE", severity="WARNING",
                             value=round(float(v), 1),
-                            reason_ru=f"Быстрый рост температуры {slope:.2f} °C/мин, значение {v:.1f} °C"
+                            reason_ru=f"Быстрый рост температуры {slope:.2f} °C/мин, значение {v:.1f} °C",
+                            is_reminder=False,
                         ))
                     elif (t - rate_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         rate_last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="TEMP_RATE", severity="WARNING",
                             value=round(float(v), 1),
-                            reason_ru=f"Напоминание: быстрый рост температуры ({slope:.2f} °C/мин, {v:.1f} °C)"
+                            reason_ru=f"Напоминание: быстрый рост температуры ({slope:.2f} °C/мин, {v:.1f} °C)",
+                            is_reminder=True,
                         ))
                 elif rate_open:
                     rate_clear_sec += dt
@@ -1216,7 +1232,7 @@ def detect(dataset: Dataset) -> List[Alert]:
 
             for ev in ev_list:
                 t = ev.ts
-                # Hysteresis: clear after 2x window without flips
+                # Hysteresis: clear after 15 min without flips (CHATTER_CLEAR_SECONDS)
                 if incident_open and (t - last_flip_ts) >= chatter_clear_sec:
                     incident_open = False
 
@@ -1232,14 +1248,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="CHATTER", severity="WARNING",
                             value=float(len(flips_window)),
-                            reason_ru=f"Дребезг контактов: {len(flips_window)} переключений за {chatter_window_sec:.0f} с"
+                            reason_ru=f"Дребезг контактов: {len(flips_window)} переключений за {chatter_window_sec:.0f} с",
+                            is_reminder=False,
                         ))
                     elif (t - last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="CHATTER", severity="WARNING",
                             value=float(len(flips_window)),
-                            reason_ru=f"Напоминание: продолжается дребезг контактов ({len(flips_window)} переключений за {chatter_window_sec:.0f} с)"
+                            reason_ru=f"Напоминание: продолжается дребезг контактов ({len(flips_window)} переключений за {chatter_window_sec:.0f} с)",
+                            is_reminder=True,
                         ))
 
         elif stype == "Датчик затопления":
@@ -1254,14 +1272,16 @@ def detect(dataset: Dataset) -> List[Alert]:
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="FLOOD", severity="ALARM",
                             value=1.0,
-                            reason_ru=f"Сработка датчика затопления: '{ev.state_name}'"
+                            reason_ru=f"Сработка датчика затопления: '{ev.state_name}'",
+                            is_reminder=False,
                         ))
                     elif (t - last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
                         last_alert_ts = t
                         alerts.append(Alert(
                             ts=t, channel_id=cid, object_id=oid, cls="FLOOD", severity="ALARM",
                             value=1.0,
-                            reason_ru=f"Напоминание: продолжается затопление ('{ev.state_name}')"
+                            reason_ru=f"Напоминание: продолжается затопление ('{ev.state_name}')",
+                            is_reminder=True,
                         ))
                 else:
                     incident_open = False
@@ -1304,7 +1324,8 @@ def detect(dataset: Dataset) -> List[Alert]:
                 cls="FIRE",
                 severity="ALARM",
                 value=round(v_first, 1),
-                reason_ru=f"Пожарная тревога: сработка теплового датчика и температура {v_first:.1f} °C на объекте {oid}"
+                reason_ru=f"Пожарная тревога: сработка теплового датчика и температура {v_first:.1f} °C на объекте {oid}",
+                is_reminder=False,
             ))
 
             # 30-min reminders if fire condition persists
@@ -1319,8 +1340,216 @@ def detect(dataset: Dataset) -> List[Alert]:
                         cls="FIRE",
                         severity="ALARM",
                         value=round(next_val, 1),
-                        reason_ru=f"Напоминание: продолжается пожарная тревога (температура {next_val:.1f} °C на объекте {oid})"
+                        reason_ru=f"Напоминание: продолжается пожарная тревога (температура {next_val:.1f} °C на объекте {oid})",
+                        is_reminder=True,
                     ))
+
+    alerts.sort(key=lambda a: (a.ts, a.channel_id, a.cls))
+    return alerts
+
+
+def detect_static_dedup(dataset: Dataset) -> List[Alert]:
+    """
+    Strengthened baseline detector per docs/SCENARIOS_SPEC.md Section 5 & deviation log No.2:
+    - Static thresholds only:
+      * Gas warning / alarm (>= 1.0% / >= 5.0%)
+      * Temp warning / alarm (>= 40.0 °C / >= 45.0 °C)
+      * Discrete alarm states -> FLOOD (flood sensor) / FIRE (heat detector) / CHATTER (contact sensors)
+    - With the SAME hysteresis, closing conditions, and 30-min reminders as detect().
+    - Without rate-of-rise rules (no GAS_RATE, TEMP_RATE), chatter detection (no 5 flips in 90s),
+      comm loss detection, and fire correlation.
+    """
+    settings = get_current_settings()
+    gas_warn_thresh = float(settings.gas_warning_threshold_vol_pct)
+    alerts: List[Alert] = []
+    timestamps = dataset.analog_timestamps
+    dt = dataset.dt
+
+    # 1. Analog channels (GAS and TEMP static thresholds with hysteresis and reminders)
+    for cid, c_info in dataset.channels.items():
+        if cid not in dataset.analog_series:
+            continue
+        stype = c_info.sensor_type
+        oid = c_info.object_id
+        values = dataset.analog_series[cid]
+        n_pts = len(values)
+
+        alarm_open = False
+        alarm_last_alert_ts = -1e9
+        alarm_clear_sec = 0.0
+
+        warn_open = False
+        warn_last_alert_ts = -1e9
+        warn_clear_sec = 0.0
+
+        for i in range(n_pts):
+            t = timestamps[i]
+            v = values[i]
+            if np.isnan(v):
+                continue
+
+            if stype == "Газовый датчик":
+                # GAS_ALARM (5.0%)
+                if v >= GAS_ALARM_THRESHOLD_VOL_PCT:
+                    alarm_clear_sec = 0.0
+                    if not alarm_open:
+                        alarm_open = True
+                        alarm_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="GAS_ALARM", severity="ALARM",
+                            value=round(float(v), 2),
+                            reason_ru=f"Аварийная концентрация метана: {v:.2f} % (порог {GAS_ALARM_THRESHOLD_VOL_PCT:.1f} %)",
+                            is_reminder=False,
+                        ))
+                    elif (t - alarm_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                        alarm_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="GAS_ALARM", severity="ALARM",
+                            value=round(float(v), 2),
+                            reason_ru=f"Напоминание: аварийная концентрация метана ({v:.2f} %)",
+                            is_reminder=True,
+                        ))
+                elif alarm_open:
+                    if v < GAS_HYSTERESIS_FACTOR * GAS_ALARM_THRESHOLD_VOL_PCT:
+                        alarm_clear_sec += dt
+                        if alarm_clear_sec >= GAS_CLOSE_CLEAR_SECONDS:
+                            alarm_open = False
+                    else:
+                        alarm_clear_sec = 0.0
+
+                # GAS_WARNING (1.0%)
+                if v >= gas_warn_thresh:
+                    warn_clear_sec = 0.0
+                    if not warn_open:
+                        warn_open = True
+                        warn_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="GAS_WARNING", severity="WARNING",
+                            value=round(float(v), 2),
+                            reason_ru=f"Превышение предупредительного порога метана: {v:.2f} % (порог {gas_warn_thresh:.1f} %)",
+                            is_reminder=False,
+                        ))
+                    elif (t - warn_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                        warn_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="GAS_WARNING", severity="WARNING",
+                            value=round(float(v), 2),
+                            reason_ru=f"Напоминание: концентрация метана выше нормы ({v:.2f} %)",
+                            is_reminder=True,
+                        ))
+                elif warn_open:
+                    if v < GAS_HYSTERESIS_FACTOR * gas_warn_thresh:
+                        warn_clear_sec += dt
+                        if warn_clear_sec >= GAS_CLOSE_CLEAR_SECONDS:
+                            warn_open = False
+                    else:
+                        warn_clear_sec = 0.0
+
+            elif stype == "Датчик температуры":
+                # TEMP_ALARM (45.0 °C)
+                if v >= TEMP_ALARM_THRESHOLD_C:
+                    alarm_clear_sec = 0.0
+                    if not alarm_open:
+                        alarm_open = True
+                        alarm_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="TEMP_ALARM", severity="ALARM",
+                            value=round(float(v), 1),
+                            reason_ru=f"Аварийный перегрев: {v:.1f} °C (порог {TEMP_ALARM_THRESHOLD_C:.1f} °C)",
+                            is_reminder=False,
+                        ))
+                    elif (t - alarm_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                        alarm_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="TEMP_ALARM", severity="ALARM",
+                            value=round(float(v), 1),
+                            reason_ru=f"Напоминание: аварийный перегрев ({v:.1f} °C)",
+                            is_reminder=True,
+                        ))
+                elif alarm_open:
+                    if v < (TEMP_ALARM_THRESHOLD_C - TEMP_HYSTERESIS_DELTA):
+                        alarm_clear_sec += dt
+                        if alarm_clear_sec >= TEMP_CLOSE_CLEAR_SECONDS:
+                            alarm_open = False
+                    else:
+                        alarm_clear_sec = 0.0
+
+                # TEMP_WARNING (40.0 °C)
+                if v >= TEMP_WARNING_THRESHOLD_C:
+                    warn_clear_sec = 0.0
+                    if not warn_open:
+                        warn_open = True
+                        warn_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="TEMP_WARNING", severity="WARNING",
+                            value=round(float(v), 1),
+                            reason_ru=f"Превышение температуры: {v:.1f} °C (порог {TEMP_WARNING_THRESHOLD_C:.1f} °C)",
+                            is_reminder=False,
+                        ))
+                    elif (t - warn_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                        warn_last_alert_ts = t
+                        alerts.append(Alert(
+                            ts=t, channel_id=cid, object_id=oid, cls="TEMP_WARNING", severity="WARNING",
+                            value=round(float(v), 1),
+                            reason_ru=f"Напоминание: повышенная температура ({v:.1f} °C)",
+                            is_reminder=True,
+                        ))
+                elif warn_open:
+                    if v < (TEMP_WARNING_THRESHOLD_C - TEMP_HYSTERESIS_DELTA):
+                        warn_clear_sec += dt
+                        if warn_clear_sec >= TEMP_CLOSE_CLEAR_SECONDS:
+                            warn_open = False
+                    else:
+                        warn_clear_sec = 0.0
+
+    # 2. Discrete channels (state-based with dedup and 30-min reminders; no chatter counting or fire correlation)
+    events_by_channel: Dict[str, List[DiscreteEvent]] = {}
+    for e in dataset.discrete_events:
+        events_by_channel.setdefault(e.channel_id, []).append(e)
+
+    for cid, ev_list in events_by_channel.items():
+        c_info = dataset.channels.get(cid)
+        if not c_info:
+            continue
+        stype = c_info.sensor_type
+        oid = c_info.object_id
+
+        if stype == "Датчик затопления":
+            cls = "FLOOD"
+            severity = "ALARM"
+        elif stype == "Тепловой датчик":
+            cls = "FIRE"
+            severity = "ALARM"
+        elif stype in ("КД Люк", "КД Дверь", "КД АВ"):
+            cls = "CHATTER"
+            severity = "WARNING"
+        else:
+            continue
+
+        incident_open = False
+        last_alert_ts = -1e9
+        for ev in ev_list:
+            t = ev.ts
+            if ev.is_alarm:
+                if not incident_open:
+                    incident_open = True
+                    last_alert_ts = t
+                    alerts.append(Alert(
+                        ts=t, channel_id=cid, object_id=oid, cls=cls, severity=severity,
+                        value=1.0,
+                        reason_ru=f"Сработка дискретного датчика: '{ev.state_name}'",
+                        is_reminder=False,
+                    ))
+                elif (t - last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                    last_alert_ts = t
+                    alerts.append(Alert(
+                        ts=t, channel_id=cid, object_id=oid, cls=cls, severity=severity,
+                        value=1.0,
+                        reason_ru=f"Напоминание: продолжается сработка ('{ev.state_name}')",
+                        is_reminder=True,
+                    ))
+            else:
+                incident_open = False
 
     alerts.sort(key=lambda a: (a.ts, a.channel_id, a.cls))
     return alerts
