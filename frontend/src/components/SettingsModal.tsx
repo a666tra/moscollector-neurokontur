@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SlidersHorizontal, X, RotateCcw, Save, Shield, Cpu } from 'lucide-react';
-import { SystemSettings } from '../types';
+import { SystemSettings, SystemStats } from '../types';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { api } from '../lib/api';
@@ -29,11 +29,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
+  const [holdoutRocAuc, setHoldoutRocAuc] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       api<SystemSettings>('/api/settings')
         .then(data => setSettings(prev => ({ ...prev, ...data })))
+        .catch(() => {});
+      api<SystemStats>('/api/stats/summary')
+        .then(data => {
+          if (typeof data?.model_roc_auc === 'number') {
+            setHoldoutRocAuc(data.model_roc_auc);
+          }
+        })
         .catch(() => {});
     }
   }, [isOpen]);
@@ -136,7 +144,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-xs">LightGBM Classifier (Champion)</span>
-                    <span className="num text-xs font-medium" style={{ color: 'var(--accent-text)' }}>ROC-AUC 0.845</span>
+                    <span
+                      className="num text-xs font-medium"
+                      style={{ color: 'var(--accent-text)' }}
+                      title="Hold-out (отложенная выборка)"
+                    >
+                      ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '…'} (отложенная выборка)
+                    </span>
                   </div>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                     Градиентный бустинг по инженерным признакам. Оптимальный баланс охвата и скорости.
@@ -229,7 +243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 onClick={() => setSettings({ ...settings, decision_threshold: 0.845 })}
                 className="btn btn-secondary text-xs h-6 px-2 num"
               >
-                LGBM: 0.845
+                LGBM: порог 0.845
               </button>
               <button
                 type="button"
