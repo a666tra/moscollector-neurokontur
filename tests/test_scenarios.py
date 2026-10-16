@@ -257,7 +257,7 @@ def test_scenarios_seed42_sha256():
         h_day.update(cid.encode("utf-8") + ds_day.analog_series[cid].tobytes())
     for e in ds_day.discrete_events:
         h_day.update(f"{e.ts}:{e.channel_id}:{e.state_name}:{e.is_alarm}".encode("utf-8"))
-    assert h_day.hexdigest() == "7167f7d1c3f2f6f0fa65dd0698e1abd6ff8dd101ac89c6a14ea5f843c3b5d31e"
+    assert h_day.hexdigest() == "d2c0ba2ae99b4dabba98c9fdd4a4c2f49595ac401702ca6b61699b5ca134cc00"
 
     ds_month = generate_dataset("month", seed=42)
     h_month = hashlib.sha256()
@@ -265,7 +265,148 @@ def test_scenarios_seed42_sha256():
         h_month.update(cid.encode("utf-8") + ds_month.analog_series[cid].tobytes())
     for e in ds_month.discrete_events:
         h_month.update(f"{e.ts}:{e.channel_id}:{e.state_name}:{e.is_alarm}".encode("utf-8"))
-    assert h_month.hexdigest() == "feccf249beb29ccdda3f04bedd65dafd2aad589bba8eaed7b8153f671a952a3f"
+    assert h_month.hexdigest() == "ee01b6ba91e12f59e293c0a8aa4c95c2eae4196e4c260b7bff8b02203309fbbd"
+
+
+def test_scenarios_s8_count_per_mode():
+    """S8 scenario event count is 3 for day and 8 for month per spec v1.3."""
+    ds_day = generate_dataset("day", seed=42)
+    s8_day = [g for g in ds_day.ground_truth if g.scenario_id == "S8"]
+    assert len(s8_day) == 3
+    for g in s8_day:
+        assert g.cls == "SETPOINT"
+        assert g.hazard_ts is None
+        assert g.channel_id in ds_day.channels
+        assert ds_day.channels[g.channel_id].sensor_type == "Газовый датчик"
+
+    ds_month = generate_dataset("month", seed=42)
+    s8_month = [g for g in ds_month.ground_truth if g.scenario_id == "S8"]
+    assert len(s8_month) == 8
+    for g in s8_month:
+        assert g.cls == "SETPOINT"
+        assert g.hazard_ts is None
+        assert g.channel_id in ds_month.channels
+        assert ds_month.channels[g.channel_id].sensor_type == "Газовый датчик"
+
+
+def test_scenarios_s1_s7_ground_truth_identical_sha256():
+    """S1-S7 ground truth is 100% byte-identical to before S8 addition (sha256 comparison)."""
+    EXPECTED_DAY_S1_S7_SHA256 = "eeb4d19b2313bd5286a4146ddd2eaf16810af5e2c4a9ed4018e83ca38e99afa6"
+    EXPECTED_MONTH_S1_S7_SHA256 = "9a85ecaa233f1b37d75e41ae5b37433e35ea4b74aa4c6bd4b6d77c70a6f66632"
+
+    ds_day = generate_dataset("day", seed=42)
+    s1_s7_day = [g for g in ds_day.ground_truth if g.scenario_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7")]
+    h_day = hashlib.sha256()
+    for g in s1_s7_day:
+        h_day.update(f"{g.event_id}:{g.scenario_id}:{g.cls}:{g.channel_id}:{g.object_id}:{g.start_ts}:{g.end_ts}:{g.hazard_ts}".encode("utf-8"))
+    assert h_day.hexdigest() == EXPECTED_DAY_S1_S7_SHA256
+
+    ds_month = generate_dataset("month", seed=42)
+    s1_s7_month = [g for g in ds_month.ground_truth if g.scenario_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7")]
+    h_month = hashlib.sha256()
+    for g in s1_s7_month:
+        h_month.update(f"{g.event_id}:{g.scenario_id}:{g.cls}:{g.channel_id}:{g.object_id}:{g.start_ts}:{g.end_ts}:{g.hazard_ts}".encode("utf-8"))
+    assert h_month.hexdigest() == EXPECTED_MONTH_S1_S7_SHA256
+
+
+def test_scenarios_analog_arrays_equal_outside_s8_windows():
+    """Analog arrays outside S8 windows are strictly equal to pre-S8 generated arrays."""
+    ds = generate_dataset("day", seed=42)
+    s8_events = [g for g in ds.ground_truth if g.scenario_id == "S8"]
+    s8_by_cid: Dict[str, List[Tuple[float, float]]] = {}
+    for g in s8_events:
+        s8_by_cid.setdefault(g.channel_id, []).append((g.start_ts, g.end_ts))
+
+    # Mask S8 windows in the generated dataset and compute sha256
+    h_masked = hashlib.sha256()
+    for cid in sorted(ds.analog_series.keys()):
+        arr = ds.analog_series[cid].copy()
+        if cid in s8_by_cid:
+            for st, et in s8_by_cid[cid]:
+                m = (ds.analog_timestamps >= st) & (ds.analog_timestamps <= et)
+                arr[m] = -999.0
+        h_masked.update(cid.encode("utf-8") + arr.tobytes())
+
+    # Pre-computed sha256 hash of all analog series outside S8 windows (masked with -999.0)
+    EXPECTED_MASKED_HASH = "9ae27040c536c55ddc18cbb6f1ec064decac49da83fc7d0d7e9ec3c4f268dd5c"
+    assert h_masked.hexdigest() == EXPECTED_MASKED_HASH
+
+
+def test_scenarios_setpoint_chatter_crossings_3_no_4_yes():
+    """3 crossings in 15 min -> no SETPOINT_CHATTER; 4 crossings in 15 min -> SETPOINT_CHATTER."""
+    cid = "gas_test"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 1800.0  # 30 min
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+
+    # Case 1: 3 crossings of 1.0% in 15 min
+    # start at 0.5 (< 1.0)
+    # t=60: 0.96 (< 1.0)
+    # t=120: 1.04 (crossing 1: <1.0 to >=1.0)
+    # t=180: 1.04
+    # t=240: 0.96 (crossing 2: >=1.0 to <1.0)
+    # t=300: 0.96
+    # t=360: 1.04 (crossing 3: <1.0 to >=1.0)
+    # t >= 360: stays at 1.04 (>=1.0) so NO 4th crossing!
+    vals_3 = np.full(n_steps, 0.5)
+    vals_3[1] = 0.96
+    vals_3[2] = 1.04  # crossing 1
+    vals_3[3] = 1.04
+    vals_3[4] = 0.96  # crossing 2
+    vals_3[5] = 0.96
+    vals_3[6:] = 1.04  # crossing 3, then stays at 1.04
+    ds_3 = _make_mini_dataset(ch, {cid: vals_3}, [], dt=dt, total_seconds=total_sec)
+    alerts_3 = detect(ds_3)
+    assert len([a for a in alerts_3 if a.cls == "SETPOINT_CHATTER"]) == 0
+
+    # Case 2: 4 crossings of 1.0% in 15 min
+    # Add crossing 4 at step 8: >=1.0 to <1.0
+    vals_4 = vals_3.copy()
+    vals_4[8:] = 0.96  # crossing 4
+    ds_4 = _make_mini_dataset(ch, {cid: vals_4}, [], dt=dt, total_seconds=total_sec)
+    alerts_4 = detect(ds_4)
+    sc_alerts_4 = [a for a in alerts_4 if a.cls == "SETPOINT_CHATTER"]
+    assert len(sc_alerts_4) == 1
+    assert sc_alerts_4[0].ts == 8 * 60.0
+    assert sc_alerts_4[0].severity == "WARNING"
+    assert "4 пересечений" in sc_alerts_4[0].reason_ru
+
+
+def test_scenarios_setpoint_chatter_one_incident_per_series():
+    """One incident per setpoint chatter series in our reactive contour."""
+    cid = "gas_test"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 1800.0  # 30 min
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    # Alternating 0.96 <-> 1.04 every 2 steps
+    vals = np.full(n_steps, 0.96)
+    for i in range(n_steps):
+        if (i // 2) % 2 == 1:
+            vals[i] = 1.04
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+    alerts = detect(ds)
+    chatter_incidents = [a for a in alerts if a.cls == "SETPOINT_CHATTER" and not a.is_reminder]
+    assert len(chatter_incidents) == 1
+
+
+def test_scenarios_naive_baseline_many_alerts_on_same_series():
+    """Naive baseline produces many alerts (>10) on the same chattering series."""
+    cid = "gas_test"
+    ch = {cid: Channel(channel_id=cid, sensor_type="Газовый датчик", object_id="obj_1")}
+    total_sec = 1800.0  # 30 min
+    dt = 60.0
+    n_steps = int(total_sec // dt)
+    # Alternating 0.96 <-> 1.04 every 2 steps -> 15 samples with 1.04 >= 1.0%
+    vals = np.full(n_steps, 0.96)
+    for i in range(n_steps):
+        if (i // 2) % 2 == 1:
+            vals[i] = 1.04
+    ds = _make_mini_dataset(ch, {cid: vals}, [], dt=dt, total_seconds=total_sec)
+    naive_alerts = detect_naive(ds)
+    gas_alerts = [a for a in naive_alerts if a.cls.startswith("GAS")]
+    assert len(gas_alerts) > 10, f"Expected >10 alerts from naive baseline, got {len(gas_alerts)}"
 
 
 def test_scenarios_gas_rate_strictly_before_warning():
@@ -758,7 +899,7 @@ def test_scenarios_api_catalog():
     assert resp.status_code == 200
     data = resp.json()
     assert data["data_origin"] == "SYNTHETIC"
-    assert len(data["scenarios"]) == 7
+    assert len(data["scenarios"]) == 8
     assert len(data["thresholds"]) >= 10
     assert data["channel_composition"]["total_channels"] == 185
     assert len(data["channel_composition"]["channels"]) == 185

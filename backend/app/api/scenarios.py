@@ -34,6 +34,7 @@ class ScenarioDetectorMetrics(BaseModel):
     alerts_total: int
     incidents: int
     alerts_count: Optional[Dict[str, int]] = None
+    s8_metrics: Optional[Dict[str, Any]] = None
 
 
 class ScenarioComparison(BaseModel):
@@ -68,7 +69,6 @@ class ScenarioSeriesRequest(BaseModel):
 
 
 @router.get("/catalog")
-
 def get_scenarios_catalog() -> Dict[str, Any]:
     """
     Returns scenario descriptions, threshold rules, and channel composition
@@ -138,6 +138,15 @@ def get_scenarios_catalog() -> Dict[str, Any]:
             "month_count": SCENARIO_COUNTS["month"]["S7"],
             "target_metric": "delay",
         },
+        {
+            "id": "S8",
+            "name": "Колебание газа у уставки",
+            "shape": "значение чередуется 0,96 ↔ 1,04 % (смена каждые 1–3 замера) + шум N(0; 0,01) в течение 30 мин",
+            "cls": "SETPOINT",
+            "day_count": SCENARIO_COUNTS["day"]["S8"],
+            "month_count": SCENARIO_COUNTS["month"]["S8"],
+            "target_metric": "delay",
+        },
     ]
 
     thresholds_meta = [
@@ -148,6 +157,7 @@ def get_scenarios_catalog() -> Dict[str, Any]:
         {"parameter": "Температура, авария", "value": "≥ 45 °C", "source": "[К] features.py"},
         {"parameter": "Температура, ранний признак (TEMP_RATE)", "value": "значение ≥ 28 °C И наклон МНК по окну max(10 мин; 3 замера) ≥ 0,2 °C/мин", "source": "[Д] допущение"},
         {"parameter": "Дребезг (CHATTER)", "value": "≥ 5 переключений за 90 с; снятие после 15 мин без переключений", "source": "[К]+[Д] spec v1.1"},
+        {"parameter": "Дребезг у уставки (SETPOINT_CHATTER), газ", "value": "≥ 4 пересечений порога предупреждения (вверх или вниз) за 15 мин; снятие после 30 мин без пересечений; один инцидент на серию (серьёзность «предупреждение»)", "source": "[Д] (по примеру эксперта)"},
         {"parameter": "Потеря связи (COMM_LOSS)", "value": "нет замеров > max(15 мин; 3 шага)", "source": "[Д] допущение"},
         {"parameter": "Затопление (FLOOD)", "value": "состояние «тревога» датчика затопления любой длительности", "source": "[Д] допущение"},
         {"parameter": "Пожар (FIRE), эскалация", "value": "немедленно по тепловому датчику («высокая»), эскалация до «критической» при температуре ≥ 40 °C на том же объекте в окне 10 мин", "source": "[Д] допущение"},

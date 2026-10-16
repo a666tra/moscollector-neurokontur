@@ -56,6 +56,7 @@ SCENARIO_COUNTS: Dict[str, Dict[str, int]] = {
         "S5": 3,
         "S6": 10,
         "S7": 4,
+        "S8": 3,
     },
     "month": {
         "S1": 12,
@@ -65,6 +66,7 @@ SCENARIO_COUNTS: Dict[str, Dict[str, int]] = {
         "S5": 6,
         "S6": 60,
         "S7": 12,
+        "S8": 8,
     },
 }
 
@@ -77,6 +79,7 @@ SCENARIO_CLASSES: Dict[str, str] = {
     "S5": "FLOOD",
     "S6": "CHATTER",
     "S7": "COMM_LOSS",
+    "S8": "SETPOINT",
 }
 
 # Literal fallbacks per docs/SCENARIOS_SPEC.md Section 3:
@@ -771,6 +774,7 @@ def generate_dataset(mode: Literal["day", "month"], seed: int = 42) -> Dataset:
     # - Gas: 40 * 0.3 = 12 channels. Single spikes up to 0.6 % (approx 20 per day across the park)
     # - Temp: 40 * 0.3 = 12 channels. Warm periods up to 33 C (slow, <= 0.02 C/min)
     # - Contacts: 50 * 0.3 = 15 channels. Short staff entrances 1-3 flips in 90s
+    gas_neg_controls_by_day: Dict[int, Set[str]] = {}
     for day_idx in range(n_days):
         day_st = day_idx * 86400.0
         day_et = (day_idx + 1) * 86400.0
@@ -786,6 +790,7 @@ def generate_dataset(mode: Literal["day", "month"], seed: int = 42) -> Dataset:
         n_neg_contact = min(15, len(avail_contact))
 
         neg_gas = rng.choice(avail_gas, size=n_neg_gas, replace=False)
+        gas_neg_controls_by_day[day_idx] = {c.channel_id for c in neg_gas}
         neg_temp = rng.choice(avail_temp, size=n_neg_temp, replace=False)
         neg_contact = rng.choice(avail_contact, size=n_neg_contact, replace=False)
 
@@ -850,6 +855,66 @@ def generate_dataset(mode: Literal["day", "month"], seed: int = 42) -> Dataset:
                     is_alarm=False,
                 )
             )
+
+    # 4. Inject Scenario S8: колебание газа у уставки (spec v1.3)
+    # Value alternates 0.96 <-> 1.04 % with a state change every 1-3 samples plus N(0, 0.01) noise for 30 min,
+    # on a gas channel that has no other event in the interval (respect the 6 h separation)
+    # and is NOT in that day's gas negative-control set.
+    # Placed AFTER all existing generation steps using separate generator np.random.default_rng([seed, 8]),
+    # so S1-S7 ground truth and all existing random draws stay byte-identical.
+    rng_s8 = np.random.default_rng([seed, 8])
+    s8_count = counts["S8"]
+    dur_s8 = 30.0 * 60.0  # 1800 s
+
+    for _ in range(s8_count):
+        placed = False
+        max_start = total_seconds - dur_s8 - 60.0
+        for _ in range(1000):
+            st = float(rng_s8.uniform(0.0, max_start))
+            et = st + dur_s8
+            d_start = int(st // 86400)
+            d_end = int(et // 86400)
+            perm_cids = rng_s8.permutation([c.channel_id for c in gas_channels])
+            for cid in perm_cids:
+                in_neg_control = any(
+                    cid in gas_neg_controls_by_day.get(d, set())
+                    for d in range(d_start, min(n_days, d_end + 1))
+                )
+                if not in_neg_control and is_available(cid, st, et):
+                    mark_busy(cid, st, et)
+                    c_obj = channels[cid]
+                    ground_truth.append(
+                        GroundTruthEvent(
+                            event_id=f"gt_{gt_event_idx:04d}",
+                            scenario_id="S8",
+                            cls="SETPOINT",
+                            channel_id=cid,
+                            object_id=c_obj.object_id,
+                            start_ts=round(st, 2),
+                            end_ts=round(et, 2),
+                            hazard_ts=None,
+                        )
+                    )
+                    gt_event_idx += 1
+
+                    idx_mask = (timestamps >= st) & (timestamps <= et)
+                    n_sub = int(np.count_nonzero(idx_mask))
+                    cur_val = float(rng_s8.choice([0.96, 1.04]))
+                    vals: List[float] = []
+                    while len(vals) < n_sub:
+                        run_len = int(rng_s8.integers(1, 4))
+                        for _ in range(min(run_len, n_sub - len(vals))):
+                            vals.append(cur_val)
+                        cur_val = 1.04 if cur_val == 0.96 else 0.96
+
+                    noise = rng_s8.normal(0.0, 0.01, size=n_sub)
+                    analog_series[cid][idx_mask] = np.array(vals, dtype=np.float64) + noise
+                    placed = True
+                    break
+            if placed:
+                break
+        if not placed:
+            raise RuntimeError(f"Could not place S8 event {gt_event_idx}")
 
     # Sort discrete events and ground truth by timestamp
     discrete_events.sort(key=lambda e: e.ts)
@@ -928,6 +993,12 @@ GAS_CLOSE_CLEAR_SECONDS: float = 300.0  # 5 minutes
 # температура < порога − 2 °C 5 мин
 TEMP_HYSTERESIS_DELTA: float = 2.0  # °C
 TEMP_CLOSE_CLEAR_SECONDS: float = 300.0  # 5 minutes
+
+# SETPOINT_CHATTER (gas setpoint chatter, spec v1.3)
+# ≥ 4 пересечений порога предупреждения за 15 мин; снятие после 30 мин без пересечений
+SETPOINT_CHATTER_WINDOW_SECONDS: float = 900.0  # 15 minutes
+SETPOINT_CHATTER_CLEAR_SECONDS: float = 1800.0  # 30 minutes without crossings
+SETPOINT_CHATTER_MIN_CROSSINGS: int = 4
 
 
 def _calc_least_squares_slope(
@@ -1015,11 +1086,19 @@ def detect(dataset: Dataset) -> List[Alert]:
         rate_last_alert_ts = -1e9
         rate_clear_sec = 0.0
 
+        # SETPOINT_CHATTER (spec v1.3: >= 4 crossings of gas warning threshold in 15 min)
+        setpoint_open = False
+        setpoint_last_alert_ts = -1e9
+        setpoint_last_crossing_ts = -1e9
+        crossings_window: List[float] = []
+        prev_gas_v: Optional[float] = None
+
         for i in range(n_pts):
             t = timestamps[i]
             v = values[i]
 
             if np.isnan(v):
+                prev_gas_v = None
                 if last_valid_t >= 0.0 and (t - last_valid_t) > gap_thresh:
                     if not comm_loss_open:
                         comm_loss_open = True
@@ -1045,6 +1124,37 @@ def detect(dataset: Dataset) -> List[Alert]:
                 comm_loss_open = False
 
             if stype == "Газовый датчик":
+                # SETPOINT_CHATTER (spec v1.3: >= 4 crossings of gas warning threshold in 15 min)
+                if setpoint_open and (t - setpoint_last_crossing_ts) >= SETPOINT_CHATTER_CLEAR_SECONDS:
+                    setpoint_open = False
+
+                if prev_gas_v is not None and not np.isnan(prev_gas_v):
+                    crossed = (prev_gas_v < gas_warn_thresh and v >= gas_warn_thresh) or (prev_gas_v >= gas_warn_thresh and v < gas_warn_thresh)
+                    if crossed:
+                        setpoint_last_crossing_ts = t
+                        crossings_window.append(t)
+                        while crossings_window and crossings_window[0] < (t - SETPOINT_CHATTER_WINDOW_SECONDS):
+                            crossings_window.pop(0)
+
+                        if len(crossings_window) >= SETPOINT_CHATTER_MIN_CROSSINGS:
+                            if not setpoint_open:
+                                setpoint_open = True
+                                setpoint_last_alert_ts = t
+                                alerts.append(Alert(
+                                    ts=t, channel_id=cid, object_id=oid, cls="SETPOINT_CHATTER", severity="WARNING",
+                                    value=float(len(crossings_window)),
+                                    reason_ru=f"Дребезг у уставки: {len(crossings_window)} пересечений порога {gas_warn_thresh:.1f} % за 15 мин",
+                                    is_reminder=False,
+                                ))
+                            elif (t - setpoint_last_alert_ts) >= INCIDENT_REMINDER_SECONDS:
+                                setpoint_last_alert_ts = t
+                                alerts.append(Alert(
+                                    ts=t, channel_id=cid, object_id=oid, cls="SETPOINT_CHATTER", severity="WARNING",
+                                    value=float(len(crossings_window)),
+                                    reason_ru=f"Напоминание: продолжается дребезг у уставки ({len(crossings_window)} пересечений порога {gas_warn_thresh:.1f} % за 15 мин)",
+                                    is_reminder=True,
+                                ))
+                prev_gas_v = v
                 # GAS_ALARM (5.0%)
                 if v >= GAS_ALARM_THRESHOLD_VOL_PCT:
                     alarm_clear_sec = 0.0
@@ -1660,24 +1770,27 @@ COMPATIBLE_CLASSES: Dict[str, Set[str]] = {
     "FLOOD": {"FLOOD"},
     "CHATTER": {"CHATTER"},
     "COMM_LOSS": {"COMM_LOSS"},
+    "SETPOINT": {"SETPOINT_CHATTER", "GAS", "GAS_WARNING", "GAS_ALARM", "GAS_RATE"},
 }
 
 
 def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
     """
     Evaluates detector alerts against dataset ground truth per docs/SCENARIOS_SPEC.md Section 5:
-    - Detection rate per-scenario (S1-S7) and overall.
+    - Detection rate per-scenario (S1-S8) and overall.
     - Matching rule: alert of a compatible class on same channel (FIRE: same object)
       with ts in [start_ts, end_ts + 600 s (10 min grace)].
+    - S8 detection: any SETPOINT_CHATTER or GAS_* alert on event channel in [start, end+10 min].
     - Lead time (median, p10 in minutes) for S1, S3: (hazard_ts - first_alert.ts) / 60.0.
-    - Delay (median, p90 in seconds) for S2, S4, S5, S6, S7: first_alert.ts - start_ts.
+    - Delay (median, p90 in seconds) for S2, S4, S5, S6, S7, S8: first_alert.ts - start_ts.
+    - S8 metrics per detector: alerts per event, incidents per event, share of events labelled SETPOINT_CHATTER.
     - False alarms: count and per 100 channels per day. Alerts outside every event window
       (+10 min grace) are false alarms. Alerts on a ground-truth event's related_channel_ids
       inside its window count as attributable to that event (not false).
     - Stream compression: raw events/samples -> incidents (counting only non-reminder alerts).
     """
     scenario_stats: Dict[str, Dict[str, Any]] = {}
-    for sc_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7"):
+    for sc_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"):
         scenario_stats[sc_id] = {
             "total": 0,
             "detected": 0,
@@ -1691,6 +1804,10 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
 
     all_lead_times_min: List[float] = []
     all_delays_sec: List[float] = []
+
+    s8_alerts_total = 0
+    s8_incidents_total = 0
+    s8_events_with_chatter = 0
 
     for g in dataset.ground_truth:
         sc_id = g.scenario_id
@@ -1727,8 +1844,14 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
                 stats["delays_sec"].append(del_sec)
                 all_delays_sec.append(del_sec)
 
+        if sc_id == "S8":
+            s8_alerts_total += len(matching_alerts)
+            s8_incidents_total += len([a for a in matching_alerts if not a.is_reminder and not a.is_escalation])
+            if any(a.cls == "SETPOINT_CHATTER" for a in matching_alerts):
+                s8_events_with_chatter += 1
+
     scenarios_summary: Dict[str, Dict[str, Any]] = {}
-    for sc_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7"):
+    for sc_id in ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"):
         st = scenario_stats[sc_id]
         tot = st["total"]
         det = st["detected"]
@@ -1747,6 +1870,11 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
             del_list = st["delays_sec"]
             item["delay_median_sec"] = round(float(np.median(del_list)), 1) if del_list else None
             item["delay_p90_sec"] = round(float(np.percentile(del_list, 90)), 1) if del_list else None
+
+        if sc_id == "S8":
+            item["alerts_per_event"] = round(float(s8_alerts_total / max(1, tot)), 2) if tot > 0 else 0.0
+            item["incidents_per_event"] = round(float(s8_incidents_total / max(1, tot)), 2) if tot > 0 else 0.0
+            item["share_labelled_setpoint_chatter"] = round(float(s8_events_with_chatter / max(1, tot)), 4) if tot > 0 else 0.0
 
         scenarios_summary[sc_id] = item
 
@@ -1776,6 +1904,13 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
 
     overall_detection_rate = round(float(total_detected / total_gt), 4) if total_gt > 0 else 0.0
 
+    tot_s8_cnt = scenario_stats["S8"]["total"]
+    s8_metrics = {
+        "alerts_per_event": round(float(s8_alerts_total / max(1, tot_s8_cnt)), 2) if tot_s8_cnt > 0 else 0.0,
+        "incidents_per_event": round(float(s8_incidents_total / max(1, tot_s8_cnt)), 2) if tot_s8_cnt > 0 else 0.0,
+        "share_labelled_setpoint_chatter": round(float(s8_events_with_chatter / max(1, tot_s8_cnt)), 4) if tot_s8_cnt > 0 else 0.0,
+    }
+
     return {
         "overall": {
             "total_events": int(total_gt),
@@ -1783,6 +1918,7 @@ def evaluate(dataset: Dataset, alerts: List[Alert]) -> Dict[str, Any]:
             "detection_rate": overall_detection_rate,
         },
         "scenarios": scenarios_summary,
+        "s8_metrics": s8_metrics,
         "lead_time": {
             "median_min": round(float(np.median(all_lead_times_min)), 2) if all_lead_times_min else None,
             "p10_min": round(float(np.percentile(all_lead_times_min, 10)), 2) if all_lead_times_min else None,
