@@ -14,7 +14,7 @@ class SystemSettingsSchema(BaseModel):
     decision_threshold: float = Field(0.42, ge=0.05, le=0.95, description="Порог безразмерного балла модели для очереди диспетчера (tau); не вероятность физического отказа")
     chatter_window_seconds: int = Field(90, ge=10, le=600, description="Окно детекции дребезга (сек)")
     chatter_min_flips: int = Field(5, ge=2, le=20, description="Минимум микро-переключений для признания дребезга")
-    gas_warning_threshold_vol_pct: float = Field(1.2, ge=0.1, le=10.0, description="Порог предупредительной загазованности (% об.)")
+    gas_warning_threshold_vol_pct: float = Field(1.0, ge=0.1, le=10.0, description="Порог предупредительной загазованности (% об.)")
     callout_cost_rub: float = Field(18500.0, ge=1000.0, description="Стоимость экстренного выезда бригады ОДС (руб)")
     preventive_cost_rub: float = Field(3200.0, ge=500.0, description="Стоимость планового ТО/ППР (руб)")
     require_dispatcher_confirmation: bool = Field(True, description="Требовать подтверждение диспетчера в локальном демо")

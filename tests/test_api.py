@@ -1144,6 +1144,7 @@ def test_settings_reset_to_defaults():
     assert data["chatter_window_seconds"] == default_schema.chatter_window_seconds
     assert data["chatter_min_flips"] == default_schema.chatter_min_flips
     assert data["gas_warning_threshold_vol_pct"] == default_schema.gas_warning_threshold_vol_pct
+    assert data["gas_warning_threshold_vol_pct"] == 1.0
     assert data["callout_cost_rub"] == default_schema.callout_cost_rub
     assert data["preventive_cost_rub"] == default_schema.preventive_cost_rub
     assert data["require_dispatcher_confirmation"] == default_schema.require_dispatcher_confirmation
