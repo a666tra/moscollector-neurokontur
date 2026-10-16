@@ -1,0 +1,730 @@
+{
+  "data_origin": "SYNTHETIC",
+  "label": "синтетика, отложенные seed 2000-2019 (day), проверка логики, не оценка на реальных авариях",
+  "git_head": "394ba26f03070e4c31fe2a5ff6df1fab9c26ef5e",
+  "scenario_engine_sha256": "a4d67be6efe8a37781a3603bc3da849824bfafc0a2b6a1b379c38ac6574735e1",
+  "spec_sha256": "8f9fb20a98c3230fd69ffcf54438d23c2e8c94cb9b4e4971e076ac228a66c3dd",
+  "seeds": [
+    2000,
+    2001,
+    2002,
+    2003,
+    2004,
+    2005,
+    2006,
+    2007,
+    2008,
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019
+  ],
+  "thresholds_used": {
+    "decision_threshold": 0.42,
+    "chatter_window_seconds": 90,
+    "chatter_min_flips": 5,
+    "gas_warning_threshold_vol_pct": 1.0,
+    "callout_cost_rub": 18500.0,
+    "preventive_cost_rub": 3200.0,
+    "require_dispatcher_confirmation": true,
+    "auto_suppress_chatter": false,
+    "selected_model": "champion_lightgbm"
+  },
+  "detectors": {
+    "fast": {
+      "overall": {
+        "total_events": 680,
+        "detected_events": 680,
+        "detection_rate": 1.0
+      },
+      "scenarios": {
+        "S1": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "lead_time_median_min_across_seeds": {
+            "mean": 6.88,
+            "median": 6.885,
+            "min": 6.51,
+            "max": 7.25,
+            "n": 20
+          }
+        },
+        "S2": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 61.195,
+            "median": 62.25,
+            "min": 39.8,
+            "max": 89.4,
+            "n": 20
+          }
+        },
+        "S3": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "lead_time_median_min_across_seeds": {
+            "mean": 37.252,
+            "median": 37.25,
+            "min": 35.64,
+            "max": 38.52,
+            "n": 20
+          }
+        },
+        "S4": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        },
+        "S5": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        },
+        "S6": {
+          "total": 200,
+          "detected": 200,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 17.78,
+            "median": 17.2,
+            "min": 12.4,
+            "max": 22.8,
+            "n": 20
+          }
+        },
+        "S7": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 928.775,
+            "median": 928.2,
+            "min": 907.7,
+            "max": 947.2,
+            "n": 20
+          }
+        },
+        "S8": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 77.49,
+            "median": 75.3,
+            "min": 17.1,
+            "max": 152.2,
+            "n": 20
+          },
+          "alerts_per_event": {
+            "mean": 3.0,
+            "median": 3.0,
+            "min": 3.0,
+            "max": 3.0,
+            "n": 20
+          },
+          "incidents_per_event": {
+            "mean": 3.0,
+            "median": 3.0,
+            "min": 3.0,
+            "max": 3.0,
+            "n": 20
+          },
+          "share_labelled_setpoint_chatter": {
+            "mean": 1.0,
+            "median": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "n": 20
+          }
+        }
+      },
+      "false_alarms": {
+        "total_count": 1,
+        "per_100_channels_per_day": {
+          "mean": 0.027,
+          "median": 0.0,
+          "min": 0.0,
+          "max": 0.541,
+          "n": 20
+        }
+      },
+      "incidents": {
+        "mean": 67.05,
+        "median": 67.0,
+        "min": 67,
+        "max": 68,
+        "n": 20
+      },
+      "alerts": {
+        "mean": 145.95,
+        "median": 145.5,
+        "min": 140,
+        "max": 150,
+        "n": 20
+      }
+    },
+    "static_dedup": {
+      "overall": {
+        "total_events": 680,
+        "detected_events": 600,
+        "detection_rate": 0.8824
+      },
+      "scenarios": {
+        "S1": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "lead_time_median_min_across_seeds": {
+            "mean": -0.5,
+            "median": -0.455,
+            "min": -0.96,
+            "max": -0.05,
+            "n": 20
+          }
+        },
+        "S2": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 61.195,
+            "median": 62.25,
+            "min": 39.8,
+            "max": 89.4,
+            "n": 20
+          }
+        },
+        "S3": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "lead_time_median_min_across_seeds": {
+            "mean": -0.388,
+            "median": -0.355,
+            "min": -1.1,
+            "max": 0.41,
+            "n": 20
+          }
+        },
+        "S4": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        },
+        "S5": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        },
+        "S6": {
+          "total": 200,
+          "detected": 200,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 3.11,
+            "median": 2.9,
+            "min": 1.1,
+            "max": 5.8,
+            "n": 20
+          }
+        },
+        "S7": {
+          "total": 80,
+          "detected": 0,
+          "detection_rate": 0.0
+        },
+        "S8": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 80.49,
+            "median": 75.3,
+            "min": 17.1,
+            "max": 196.4,
+            "n": 20
+          },
+          "alerts_per_event": {
+            "mean": 1.0,
+            "median": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "n": 20
+          },
+          "incidents_per_event": {
+            "mean": 1.0,
+            "median": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "n": 20
+          },
+          "share_labelled_setpoint_chatter": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        }
+      },
+      "false_alarms": {
+        "total_count": 80,
+        "per_100_channels_per_day": {
+          "mean": 2.162,
+          "median": 2.162,
+          "min": 2.162,
+          "max": 2.162,
+          "n": 20
+        }
+      },
+      "incidents": {
+        "mean": 502.05,
+        "median": 501.5,
+        "min": 465,
+        "max": 542,
+        "n": 20
+      },
+      "alerts": {
+        "mean": 535.05,
+        "median": 534.5,
+        "min": 498,
+        "max": 575,
+        "n": 20
+      }
+    },
+    "naive": {
+      "overall": {
+        "total_events": 680,
+        "detected_events": 600,
+        "detection_rate": 0.8824
+      },
+      "scenarios": {
+        "S1": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "lead_time_median_min_across_seeds": {
+            "mean": -0.5,
+            "median": -0.455,
+            "min": -0.96,
+            "max": -0.05,
+            "n": 20
+          }
+        },
+        "S2": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 61.195,
+            "median": 62.25,
+            "min": 39.8,
+            "max": 89.4,
+            "n": 20
+          }
+        },
+        "S3": {
+          "total": 80,
+          "detected": 80,
+          "detection_rate": 1.0,
+          "lead_time_median_min_across_seeds": {
+            "mean": -0.388,
+            "median": -0.355,
+            "min": -1.1,
+            "max": 0.41,
+            "n": 20
+          }
+        },
+        "S4": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        },
+        "S5": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        },
+        "S6": {
+          "total": 200,
+          "detected": 200,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 3.11,
+            "median": 2.9,
+            "min": 1.1,
+            "max": 5.8,
+            "n": 20
+          }
+        },
+        "S7": {
+          "total": 80,
+          "detected": 0,
+          "detection_rate": 0.0
+        },
+        "S8": {
+          "total": 60,
+          "detected": 60,
+          "detection_rate": 1.0,
+          "delay_median_sec_across_seeds": {
+            "mean": 80.49,
+            "median": 75.3,
+            "min": 17.1,
+            "max": 196.4,
+            "n": 20
+          },
+          "alerts_per_event": {
+            "mean": 15.149,
+            "median": 15.0,
+            "min": 13.33,
+            "max": 17.0,
+            "n": 20
+          },
+          "incidents_per_event": {
+            "mean": 15.149,
+            "median": 15.0,
+            "min": 13.33,
+            "max": 17.0,
+            "n": 20
+          },
+          "share_labelled_setpoint_chatter": {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "n": 20
+          }
+        }
+      },
+      "false_alarms": {
+        "total_count": 80,
+        "per_100_channels_per_day": {
+          "mean": 2.162,
+          "median": 2.162,
+          "min": 2.162,
+          "max": 2.162,
+          "n": 20
+        }
+      },
+      "incidents": {
+        "mean": 1414.5,
+        "median": 1417.5,
+        "min": 1378,
+        "max": 1455,
+        "n": 20
+      },
+      "alerts": {
+        "mean": 1414.5,
+        "median": 1417.5,
+        "min": 1378,
+        "max": 1455,
+        "n": 20
+      }
+    }
+  },
+  "ratios": {
+    "naive_alerts_to_fast_incidents": {
+      "mean": 21.096,
+      "median": 21.12,
+      "min": 20.57,
+      "max": 21.72,
+      "n": 20
+    },
+    "static_dedup_incidents_to_fast_incidents": {
+      "mean": 7.487,
+      "median": 7.485,
+      "min": 6.94,
+      "max": 8.09,
+      "n": 20
+    }
+  },
+  "per_seed": {
+    "2000": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2001": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2002": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2003": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2004": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2005": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2006": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2007": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2008": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2009": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2010": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2011": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2012": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2013": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 1,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 68
+    },
+    "2014": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2015": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2016": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2017": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2018": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    },
+    "2019": {
+      "fast_detected": "34/34",
+      "fast_false_alarms": 0,
+      "static_dedup_detected": "30/34",
+      "static_dedup_false_alarms": 4,
+      "naive_false_alarms": 4,
+      "fast_incidents": 67
+    }
+  },
+  "demo_seed_42": {
+    "day": {
+      "fast": {
+        "detected": "34/34",
+        "false_alarms": 0,
+        "alerts": 146,
+        "incidents": 67,
+        "S1_lead_median_min": 6.96,
+        "S3_lead_median_min": 37.09,
+        "S8_incidents_per_event": 3.0,
+        "S8_share_labelled_setpoint_chatter": 1.0
+      },
+      "static_dedup": {
+        "detected": "30/34",
+        "false_alarms": 4,
+        "alerts": 547,
+        "incidents": 514,
+        "S1_lead_median_min": -0.04,
+        "S3_lead_median_min": -0.61,
+        "S8_incidents_per_event": 1.0,
+        "S8_share_labelled_setpoint_chatter": 0.0
+      },
+      "naive": {
+        "detected": "30/34",
+        "false_alarms": 4,
+        "alerts": 1436,
+        "incidents": 1436,
+        "S1_lead_median_min": -0.04,
+        "S3_lead_median_min": -0.61,
+        "S8_incidents_per_event": 17.0,
+        "S8_share_labelled_setpoint_chatter": 0.0
+      },
+      "ratios": {
+        "naive_alerts_to_fast_incidents": 21.43,
+        "static_dedup_incidents_to_fast_incidents": 7.67
+      }
+    },
+    "month": {
+      "fast": {
+        "detected": "122/122",
+        "false_alarms": 0,
+        "alerts": 440,
+        "incidents": 199,
+        "S1_lead_median_min": -2.6,
+        "S3_lead_median_min": 26.27,
+        "S8_incidents_per_event": 2.12,
+        "S8_share_labelled_setpoint_chatter": 0.125
+      },
+      "static_dedup": {
+        "detected": "110/122",
+        "false_alarms": 120,
+        "alerts": 3111,
+        "incidents": 3029,
+        "S1_lead_median_min": -2.6,
+        "S3_lead_median_min": -2.18,
+        "S8_incidents_per_event": 1.0,
+        "S8_share_labelled_setpoint_chatter": 0.0
+      },
+      "naive": {
+        "detected": "110/122",
+        "false_alarms": 120,
+        "alerts": 3444,
+        "incidents": 3444,
+        "S1_lead_median_min": -2.6,
+        "S3_lead_median_min": -2.18,
+        "S8_incidents_per_event": 3.0,
+        "S8_share_labelled_setpoint_chatter": 0.0
+      },
+      "ratios": {
+        "naive_alerts_to_fast_incidents": 17.31,
+        "static_dedup_incidents_to_fast_incidents": 15.22
+      }
+    }
+  }
+}
