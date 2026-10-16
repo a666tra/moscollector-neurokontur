@@ -353,3 +353,86 @@ export interface ScenarioSeriesResponse {
   true_events: ScenarioTrueEvent[];
   alerts: ScenarioAlertItem[];
 }
+
+export interface BacktestWeekMetrics {
+  n: number;
+  positives: number;
+  prevalence: number;
+  roc_auc: number;
+  pr_auc: number;
+  hits_at_50: number;
+  precision_at_50: number;
+  recall_at_50: number;
+  hits_at_100: number;
+  precision_at_100: number;
+  recall_at_100: number;
+  hits_at_200: number;
+  precision_at_200: number;
+  recall_at_200: number;
+  threshold?: number;
+  flagged?: number;
+  tp?: number;
+  fp?: number;
+  precision?: number;
+  recall?: number;
+}
+
+export interface BacktestWeek {
+  cutoff: string;
+  label_window: string;
+  train_weeks: number;
+  all: {
+    deployed: BacktestWeekMetrics;
+    lgbm_weekly?: BacktestWeekMetrics;
+    logreg_weekly?: BacktestWeekMetrics;
+    persistence: BacktestWeekMetrics;
+  };
+  new_incidents?: {
+    deployed: BacktestWeekMetrics;
+    lgbm_weekly?: BacktestWeekMetrics;
+    logreg_weekly?: BacktestWeekMetrics;
+    persistence: BacktestWeekMetrics;
+  };
+}
+
+export interface BacktestResponse {
+  test_weeks: number;
+  channels: number;
+  weeks: BacktestWeek[];
+  summary?: any;
+}
+
+export interface PerformanceBenchmark {
+  full_batch_channels_count: number;
+  full_batch_latency_ms: number;
+  full_batch_p95_latency_ms: number;
+  single_sensor_latency_ms: number;
+  single_sensor_p95_latency_ms: number;
+  throughput_sensors_per_sec: number;
+  tz_sla_seconds: number;
+  speedup_vs_sla: number;
+}
+
+export interface HttpLoadBenchmark {
+  benchmark_timestamp: string;
+  test_type: string;
+  target_url: string;
+  total_requests: number;
+  concurrency_workers: number;
+  success_rate_pct: number;
+  total_time_seconds: number;
+  throughput_rps: number;
+  latency_mean_ms: number;
+  latency_p50_ms: number;
+  latency_p90_ms: number;
+  latency_p95_ms: number;
+  tz_sla_target_ms: number;
+  compliance_sla: string;
+}
+
+export interface PredictionMetricsResponse {
+  performance_benchmark: PerformanceBenchmark;
+  http_load_benchmark: HttpLoadBenchmark;
+  [key: string]: any;
+}
+

@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Map as MapIcon, ClipboardList, LineChart, Stethoscope, PlayCircle, SlidersHorizontal, Briefcase, UserCircle, X, Info, FlaskConical,
+  Map as MapIcon, ClipboardList, LineChart, Stethoscope, PlayCircle, SlidersHorizontal, Briefcase, UserCircle, X, Info, FlaskConical, LayoutDashboard,
 } from 'lucide-react';
 import { Landing } from './shell/Landing';
 import { Situation } from './situation/Situation';
 import { MaintenanceTickets } from './components/MaintenanceTickets';
 import { MetricsView } from './components/MetricsView';
 import { ScenarioLab } from './scenarios/ScenarioLab';
+import { SummaryView } from './summary/SummaryView';
 import { FalseAlarmFilter } from './components/FalseAlarmFilter';
 import { StreamSimulator } from './components/StreamSimulator';
 import { SettingsModal } from './components/SettingsModal';
@@ -16,10 +17,11 @@ import { ThemeProvider, ThemeButton } from './lib/theme';
 import { ConfirmedAlarmItem, ObjectItem, PredictionItem, UserRole } from './types';
 import { FieldView } from './field/FieldView';
 
-type View = 'field' | 'situation' | 'tickets' | 'quality' | 'scenarios';
+type View = 'summary' | 'field' | 'situation' | 'tickets' | 'quality' | 'scenarios';
 type Tool = 'signal' | 'simulator' | null;
 
 const VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
+  { id: 'summary', title: 'Сводка', short: 'Сводка', icon: LayoutDashboard },
   { id: 'situation', title: 'Обстановка', short: 'Обстановка', icon: MapIcon },
   { id: 'tickets', title: 'Заявки и журнал', short: 'Заявки', icon: ClipboardList },
   { id: 'quality', title: 'Качество модели', short: 'Качество', icon: LineChart },
@@ -47,7 +49,7 @@ const readView = (role: UserRole): View => {
   if (role === 'tech') {
     return v === 'tickets' ? 'tickets' : 'field';
   }
-  return v === 'tickets' || v === 'quality' || v === 'scenarios' ? v : 'situation';
+  return v === 'summary' || v === 'tickets' || v === 'quality' || v === 'scenarios' ? v : 'situation';
 };
 
 export const App: React.FC = () => (
@@ -217,7 +219,8 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         </header>
       )}
 
-      <main className="flex-1 min-h-0 relative pb-16 lg:pb-0">
+      <main className="flex-1 min-h-0 relative pb-16 lg:pb-0 overflow-x-hidden">
+        {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 pt-20 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
         {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={() => setView('tickets')} />}
         {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
         {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets onRefreshStats={load} /></div></div>}
@@ -238,15 +241,17 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         </nav>
       ) : (
         <>
-          <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-5 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
+          <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-6 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
             {VIEWS.map(v => (
-              <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium"
+              <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium min-w-0 px-0.5"
                       style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
-                <v.icon className="w-5 h-5" />{v.short}
+                <v.icon className="w-[18px] h-[18px] shrink-0" />
+                <span className="truncate max-w-[48px] leading-tight">{v.short}</span>
               </button>
             ))}
-            <button onClick={() => setToolsOpen(true)} className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium" style={{ color: 'var(--mut)' }}>
-              <Briefcase className="w-5 h-5" />Ещё
+            <button onClick={() => setToolsOpen(true)} className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium min-w-0 px-0.5" style={{ color: 'var(--mut)' }}>
+              <Briefcase className="w-[18px] h-[18px] shrink-0" />
+              <span className="truncate max-w-[48px] leading-tight">Ещё</span>
             </button>
           </nav>
           {toolsOpen && (
