@@ -254,18 +254,20 @@ def test_scenarios_seed42_sha256():
     ds_day = generate_dataset("day", seed=42)
     h_day = hashlib.sha256()
     for cid in sorted(ds_day.analog_series.keys()):
-        h_day.update(cid.encode("utf-8") + ds_day.analog_series[cid].tobytes())
+        arr = np.round(ds_day.analog_series[cid], 6) + 0.0
+        h_day.update(cid.encode("utf-8") + arr.tobytes())
     for e in ds_day.discrete_events:
         h_day.update(f"{e.ts}:{e.channel_id}:{e.state_name}:{e.is_alarm}".encode("utf-8"))
-    assert h_day.hexdigest() == "d2c0ba2ae99b4dabba98c9fdd4a4c2f49595ac401702ca6b61699b5ca134cc00"
+    assert h_day.hexdigest() == "b9afde8ab401c8c436db4f28515347afa4cd06fe0c782f977eb17c8b60ed9774"
 
     ds_month = generate_dataset("month", seed=42)
     h_month = hashlib.sha256()
     for cid in sorted(ds_month.analog_series.keys()):
-        h_month.update(cid.encode("utf-8") + ds_month.analog_series[cid].tobytes())
+        arr = np.round(ds_month.analog_series[cid], 6) + 0.0
+        h_month.update(cid.encode("utf-8") + arr.tobytes())
     for e in ds_month.discrete_events:
         h_month.update(f"{e.ts}:{e.channel_id}:{e.state_name}:{e.is_alarm}".encode("utf-8"))
-    assert h_month.hexdigest() == "ee01b6ba91e12f59e293c0a8aa4c95c2eae4196e4c260b7bff8b02203309fbbd"
+    assert h_month.hexdigest() == "ca0df1ad53f8c95322d2ac22de71d0de01389a1a16d52e4115480a6d608eadb5"
 
 
 def test_scenarios_s8_count_per_mode():
@@ -325,10 +327,11 @@ def test_scenarios_analog_arrays_equal_outside_s8_windows():
             for st, et in s8_by_cid[cid]:
                 m = (ds.analog_timestamps >= st) & (ds.analog_timestamps <= et)
                 arr[m] = -999.0
+        arr = np.round(arr, 6) + 0.0
         h_masked.update(cid.encode("utf-8") + arr.tobytes())
 
     # Pre-computed sha256 hash of all analog series outside S8 windows (masked with -999.0)
-    EXPECTED_MASKED_HASH = "9ae27040c536c55ddc18cbb6f1ec064decac49da83fc7d0d7e9ec3c4f268dd5c"
+    EXPECTED_MASKED_HASH = "67dfa06970cdf8125e5eca875869250f92022460955fda084ac869a620d29ae0"
     assert h_masked.hexdigest() == EXPECTED_MASKED_HASH
 
 

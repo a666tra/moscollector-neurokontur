@@ -6,8 +6,9 @@
 до этого запуска; seed 2000-2019 ранее не запускались; результат публикуется как есть.
 Результаты: синтетика, проверка логики, НЕ оценка на реальных авариях.
 
-Запуск:  python tools/heldout_eval.py
-Вывод:   docs/SCENARIOS_HELDOUT_RESULTS.json  (+ сводка в консоль)
+Запуск:  python tools/heldout_eval.py [путь_к_выходному_json]
+Вывод:   docs/SCENARIOS_HELDOUT_RESULTS.json по умолчанию (+ сводка в консоль);
+         для сверки на другой платформе укажите другой путь, чтобы не затереть эталон.
 """
 import hashlib
 import json
@@ -111,7 +112,7 @@ def main():
                 "S8_share_labelled_setpoint_chatter": c[d]["scenarios"]["S8"].get("share_labelled_setpoint_chatter")}
             for d in DETECTORS}
         out["demo_seed_42"][mode]["ratios"] = r["ratios"]
-    path = os.path.join(ROOT, "docs", "SCENARIOS_HELDOUT_RESULTS.json")
+    path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "SCENARIOS_HELDOUT_RESULTS.json")
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
         f.write("\n")
