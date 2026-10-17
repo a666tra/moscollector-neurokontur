@@ -277,6 +277,36 @@ def test_tickets_crud():
     assert updated.json()["status"] == "В_РАБОТЕ"
 
 
+def test_tickets_calibrated_proxy_probability_and_no_saved_opex():
+    """Для каждого наряда из GET /api/tickets:
+    - отсутствует устаревший ключ saved_opex_rub;
+    - если канал есть в прогнозах, failure_risk_percent равен
+      round(100 * calibrated_proxy_probability, 1) с допуском 0.1.
+    """
+    from backend.app.services.data_service import data_service
+
+    res = client.get("/api/tickets")
+    assert res.status_code == 200
+    tickets = res.json()
+    assert len(tickets) > 0
+
+    checked = 0
+    for ticket in tickets:
+        assert "saved_opex_rub" not in ticket
+        cid = str(ticket.get("channel_id"))
+        pred = data_service.predictions_by_channel.get(cid)
+        if pred and "calibrated_proxy_probability" in pred:
+            expected = round(100 * float(pred["calibrated_proxy_probability"]), 1)
+            actual = float(ticket["failure_risk_percent"])
+            assert abs(actual - expected) <= 0.1 + 1e-6, (
+                f"Наряд {ticket.get('ticket_id')} (канал {cid}): "
+                f"failure_risk_percent={actual}, ожидалось {expected}"
+            )
+            checked += 1
+
+    assert checked > 0
+
+
 def test_simulation_step():
     from backend.app.services.maintenance_service import maintenance_service
 

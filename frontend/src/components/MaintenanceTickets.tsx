@@ -311,7 +311,7 @@ ${ticket.assigned_team}
                         ТО: {ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
                       </div>
                       <div className="num text-[11px]" style={{ color: 'var(--muted)' }}>
-                        Риск: {riskPercent}%
+                        Риск по журналу: {riskPercent} %
                       </div>
                     </div>
                   </div>
@@ -328,7 +328,10 @@ ${ticket.assigned_team}
 
                   {/* Work description (2 lines clamped) */}
                   <p className="text-xs line-clamp-2 leading-relaxed" style={{ color: 'var(--muted)' }}>
-                    {ticket.work_description}
+                    {ticket.work_description?.replace(
+                      /вероятность инцидента \d+ %/,
+                      `вероятность инцидента ${riskPercent} %`
+                    )}
                   </p>
 
                   {/* Materials chips */}

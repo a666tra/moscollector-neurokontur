@@ -10,7 +10,7 @@
     "picket": "ПК40",
     "corridor": "Восток",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.6,
+    "failure_risk_percent": 53.2,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -21,7 +21,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -37,7 +36,7 @@
     "picket": "ПК47",
     "corridor": "СВАО",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 66.6,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -48,7 +47,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -64,7 +62,7 @@
     "picket": "ПК50",
     "corridor": "Север",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 66.6,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -75,7 +73,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -91,7 +88,7 @@
     "picket": "ПК50",
     "corridor": "Север",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 66.6,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -102,7 +99,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -118,7 +114,7 @@
     "picket": "ПК13",
     "corridor": "Садовое кольцо",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 68.5,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -129,7 +125,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -145,7 +140,7 @@
     "picket": "ПК5",
     "corridor": "ЦАО-ЮЗ",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 69.6,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -156,7 +151,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -172,7 +166,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 69.6,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -183,7 +177,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -199,7 +192,7 @@
     "picket": "ПК1",
     "corridor": "Восток",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 69.6,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -210,7 +203,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -226,7 +218,7 @@
     "picket": "ПК10",
     "corridor": "Восток",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -237,7 +229,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -253,7 +244,7 @@
     "picket": "ПК33",
     "corridor": "Садовое кольцо",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -264,7 +255,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -280,7 +270,7 @@
     "picket": "ПК27",
     "corridor": "ЦАО-ЮЗ",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -291,7 +281,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -307,7 +296,7 @@
     "picket": "ПК46",
     "corridor": "Садовое кольцо",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -318,7 +307,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ЧЕРНОВИК",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -334,7 +322,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 0.1,
+    "failure_risk_percent": 0.4,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -345,7 +333,6 @@
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "ВЫПОЛНЕН",
     "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0,
     "created_by": "ДИСП-0001",
     "created_by_name": "Демо-диспетчер (публичный стенд)",
     "authorization_standard": "Local dispatcher account authorization"
@@ -361,7 +348,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 75.0,
+    "failure_risk_percent": 0.4,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -371,8 +358,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), План ППР",
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1011",
@@ -385,7 +371,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 75.0,
+    "failure_risk_percent": 0.4,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -395,8 +381,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), План ППР",
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1010",
@@ -409,7 +394,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 75.0,
+    "failure_risk_percent": 0.4,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -419,8 +404,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), План ППР",
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1009",
@@ -433,7 +417,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 75.0,
+    "failure_risk_percent": 0.4,
     "required_materials": [
       "ЗИП датчика",
       "Монтажный комплект",
@@ -443,8 +427,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), План ППР",
     "assigned_team": "Оперативная бригада ОДС Москоллектор",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1001",
@@ -457,7 +440,7 @@
     "picket": "ПК13",
     "corridor": "Садовое кольцо",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 68.5,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -467,8 +450,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "ЧЕРНОВИК",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1002",
@@ -481,7 +463,7 @@
     "picket": "ПК27",
     "corridor": "ЦАО-ЮЗ",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -491,8 +473,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "НАЗНАЧЕН",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1003",
@@ -505,7 +486,7 @@
     "picket": "ПК33",
     "corridor": "Садовое кольцо",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -515,8 +496,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "НАЗНАЧЕН",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1004",
@@ -529,7 +509,7 @@
     "picket": "ПК10",
     "corridor": "Восток",
     "priority": "ВЫСОКИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -539,8 +519,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "НАЗНАЧЕН",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1005",
@@ -553,7 +532,7 @@
     "picket": "ПК1",
     "corridor": "Восток",
     "priority": "СРЕДНИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 69.6,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -563,8 +542,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1006",
@@ -577,7 +555,7 @@
     "picket": "ПК1",
     "corridor": "ЦАО-ЮЗ",
     "priority": "СРЕДНИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -587,8 +565,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1007",
@@ -601,7 +578,7 @@
     "picket": "ПК1",
     "corridor": "Юг",
     "priority": "СРЕДНИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 69.6,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -611,8 +588,7 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   },
   {
     "ticket_id": "З-ТО-202609-1008",
@@ -625,7 +601,7 @@
     "picket": "ПК46",
     "corridor": "Садовое кольцо",
     "priority": "СРЕДНИЙ",
-    "failure_risk_percent": 99.8,
+    "failure_risk_percent": 70.7,
     "required_materials": [
       "Комплект диагностических разъемов",
       "Прибор контроля изоляции Ф4106",
@@ -635,7 +611,6 @@
     "regulation_reference": "Регламент технической эксплуатации коммуникационных коллекторов (Р ТЭК), Разд. 4 (ППР систем телемеханики)",
     "assigned_team": "Линейная бригада ОДС",
     "status": "В_РАБОТЕ",
-    "estimated_cost_rub": 3200.0,
-    "saved_opex_rub": 15300.0
+    "estimated_cost_rub": 3200.0
   }
 ]

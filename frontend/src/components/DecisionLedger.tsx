@@ -109,7 +109,9 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
               <th className="py-2.5 px-3 font-medium">Канал</th>
               <th className="py-2.5 px-3 font-medium">Решение</th>
               <th className="py-2.5 px-3 font-medium">Диспетчер</th>
-              <th className="py-2.5 px-3 font-medium text-right">Сумма</th>
+              <th className="py-2.5 px-3 font-medium text-right" title="Стоимость экстренного выезда по нормативу; не подтверждённая экономия">
+                Норматив вызова
+              </th>
               <th className="py-2.5 px-3 font-medium">Хеш блока</th>
             </tr>
           </thead>
@@ -148,7 +150,11 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-right num font-semibold" style={{ color: 'var(--muted)' }}>
+                    <td
+                      className="py-2.5 px-3 text-right num font-semibold"
+                      style={{ color: 'var(--muted)' }}
+                      title="Стоимость экстренного выезда по нормативу; не подтверждённая экономия"
+                    >
                       {rec.avoided_cost_rub ? `${rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽` : '—'}
                     </td>
                     <td className="py-2.5 px-3 num font-mono text-[11px]" style={{ color: 'var(--faint)' }} title={rec.record_hash}>
@@ -192,7 +198,11 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
                     Диспетчер: <span className="num text-[var(--text)]">{rec.dispatcher_badge}</span>
                   </div>
                   {rec.avoided_cost_rub ? (
-                    <div className="num font-semibold" style={{ color: 'var(--muted)' }}>
+                    <div
+                      className="num font-semibold"
+                      style={{ color: 'var(--muted)' }}
+                      title="Стоимость экстренного выезда по нормативу; не подтверждённая экономия"
+                    >
                       {rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
                     </div>
                   ) : null}
