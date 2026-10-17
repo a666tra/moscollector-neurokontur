@@ -6,9 +6,13 @@ import tempfile
 import threading
 from copy import deepcopy
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import List, Dict, Optional, Any
 from backend.app.core.config import settings
 from backend.app.services.data_service import data_service
+from backend.app.api.settings import get_current_settings
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 DB_PATH = os.path.join(settings.DATA_DIR, "tickets_db.json")
 VALID_TICKET_PRIORITIES = {"ВЫСОКИЙ", "СРЕДНИЙ", "НИЗКИЙ"}
@@ -62,7 +66,7 @@ class MaintenanceService:
     def _init_tickets(self):
         # Seed tickets for the top critical predicted sensors
         critical_preds = [p for p in data_service.predictions if p["risk_level"] == "CRITICAL"][:8]
-        now = datetime.now()
+        now = datetime.now(MOSCOW_TZ)
 
         for idx, pred in enumerate(critical_preds):
             cid = pred["channel_id"]
@@ -113,7 +117,7 @@ class MaintenanceService:
                 "regulation_reference": f"{settings.REGULATION_NAME}, Разд. 4 (ППР систем телемеханики)",
                 "assigned_team": team,
                 "status": "ЧЕРНОВИК" if idx == 0 else ("НАЗНАЧЕН" if idx < 4 else "В_РАБОТЕ"),
-                "estimated_cost_rub": settings.PREVENTIVE_MAINTENANCE_COST_RUB
+                "estimated_cost_rub": get_current_settings().preventive_cost_rub
             })
 
     def get_tickets(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -202,7 +206,7 @@ class MaintenanceService:
         coords = data_service.object_coords.get(oid, {})
         stype = s_info.get("sensor_type", "Датчик СМВУ")
 
-        now = datetime.now()
+        now = datetime.now(MOSCOW_TZ)
         ticket_id = (
             f"SIM-ТО-{now.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8].upper()}"
             if simulation_only
@@ -232,7 +236,7 @@ class MaintenanceService:
             "regulation_reference": f"{settings.REGULATION_NAME}, План ППР",
             "assigned_team": "Оперативная бригада ОДС Москоллектор",
             "status": "ЧЕРНОВИК",
-            "estimated_cost_rub": settings.PREVENTIVE_MAINTENANCE_COST_RUB,
+            "estimated_cost_rub": get_current_settings().preventive_cost_rub,
             "created_by": dispatcher_badge,
             "created_by_name": dispatcher_name,
             "authorization_standard": "Local dispatcher account authorization"

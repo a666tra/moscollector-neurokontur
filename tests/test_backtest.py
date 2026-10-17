@@ -71,6 +71,7 @@ def test_public_demo_dispatcher_from_env(monkeypatch, tmp_path):
 
 
 def test_pin_lockout_after_repeated_failures(monkeypatch, tmp_path):
+    import hashlib
     import pytest
     from backend.app.services import ml_service as mod
     monkeypatch.setattr(mod, 'AUTH_DISPATCHERS_PATH', str(tmp_path / 'missing.json'))
@@ -78,12 +79,36 @@ def test_pin_lockout_after_repeated_failures(monkeypatch, tmp_path):
     svc = mod.ml_service
     svc.load_authorized_dispatchers()
     svc._pin_failures.clear()
+
+    # Add a temporary non-demo dispatcher (in-memory, no disk change)
+    salt = b"\x01" * 16
+    digest = hashlib.pbkdf2_hmac("sha256", b"654321", salt, mod.PIN_HASH_ITERATIONS, dklen=mod.PIN_HASH_BYTES)
+    non_demo_badge = "ДИСП-0002"
+    svc.authorized_dispatchers[non_demo_badge] = {
+        "badge": non_demo_badge,
+        "full_name": "Тестовый Не-Демо Диспетчер",
+        "role": "Инженер",
+        "clearance_level": 2,
+        "pin_hash": f"{mod.PIN_HASH_SCHEME}${mod.PIN_HASH_ITERATIONS}${salt.hex()}${digest.hex()}",
+        "can_confirm_false_alarm": True,
+        "can_force_dispatch": True,
+    }
+
     try:
+        # 1. Public demo badge ('ДИСП-0001') is NOT lockable by anonymous visitors
+        for _ in range(mod.MAX_PIN_FAILURES + 2):
+            with pytest.raises(mod.DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
+                svc.authenticate_dispatcher('ДИСП-0001', '000000')
+        # Correct PIN still works immediately for demo badge
+        b, _ = svc.authenticate_dispatcher('ДИСП-0001', '246810')
+        assert b == 'ДИСП-0001'
+
+        # 2. Non-demo badge ('ДИСП-0002') locks out after repeated failures
         for _ in range(mod.MAX_PIN_FAILURES):
             with pytest.raises(mod.DispatcherAuthenticationError):
-                svc.authenticate_dispatcher('ДИСП-0001', '000000')
+                svc.authenticate_dispatcher(non_demo_badge, '000000')
         with pytest.raises(mod.DispatcherAuthenticationError, match='Слишком много'):
-            svc.authenticate_dispatcher('ДИСП-0001', '246810')   # even the right PIN is refused while locked
+            svc.authenticate_dispatcher(non_demo_badge, '654321')  # right PIN refused while locked
     finally:
         svc._pin_failures.clear()
         monkeypatch.delenv('LCT_DEMO_DISPATCHER_PIN')

@@ -1299,4 +1299,113 @@ def test_ticket_id_uniqueness_after_cleanup():
     assert int(new_suffix_match.group(1)) == max_suffix + 1
 
 
+def test_notes_max_length_validation():
+    badge, pin = require_dispatcher_credentials()
+    ok_notes = "A" * 500
+    res_ticket_ok = client.post("/api/tickets/generate", json={
+        "channel_id": "120504",
+        "priority": "ВЫСОКИЙ",
+        "notes": ok_notes,
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+    })
+    assert res_ticket_ok.status_code == 200
+
+    too_long_notes = "A" * 501
+    res_ticket_fail = client.post("/api/tickets/generate", json={
+        "channel_id": "120504",
+        "priority": "ВЫСОКИЙ",
+        "notes": too_long_notes,
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+    })
+    assert res_ticket_fail.status_code == 422
+
+    res_alarm_ok = client.post("/api/alarms/confirm", json={
+        "channel_id": "120578",
+        "decision": "CONFIRM_FALSE_ALARM",
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+        "notes": ok_notes,
+    })
+    assert res_alarm_ok.status_code == 200
+
+    res_alarm_fail = client.post("/api/alarms/confirm", json={
+        "channel_id": "120578",
+        "decision": "CONFIRM_FALSE_ALARM",
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+        "notes": too_long_notes,
+    })
+    assert res_alarm_fail.status_code == 422
+
+
+def test_ticket_planned_cost_uses_settings():
+    from backend.app.api.settings import get_current_settings
+    badge, pin = require_dispatcher_credentials()
+    cfg = get_current_settings()
+    orig_cost = cfg.preventive_cost_rub
+    try:
+        cfg.preventive_cost_rub = 4850.0
+        res = client.post("/api/tickets/generate", json={
+            "channel_id": "120504",
+            "priority": "ВЫСОКИЙ",
+            "notes": "Проверка динамической стоимости ТО",
+            "dispatcher_badge": badge,
+            "dispatcher_pin": pin,
+        })
+        assert res.status_code == 200
+        ticket = res.json()
+        assert ticket["estimated_cost_rub"] == 4850.0
+    finally:
+        cfg.preventive_cost_rub = orig_cost
+
+
+def test_calibrated_object_risk_distribution_and_stats():
+    res_obj = client.get("/api/objects")
+    assert res_obj.status_code == 200
+    objects = res_obj.json()
+    assert len(objects) == 95
+
+    crit_objs = [o for o in objects if o["risk_level"] == "CRITICAL"]
+    assert 8 <= len(crit_objs) <= 15
+    assert len(crit_objs) == 11
+
+    res_stats = client.get("/api/stats/summary")
+    assert res_stats.status_code == 200
+    data_stats = res_stats.json()
+    assert data_stats["critical_sensors_count"] == 11
+
+
+def test_moscow_timezone_and_server_header():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    badge, pin = require_dispatcher_credentials()
+
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert "X-Server-Time" in res.headers
+
+    header_time_str = res.headers["X-Server-Time"]
+    header_dt = datetime.fromisoformat(header_time_str)
+    assert header_dt.tzinfo is not None
+    assert header_dt.utcoffset().total_seconds() == 10800
+
+    now_msk = datetime.now(ZoneInfo("Europe/Moscow"))
+    res_ticket = client.post("/api/tickets/generate", json={
+        "channel_id": "120504",
+        "priority": "ВЫСОКИЙ",
+        "notes": "Проверка временной зоны Москва",
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+    })
+    assert res_ticket.status_code == 200
+    ticket_created_at = res_ticket.json()["created_at"]
+    assert ticket_created_at.startswith(now_msk.strftime("%Y-%m-%d"))
+
+    audit_verify = client.get("/api/alarms/audit/verify").json()
+    assert audit_verify["is_valid"] is True
+    assert "verified_at" in audit_verify
+
+
 

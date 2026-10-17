@@ -1,8 +1,12 @@
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 from backend.app.core.config import settings
 from backend.app.api.stats import router as stats_router
@@ -35,6 +39,12 @@ if _cors_origins:
         allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["Content-Type"],
     )
+
+@app.middleware("http")
+async def add_server_time_header(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Server-Time"] = datetime.now(MOSCOW_TZ).isoformat()
+    return response
 
 # API Routers
 app.include_router(stats_router, prefix="/api/stats", tags=["Статистика и KPI"])
@@ -73,6 +83,7 @@ def health_check():
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "build": get_build_info(),
+        "server_time": datetime.now(MOSCOW_TZ).isoformat(),
         "data_snapshot_date": get_data_snapshot_date(),
         "monitored_infrastructure": f"{settings.TOTAL_COLLECTOR_KM} км коллекторов Москвы",
         "inference_engine": "LightGBM Classifier + Rule Engine",

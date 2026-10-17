@@ -10,10 +10,13 @@ import tempfile
 import joblib
 import numpy as np
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, List
 from backend.app.core.config import settings
 from backend.app.services.data_service import data_service
 from backend.app.api.settings import get_current_settings
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 CONFIRMED_ALARMS_PATH = os.environ.get(
     "LCT_CONFIRMED_ALARMS_PATH",
@@ -221,16 +224,20 @@ class MLService:
                 "Отказ в аутентификации: табельный номер не зарегистрирован."
             )
 
+        is_demo_badge = bool(
+            self.public_demo_credentials and badge == self.public_demo_credentials.get("badge")
+        )
         lockout_key = badge
         now = time.time()
-        with self._pin_failures_lock:
-            recent = [t for t in self._pin_failures.get(lockout_key, []) if now - t < PIN_LOCKOUT_SECONDS]
-            self._pin_failures[lockout_key] = recent
-        if len(recent) >= MAX_PIN_FAILURES:
-            wait = int(PIN_LOCKOUT_SECONDS - (now - recent[0])) + 1
-            raise DispatcherAuthenticationError(
-                f"Слишком много неверных попыток PIN. Повторите через {wait} с."
-            )
+        if not is_demo_badge:
+            with self._pin_failures_lock:
+                recent = [t for t in self._pin_failures.get(lockout_key, []) if now - t < PIN_LOCKOUT_SECONDS]
+                self._pin_failures[lockout_key] = recent
+            if len(recent) >= MAX_PIN_FAILURES:
+                wait = int(PIN_LOCKOUT_SECONDS - (now - recent[0])) + 1
+                raise DispatcherAuthenticationError(
+                    f"Слишком много неверных попыток PIN. Повторите через {wait} с."
+                )
 
         pin = (dispatcher_pin or "").strip()
         stored_hash = dispatcher.get("pin_hash")
@@ -238,13 +245,15 @@ class MLService:
             not re.fullmatch(r"\d{6}", pin)
             or not self._verify_pin(pin, stored_hash)
         ):
-            with self._pin_failures_lock:
-                self._pin_failures.setdefault(lockout_key, []).append(now)
+            if not is_demo_badge:
+                with self._pin_failures_lock:
+                    self._pin_failures.setdefault(lockout_key, []).append(now)
             raise DispatcherAuthenticationError(
                 "Отказ в аутентификации: неверный badge или 6-значный PIN-код."
             )
-        with self._pin_failures_lock:
-            self._pin_failures.pop(lockout_key, None)
+        if not is_demo_badge:
+            with self._pin_failures_lock:
+                self._pin_failures.pop(lockout_key, None)
 
         clearance = dispatcher.get("clearance_level")
         if type(min_clearance_level) is not int or min_clearance_level not in (1, 2, 3):
@@ -662,7 +671,7 @@ class MLService:
     ) -> Dict[str, Any]:
         """Confirm a dispatcher decision after badge/PIN checks and RBAC validation."""
         active_settings = get_current_settings()
-        now = datetime.now()
+        now = datetime.now(MOSCOW_TZ)
 
         # Enforce strict decision enum
         if decision not in ("CONFIRM_FALSE_ALARM", "FORCE_DISPATCH"):
@@ -767,7 +776,7 @@ class MLService:
                 "head_hash": "0" * 64,
                 "tamper_detected": False,
                 "standard": "SHA-256 hash chain; integrity check only, no digital signature",
-                "verified_at": datetime.now().isoformat(),
+                "verified_at": datetime.now(MOSCOW_TZ).isoformat(),
                 "details": []
             }
 
@@ -818,7 +827,7 @@ class MLService:
             "head_hash": head_hash,
             "tamper_detected": not is_valid,
             "standard": "SHA-256 hash chain; integrity check only, no digital signature",
-            "verified_at": datetime.now().isoformat(),
+            "verified_at": datetime.now(MOSCOW_TZ).isoformat(),
             "details": details
         }
 

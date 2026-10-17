@@ -98,7 +98,7 @@ class AlarmConfirmationRequest(BaseModel):
     )
     dispatcher_badge: str = Field(..., pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$", description="Табельный номер диспетчера ОДС (формат ДИСП-XXXX)")
     dispatcher_pin: str = Field(..., pattern=r"^\d{6}$", description="Персональный 6-значный PIN-код диспетчера ОДС для подтверждения решения")
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500, description="Заметки/обоснование решения диспетчера")
 
 class DispatcherSessionRequest(BaseModel):
     dispatcher_badge: str = Field(..., pattern=r"^(ДИСП-\d{4}|\d{4}-ОДС)$")
@@ -209,7 +209,7 @@ TicketStatus = Literal["ЧЕРНОВИК", "НАЗНАЧЕН", "В_РАБОТЕ"
 class CreateTicketRequest(BaseModel):
     channel_id: str = Field(..., min_length=1, max_length=32, pattern=r"^\d+$")
     priority: TicketPriority = "ВЫСОКИЙ"
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500, description="Дополнительные примечания к заявке")
     dispatcher_badge: Optional[str] = Field(None, min_length=1, max_length=32, description="Табельный номер диспетчера ОДС")
     dispatcher_pin: Optional[str] = Field(None, pattern=r"^\d{6}$", description="6-значный PIN-код диспетчера ОДС")
 
@@ -232,7 +232,10 @@ class SystemStatsResponse(BaseModel):
     false_alarms_filtered_ratio: Optional[float] = Field(None, description="Доля отсева на подтверждённой выборке; null, пока журнал исходов заказчика недоступен")
     financial_evidence_status: str = "SCENARIO_ONLY_NO_VERIFIED_SAVINGS"
     tickets_count: int
-    critical_sensors_count: int
+    critical_sensors_count: int = Field(
+        ...,
+        description="Количество критических датчиков с калиброванной вероятностью calibrated_proxy_probability >= 0.60 (по калиброванному правилу для объектов)"
+    )
     confirmed_false_alarms_count: int
     methodology: str
     inference_latency_ms: float

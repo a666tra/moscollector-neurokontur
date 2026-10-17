@@ -15,8 +15,10 @@ def get_system_stats():
     bench = rep.get("performance_benchmark", {})
     
     cfg = get_current_settings()
-    thresh = cfg.decision_threshold
-    critical_cnt = sum(1 for p in data_service.predictions if p["failure_probability"] >= 0.70)
+    critical_cnt = sum(
+        1 for p in data_service.predictions
+        if (p.get("calibrated_proxy_probability") if p.get("calibrated_proxy_probability") is not None else p.get("failure_probability", 0.0)) >= 0.60
+    )
 
     return SystemStatsResponse(
         monitored_km=settings.TOTAL_COLLECTOR_KM,

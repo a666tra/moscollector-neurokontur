@@ -5,6 +5,7 @@ import random
 from backend.app.services.data_service import data_service
 from backend.app.services.ml_service import ml_service
 from backend.app.services.maintenance_service import maintenance_service
+from backend.app.api.settings import get_current_settings
 
 router = APIRouter()
 
@@ -137,7 +138,8 @@ def run_simulation_step(req: SimulationScenarioRequest, request: Request):
         explanation = "Смоделирована деградация цепи питания. Сформирован демонстрационный наряд; рабочий реестр не изменён."
         verdict = "SENSOR_DEGRADATION"
         alarm = True
-        scenario_potential_rub = 15300.0
+        cfg = get_current_settings()
+        scenario_potential_rub = max(0.0, cfg.callout_cost_rub - cfg.preventive_cost_rub)
 
     else:
         val = "Норма"

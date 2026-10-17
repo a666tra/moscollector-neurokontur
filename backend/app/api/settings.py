@@ -17,8 +17,8 @@ class SystemSettingsSchema(BaseModel):
     gas_warning_threshold_vol_pct: float = Field(1.0, ge=0.1, le=10.0, description="Порог предупредительной загазованности (% об.)")
     callout_cost_rub: float = Field(18500.0, ge=1000.0, description="Стоимость экстренного выезда бригады ОДС (руб)")
     preventive_cost_rub: float = Field(3200.0, ge=500.0, description="Стоимость планового ТО/ППР (руб)")
-    require_dispatcher_confirmation: bool = Field(True, description="Требовать подтверждение диспетчера в локальном демо")
-    auto_suppress_chatter: bool = Field(False, description="Автоматическая блокировка (запрещено по технике безопасности ОДС)")
+    require_dispatcher_confirmation: bool = Field(True, description="зарезервировано, на расчёты не влияет")
+    auto_suppress_chatter: bool = Field(False, description="зарезервировано, на расчёты не влияет")
     selected_model: str = Field("champion_lightgbm", description="Активная модель: champion_lightgbm, logistic_regression, random_forest")
 
 def load_settings_from_disk() -> Dict[str, Any]:
