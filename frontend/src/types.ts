@@ -23,8 +23,6 @@ export interface SystemStats {
   prediction_horizon_hours: number;
   inference_sla_seconds: number;
   false_alarms_filtered_ratio: number | null;
-  total_saved_opex_rub: number;
-  annual_projected_opex_rub: number;
   financial_evidence_status?: string;
   tickets_count: number;
   critical_sensors_count: number;
@@ -172,7 +170,6 @@ export interface MaintenanceTicket {
   assigned_team: string;
   status: 'ЧЕРНОВИК' | 'НАЗНАЧЕН' | 'В_РАБОТЕ' | 'ВЫПОЛНЕН';
   estimated_cost_rub: number;
-  saved_opex_rub: number;
 }
 
 export interface SimulationResult {

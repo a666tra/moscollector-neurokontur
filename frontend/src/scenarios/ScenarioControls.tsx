@@ -67,8 +67,8 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
 
           {/* Seed Input */}
           <div className="flex items-center gap-2">
-            <label htmlFor="scenario-seed-input" className="text-xs font-medium" style={{ color: 'var(--mut)' }}>
-              Seed:
+            <label htmlFor="scenario-seed-input" className="text-xs font-medium whitespace-nowrap" style={{ color: 'var(--mut)' }}>
+              Номер прогона (seed):
             </label>
             <input
               id="scenario-seed-input"
@@ -83,7 +83,7 @@ export const ScenarioControls: React.FC<ScenarioControlsProps> = ({
                 !isValidSeed ? 'border-red-500 text-red-600' : ''
               }`}
               style={{ background: 'var(--sf2)', borderColor: isValidSeed ? 'var(--ln)' : 'var(--cr)' }}
-              aria-label="Случайное зерно (seed) от 0 до 10000"
+              aria-label="Номер прогона (seed) от 0 до 10000"
               aria-invalid={!isValidSeed}
             />
             {!isValidSeed && (

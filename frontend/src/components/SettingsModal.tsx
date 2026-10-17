@@ -110,106 +110,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         {/* Form Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 scroll-thin">
           {/* 1. Model Architecture */}
-          <div className="space-y-3 p-4 rounded-xl border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-semibold">
-                <Cpu className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-                <span>Архитектура активной модели:</span>
-              </div>
-              <span className="chip" style={{ background: 'var(--surface-3)', color: 'var(--accent-text)' }}>
-                {settings.selected_model === 'logistic_regression'
-                  ? 'Logistic Regression'
-                  : settings.selected_model === 'random_forest'
-                    ? 'Random Forest'
-                    : 'Champion (LightGBM)'}
-              </span>
+          <div className="p-4 rounded-xl border flex items-center justify-between" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <Cpu className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
+              <span>Модель: LightGBM (чемпион)</span>
             </div>
-
-            <div className="space-y-2">
-              <label
-                className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
-                style={{
-                  background: settings.selected_model === 'champion_lightgbm' || !settings.selected_model ? 'var(--accent-soft)' : 'var(--bg)',
-                  borderColor: settings.selected_model === 'champion_lightgbm' || !settings.selected_model ? 'var(--accent)' : 'var(--line)',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="selected_model"
-                  value="champion_lightgbm"
-                  checked={settings.selected_model === 'champion_lightgbm' || !settings.selected_model}
-                  onChange={() => setSettings({ ...settings, selected_model: 'champion_lightgbm' })}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-xs">LightGBM Classifier (Champion)</span>
-                    <span
-                      className="num text-xs font-medium"
-                      style={{ color: 'var(--accent-text)' }}
-                      title="Hold-out (отложенная выборка)"
-                    >
-                      ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '…'} (отложенная выборка)
-                    </span>
-                  </div>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                    Градиентный бустинг по инженерным признакам. Оптимальный баланс охвата и скорости.
-                  </p>
-                </div>
-              </label>
-
-              <label
-                className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
-                style={{
-                  background: settings.selected_model === 'logistic_regression' ? 'var(--accent-soft)' : 'var(--bg)',
-                  borderColor: settings.selected_model === 'logistic_regression' ? 'var(--accent)' : 'var(--line)',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="selected_model"
-                  value="logistic_regression"
-                  checked={settings.selected_model === 'logistic_regression'}
-                  onChange={() => setSettings({ ...settings, selected_model: 'logistic_regression' })}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-xs">Logistic Regression (Balanced L2)</span>
-                    <span className="num text-xs font-medium" style={{ color: 'var(--attn)' }}>Recall 67.8%</span>
-                  </div>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                    Максимальная полнота обнаружения предаварийных состояний при индивидуальном пороге.
-                  </p>
-                </div>
-              </label>
-
-              <label
-                className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
-                style={{
-                  background: settings.selected_model === 'random_forest' ? 'var(--accent-soft)' : 'var(--bg)',
-                  borderColor: settings.selected_model === 'random_forest' ? 'var(--accent)' : 'var(--line)',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="selected_model"
-                  value="random_forest"
-                  checked={settings.selected_model === 'random_forest'}
-                  onChange={() => setSettings({ ...settings, selected_model: 'random_forest' })}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-xs">Random Forest (100 деревьев)</span>
-                    <span className="num text-xs font-medium" style={{ color: 'var(--warn)' }}>Precision 45.0%</span>
-                  </div>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                    Ансамбль деревьев решений для консервативной фильтрации нарядов с высокой точностью.
-                  </p>
-                </div>
-              </label>
-            </div>
+            <span
+              className="num text-xs font-medium"
+              style={{ color: 'var(--accent-text)' }}
+              title="Hold-out (отложенная выборка)"
+            >
+              ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '…'} (отложенная выборка)
+            </span>
           </div>
 
           {/* 2. Threshold tau */}

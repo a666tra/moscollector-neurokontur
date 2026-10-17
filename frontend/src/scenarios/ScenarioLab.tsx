@@ -71,8 +71,10 @@ export const ScenarioLab: React.FC = () => {
         json: { mode, seed: parsedSeed },
       });
       setResult(res);
+      const alertsTotal = res.summary?.alerts_total ?? res.summary?.alerts_count?.total ?? res.incident_list?.length ?? 0;
+      const incidentsTotal = res.summary?.incidents ?? res.summary?.alerts_count?.incidents ?? 0;
       toast(
-        `Сценарии успешно рассчитаны за ${res.elapsed_seconds.toFixed(2)} с (${res.incident_list.length} инцидентов)`,
+        `Сценарии успешно рассчитаны за ${res.elapsed_seconds.toFixed(2)} с (${alertsTotal} оповещений, ${incidentsTotal} инцидентов)`,
         'success'
       );
     } catch (err: any) {

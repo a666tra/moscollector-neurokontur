@@ -119,10 +119,8 @@ ${ticket.required_materials.map(m => ` - ${m}`).join('\n')}
 ОТВЕТСТВЕННАЯ БРИГАДА:
 ${ticket.assigned_team}
 
-СЦЕНАРНАЯ ОЦЕНКА ЗАТРАТ:
+ОЦЕНКА ЗАТРАТ:
 Расчетная стоимость ТО: ${ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
-Сценарная экономия на аварийном выезде: ${(ticket.estimated_cost_rub + ticket.saved_opex_rub).toLocaleString('ru-RU')} ₽
-Сценарная разница затрат: ${ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
 ================================================================================
     `.trim();
 
@@ -152,7 +150,6 @@ ${ticket.assigned_team}
     });
   }, [tickets, statusFilter, priorityFilter, searchQuery]);
 
-  const totalSaved = tickets.reduce((acc, t) => acc + (t.saved_opex_rub || 0), 0);
   const activeCount = tickets.filter(t => t.status === 'НАЗНАЧЕН' || t.status === 'В_РАБОТЕ').length;
   const completedCount = tickets.filter(t => t.status === 'ВЫПОЛНЕН').length;
 
@@ -183,7 +180,7 @@ ${ticket.assigned_team}
       </div>
 
       {/* KPI Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="panel p-3.5 space-y-1">
           <div className="text-xs" style={{ color: 'var(--muted)' }}>Всего нарядов</div>
           <div className="num text-2xl font-bold">{tickets.length}</div>
@@ -200,14 +197,6 @@ ${ticket.assigned_team}
           <div className="text-xs" style={{ color: 'var(--muted)' }}>Выполнено</div>
           <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>{completedCount}</div>
           <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Завершенные наряды</div>
-        </div>
-
-        <div className="panel p-3.5 space-y-1">
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>Сценарная экономия</div>
-          <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>
-            {(totalSaved / 1000).toFixed(1)} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>тыс ₽</span>
-          </div>
-          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>Сценарная разница затрат</div>
         </div>
       </div>
 
@@ -318,8 +307,8 @@ ${ticket.assigned_team}
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="num font-bold text-sm" style={{ color: 'var(--ok)' }}>
-                        +{ticket.saved_opex_rub.toLocaleString('ru-RU')} ₽
+                      <div className="num font-semibold text-xs" style={{ color: 'var(--ink)' }}>
+                        ТО: {ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
                       </div>
                       <div className="num text-[11px]" style={{ color: 'var(--muted)' }}>
                         Риск: {riskPercent}%

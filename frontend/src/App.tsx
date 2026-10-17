@@ -126,16 +126,38 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
   const [objects, setObjects] = useState<ObjectItem[]>([]);
   const [predictions, setPredictions] = useState<PredictionItem[]>([]);
   const [confirmed, setConfirmed] = useState<ConfirmedAlarmItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).has('settings'));
   const [toolsOpen, setToolsOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const get = (u: string) => fetch(u).then(r => (r.ok ? r.json() : null)).catch(() => null);
-    const [obj, pred, conf] = await Promise.all([get('/api/objects'), get('/api/predictions?limit=500'), get('/api/alarms/confirmed')]);
-    if (obj) setObjects(obj);
-    if (pred) setPredictions(pred.items || []);
-    if (conf) setConfirmed(conf);
+    setLoading(true);
+    setError(null);
+    try {
+      const get = async (u: string) => {
+        const res = await fetch(u);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      };
+      const [obj, pred, conf, health] = await Promise.all([
+        get('/api/objects'),
+        get('/api/predictions?limit=500'),
+        get('/api/alarms/confirmed'),
+        fetch('/api/health').then(r => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+      if (obj) setObjects(obj);
+      if (pred) setPredictions(pred.items || []);
+      if (conf) setConfirmed(conf);
+      if (health?.data_snapshot_date) setSnapshotDate(health.data_snapshot_date);
+    } catch (err: any) {
+      console.error('Failed to load data:', err);
+      setError('Не удалось загрузить данные');
+    } finally {
+      setLoading(false);
+    }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -143,8 +165,15 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
     setToolsOpen(false);
     if (id === 'settings') setSettingsOpen(true); else setTool(id as Tool);
   };
-  const now = new Date();
-  const stamp = `${now.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}, ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+  const formatSnapshotDate = (raw?: string | null): string | null => {
+    if (!raw) return null;
+    const parts = raw.split('-');
+    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    return raw;
+  };
+  const snapshotFormatted = formatSnapshotDate(snapshotDate);
+  const clockText = snapshotFormatted ? `данные до ${snapshotFormatted} · прогноз на 1–3 дня` : 'прогноз на 1–3 дня';
+  const clockTooltip = 'Дата, до которой построены признаки модели в стенде';
 
   const isTech = role === 'tech';
 
@@ -169,7 +198,10 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               );
             })}
           </nav>
-          <button onClick={onExit} className="ml-auto text-sm underline transition-colors" style={{ color: 'var(--mut)' }}>
+          <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline cursor-help" style={{ color: 'var(--mut)' }} title={clockTooltip}>
+            {clockText}
+          </span>
+          <button onClick={onExit} className="text-sm underline transition-colors" style={{ color: 'var(--mut)' }}>
             Сменить роль
           </button>
           <ThemeButton />
@@ -189,7 +221,9 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               );
             })}
           </nav>
-          <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline" style={{ color: 'var(--mut)' }}>{stamp} · прогноз на 1–3 дня</span>
+          <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline cursor-help" style={{ color: 'var(--mut)' }} title={clockTooltip}>
+            {clockText}
+          </span>
           <ToolsMenu open={toolsOpen} setOpen={setToolsOpen} onPick={openTool} />
           <ThemeButton />
           <ShiftButton />
@@ -220,12 +254,30 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
       )}
 
       <main className="flex-1 min-h-0 relative pb-16 lg:pb-0 overflow-x-hidden">
-        {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 pt-20 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
-        {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={() => setView('tickets')} />}
-        {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
-        {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets onRefreshStats={load} /></div></div>}
-        {view === 'quality' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
-        {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
+        {loading && objects.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+            <div className="w-9 h-9 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ac)', borderTopColor: 'transparent' }} />
+            <span className="text-[15px] font-medium" style={{ color: 'var(--mut)' }}>Загружаем данные…</span>
+          </div>
+        ) : error ? (
+          <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+            <div className="p-5 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm max-w-md w-full" style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}>
+              <span className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>Не удалось загрузить данные</span>
+              <button onClick={load} className="btn btn-primary px-4 py-2 text-xs font-semibold shrink-0">
+                Повторить
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 pt-20 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
+            {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={() => setView('tickets')} />}
+            {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
+            {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets onRefreshStats={load} /></div></div>}
+            {view === 'quality' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
+            {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
+          </>
+        )}
       </main>
 
       {/* mobile bottom nav */}

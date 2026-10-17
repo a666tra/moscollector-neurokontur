@@ -73,7 +73,6 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
   const totalEvents = history.length;
   const falseAlarmsCount = history.filter(h => h.ml_verdict === 'FALSE_ALARM').length;
   const ticketsCreatedCount = history.filter(h => h.ticket_created).length;
-  const totalSaved = history.reduce((sum, h) => sum + (h.scenario_potential_rub || 0), 0);
 
   return (
     <div className="space-y-5 max-w-[920px]">
@@ -211,7 +210,7 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
       </div>
 
       {/* KPI Tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="panel p-3 space-y-1">
           <div className="text-xs" style={{ color: 'var(--muted)' }}>Событий в сессии</div>
           <div className="num text-2xl font-bold">{totalEvents}</div>
@@ -230,14 +229,6 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
           <div className="text-xs" style={{ color: 'var(--muted)' }}>Сформировано нарядов</div>
           <div className="num text-2xl font-bold" style={{ color: 'var(--warn)' }}>{ticketsCreatedCount}</div>
           <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Заявок в реестре</div>
-        </div>
-
-        <div className="panel p-3 space-y-1">
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>Сценарный потенциал</div>
-          <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>
-            {totalSaved.toLocaleString('ru-RU')} ₽
-          </div>
-          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>Сценарная экономия</div>
         </div>
       </div>
 
@@ -315,18 +306,13 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
                       <span className="font-medium text-[var(--text)]">{step.object_name}</span>: {step.explanation}
                     </div>
 
-                    <div className="flex items-center gap-3 num text-xs">
-                      {step.ticket_created && (
+                    {step.ticket_created && (
+                      <div className="flex items-center gap-3 num text-xs">
                         <span className="flex items-center gap-1 font-semibold" style={{ color: 'var(--warn)' }}>
                           <CheckCircle className="w-3.5 h-3.5" /> Наряд: {step.ticket_id}
                         </span>
-                      )}
-                      {(step.scenario_potential_rub || 0) > 0 && (
-                        <span className="font-semibold" style={{ color: 'var(--ok)' }}>
-                          +{(step.scenario_potential_rub || 0).toLocaleString('ru-RU')} ₽
-                        </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

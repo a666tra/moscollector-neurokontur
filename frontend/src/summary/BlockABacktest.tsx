@@ -373,7 +373,7 @@ export const BlockABacktest: React.FC<Props> = ({ data, loading, error }) => {
             </span>
           </div>
           <div className="text-[11px]" style={{ color: 'var(--mut)' }}>
-            Медианная точность@100 по всем {stats.total} неделям
+            Медианная точность в топ-100 по всем {stats.total} неделям
           </div>
         </div>
 
@@ -669,7 +669,7 @@ export const BlockABacktest: React.FC<Props> = ({ data, loading, error }) => {
                 <th className="py-2.5 px-3 font-semibold">Вариант</th>
                 <th className="py-2.5 px-3 font-semibold text-right">Медиана ROC-AUC</th>
                 <th className="py-2.5 px-3 font-semibold text-right">Медиана PR-AUC</th>
-                <th className="py-2.5 px-3 font-semibold text-right">Медиана precision@100</th>
+                <th className="py-2.5 px-3 font-semibold text-right">Медианная точность в топ-100</th>
               </tr>
             </thead>
             <tbody className="divide-y" style={{ borderColor: 'var(--ln)' }}>

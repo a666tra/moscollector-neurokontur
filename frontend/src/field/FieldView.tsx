@@ -18,6 +18,7 @@ const RISK_WEIGHT: Record<string, number> = {
 
 export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets }) => {
   const [showNormal, setShowNormal] = useState(false);
+  const [showAllUrgent, setShowAllUrgent] = useState(false);
 
   // Group and sort highest-risk prediction for each object
   const predsByObject = useMemo(() => {
@@ -61,6 +62,14 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
 
     return { urgentObjects: urgent, normalObjects: normal };
   }, [objects]);
+
+  const isTruncated = urgentObjects.length > 10 && !showAllUrgent;
+  const displayedUrgent = isTruncated ? urgentObjects.slice(0, 10) : urgentObjects;
+  const counterText = urgentObjects.length === 0
+    ? 'Все в норме'
+    : isTruncated
+      ? `В очереди: ${urgentObjects.length} (показаны первые 10)`
+      : `В очереди: ${urgentObjects.length}`;
 
   const renderCard = (obj: ObjectItem) => {
     const highestPred = predsByObject.get(obj.object_id);
@@ -193,7 +202,7 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
               className="text-[14px] sm:text-[16px] font-semibold px-2.5 py-0.5 rounded-full border shrink-0"
               style={{ background: 'var(--sf2)', color: 'var(--mut)', borderColor: 'var(--ln)' }}
             >
-              {urgentObjects.length > 0 ? `Требуют выезда: ${urgentObjects.length}` : 'Все в норме'}
+              {counterText}
             </span>
           </div>
           <p className="text-[14px] sm:text-[16px] leading-snug" style={{ color: 'var(--mut)' }}>
@@ -214,7 +223,17 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {urgentObjects.map(renderCard)}
+            {displayedUrgent.map(renderCard)}
+            {isTruncated && (
+              <button
+                type="button"
+                onClick={() => setShowAllUrgent(true)}
+                className="w-full min-h-[48px] px-4 py-3 rounded-2xl border font-semibold text-[15px] sm:text-[16px] flex items-center justify-center gap-2 shadow-sm transition-colors hover:bg-[var(--sf2)]"
+                style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
+              >
+                Показать ещё {urgentObjects.length - 10}
+              </button>
+            )}
           </div>
         )}
 

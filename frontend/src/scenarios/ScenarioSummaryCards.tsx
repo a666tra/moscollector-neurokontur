@@ -67,7 +67,7 @@ export const ScenarioSummaryCards: React.FC<ScenarioSummaryCardsProps> = ({ data
           )}
         </div>
         <div className="text-xs pt-2 border-t" style={{ borderColor: 'var(--ln)', color: 'var(--mut)' }}>
-          Медиана упреждения до аварийного порога (МНК-наклон)
+          Медиана упреждения до аварийного порога (скорость роста)
         </div>
       </div>
 

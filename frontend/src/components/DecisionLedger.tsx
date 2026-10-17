@@ -51,8 +51,6 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
       .catch(() => {});
   }, []);
 
-  const totalAvoided = items.reduce((acc, h) => acc + (h.avoided_cost_rub || 0), 0);
-
   return (
     <section className={`panel p-4 sm:p-5 space-y-4 ${className}`}>
       {/* Header */}
@@ -90,14 +88,6 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
         </div>
 
         <div className="flex items-center gap-3 self-end sm:self-auto">
-          {totalAvoided > 0 && (
-            <div className="text-right hidden md:block">
-              <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Сценарная экономия</div>
-              <div className="num text-xs font-semibold" style={{ color: 'var(--ok)' }}>
-                +{totalAvoided.toLocaleString('ru-RU')} ₽
-              </div>
-            </div>
-          )}
           <button
             onClick={verifyChain}
             disabled={verifying}
@@ -158,8 +148,8 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-right num font-semibold" style={{ color: 'var(--ok)' }}>
-                      {rec.avoided_cost_rub ? `+${rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽` : '—'}
+                    <td className="py-2.5 px-3 text-right num font-semibold" style={{ color: 'var(--muted)' }}>
+                      {rec.avoided_cost_rub ? `${rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽` : '—'}
                     </td>
                     <td className="py-2.5 px-3 num font-mono text-[11px]" style={{ color: 'var(--faint)' }} title={rec.record_hash}>
                       {rec.record_hash ? `${rec.record_hash.substring(0, 16)}…` : 'genesis'}
@@ -202,8 +192,8 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
                     Диспетчер: <span className="num text-[var(--text)]">{rec.dispatcher_badge}</span>
                   </div>
                   {rec.avoided_cost_rub ? (
-                    <div className="num font-semibold" style={{ color: 'var(--ok)' }}>
-                      +{rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
+                    <div className="num font-semibold" style={{ color: 'var(--muted)' }}>
+                      {rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
                     </div>
                   ) : null}
                 </div>

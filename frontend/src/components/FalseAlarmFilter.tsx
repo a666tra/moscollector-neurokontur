@@ -270,9 +270,9 @@ export const FalseAlarmFilter: React.FC = () => {
               </div>
 
               <div className="p-3 rounded-lg border space-y-1" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-                <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Предотвращаемый ущерб</div>
-                <div className="num text-xl font-bold" style={{ color: 'var(--ok)' }}>
-                  +{result.avoided_callout_cost_rub.toLocaleString('ru-RU')} ₽
+                <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Норматив вызова</div>
+                <div className="num text-xl font-bold" style={{ color: 'var(--muted)' }}>
+                  {result.avoided_callout_cost_rub.toLocaleString('ru-RU')} ₽
                 </div>
               </div>
             </div>
