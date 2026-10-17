@@ -87,7 +87,10 @@ class SyntheticEvaluationResponse(BaseModel):
 @router.get("/sample", response_model=SyntheticSampleResponse, summary="Предпросмотр строк синтетического датасета")
 def get_synthetic_sample(limit: int = Query(default=20, ge=1, le=200)):
     if not CSV_PATH.exists():
-        raise HTTPException(status_code=404, detail="Синтетический датасет не найден по пути " + str(CSV_PATH))
+        raise HTTPException(
+            status_code=503,
+            detail=f"Синтетический датасет недоступен (файл sample_synthetic_telemetry.csv не найден по пути {CSV_PATH}).",
+        )
 
     rows = []
     with open(CSV_PATH, "r", encoding="utf-8") as f:
@@ -119,7 +122,10 @@ def get_synthetic_sample(limit: int = Query(default=20, ge=1, le=200)):
 @router.post("/evaluate", response_model=SyntheticEvaluationResponse, summary="Сквозная обработка и скоринг синтетического датасета")
 def evaluate_synthetic_dataset(req: SyntheticEvaluationRequest):
     if not CSV_PATH.exists():
-        raise HTTPException(status_code=404, detail="Синтетический датасет не найден")
+        raise HTTPException(
+            status_code=503,
+            detail="Синтетический датасет недоступен (файл sample_synthetic_telemetry.csv не найден).",
+        )
 
     # Валидация запрошенной ML-модели
     valid_models = {"champion_lightgbm", "logistic_regression", "random_forest"}

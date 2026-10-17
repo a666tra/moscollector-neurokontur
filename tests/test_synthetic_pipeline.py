@@ -9,11 +9,17 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from backend.app.main import app
-from backend.app.api.synthetic import filter_debounce_events
+from backend.app.api.synthetic import filter_debounce_events, CSV_PATH
 
 client = TestClient(app)
 
+requires_synthetic_dataset = pytest.mark.skipif(
+    not CSV_PATH.exists(),
+    reason="Синтетический датасет sample_synthetic_telemetry.csv отсутствует"
+)
 
+
+@requires_synthetic_dataset
 def test_synthetic_sample_endpoint():
     response = client.get("/api/synthetic/sample?limit=25")
     assert response.status_code == 200
@@ -34,6 +40,7 @@ def test_synthetic_sample_endpoint():
     assert isinstance(first["value"], float)
 
 
+@requires_synthetic_dataset
 def test_synthetic_evaluate_endpoint_default():
     response = client.post("/api/synthetic/evaluate", json={
         "threshold": 0.42,
@@ -70,6 +77,7 @@ def test_synthetic_evaluate_endpoint_default():
     assert "Синтетический демонстрационный датасет" in data["disclaimer"]
 
 
+@requires_synthetic_dataset
 def test_synthetic_evaluate_threshold_sensitivity():
     # Strict threshold
     res_strict = client.post("/api/synthetic/evaluate", json={
@@ -120,6 +128,7 @@ def test_debounce_filter_explicit_scenarios():
     assert filter_debounce_events([100.0, 120.0, 140.0, 170.0], 50.0) == 3
 
 
+@requires_synthetic_dataset
 def test_synthetic_multimodel_scoring():
     """Проверка мультимодельного скоринга на синтетическом датасете."""
     models = ["champion_lightgbm", "logistic_regression", "random_forest"]
@@ -138,6 +147,7 @@ def test_synthetic_multimodel_scoring():
         assert len(data["high_risk_candidates"]) <= 10
 
 
+@requires_synthetic_dataset
 def test_debounced_alarms_count_depends_on_window():
     """Проверка реальной математической и физической зависимости debounced_alarms_count от debounce_window_sec."""
     windows = [30, 60, 120, 300, 600]
@@ -165,6 +175,7 @@ def test_debounced_alarms_count_depends_on_window():
     assert suppressed_counts[4] == 45  # окно 600 сек
 
 
+@requires_synthetic_dataset
 def test_synthetic_invalid_model_rejection():
     """Проверка блокировки запроса с несуществующей ML-моделью (HTTP 400)."""
     res = client.post("/api/synthetic/evaluate", json={
@@ -215,6 +226,7 @@ def test_parse_event_timestamp_edge_cases():
     assert parse_event_timestamp("2026-01-28", "99:99:99") == 0.0
 
 
+@requires_synthetic_dataset
 def test_debounce_affects_candidate_actions_and_scores():
     """
     Проверка реального влияния фильтрации дребезга на статус,
@@ -245,6 +257,7 @@ def test_debounce_affects_candidate_actions_and_scores():
     assert first_debounced["calibrated_probability"] <= first_debounced["risk_score"]
 
 
+@requires_synthetic_dataset
 def test_multimodel_scores_differ():
     """
     Проверка, что вызов разных ML-моделей на одном и том же синтетическом срезе
@@ -266,3 +279,21 @@ def test_multimodel_scores_differ():
     assert res_lgb["risk_distribution"] != res_lr["risk_distribution"]
     assert res_lgb["model_used"] == "champion_lightgbm"
     assert res_lr["model_used"] == "logistic_regression"
+
+
+def test_synthetic_endpoints_503_when_file_absent(monkeypatch):
+    """
+    Когда файл синтетического датасета отсутствует на диске,
+    эндпоинты возвращают HTTP 503 с понятным сообщением на русском языке.
+    """
+    fake_path = Path("/nonexistent/dataset/sample_synthetic_telemetry.csv")
+    monkeypatch.setattr("backend.app.api.synthetic.CSV_PATH", fake_path)
+
+    res_sample = client.get("/api/synthetic/sample")
+    assert res_sample.status_code == 503
+    assert "недоступен" in res_sample.json()["detail"]
+
+    res_eval = client.post("/api/synthetic/evaluate", json={"threshold": 0.42})
+    assert res_eval.status_code == 503
+    assert "недоступен" in res_eval.json()["detail"]
+

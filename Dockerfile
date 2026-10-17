@@ -33,8 +33,14 @@ RUN useradd -m -u 1000 app
 # Copy backend code, models, and reference data; the JSON stores in backend/data must be writable
 COPY --chown=app:app backend/ /app/backend/
 
+# Copy synthetic telemetry sample dataset (only small files permitted by .dockerignore)
+COPY --chown=app:app dataset/ /app/dataset/
+
 # Copy compiled frontend from builder
 COPY --chown=app:app --from=frontend-builder /frontend/dist /app/frontend/dist
+
+# Ensure /app/backend/data is writable by user app (uid 1000) in the image
+RUN chmod -R u+rwX,g+rwX /app/backend/data
 
 USER app
 
@@ -50,5 +56,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:${PORT}/api/health || exit 1
 
-# Launch FastAPI via Uvicorn (shell form so that $PORT is expanded)
-CMD uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'
+# Launch FastAPI via Uvicorn (shell form so that $PORT is expanded).
+# --forwarded-allow-ips='*' was removed to prevent header spoofing.
+# --proxy-headers is kept so Uvicorn honors X-Forwarded-Proto and X-Forwarded-For behind reverse proxies.
+CMD uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers

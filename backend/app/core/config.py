@@ -14,6 +14,7 @@ class Settings(BaseModel):
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ROOT_DIR: str = os.path.dirname(BASE_DIR)
     DATA_DIR: str = os.path.join(BASE_DIR, "data")
+    DATASET_DIR: str = os.path.join(ROOT_DIR, "dataset")
     MODELS_DIR: str = os.path.join(BASE_DIR, "models")
     FRONTEND_DIST: str = (
         os.path.join(ROOT_DIR, "frontend", "dist")

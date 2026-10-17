@@ -55,20 +55,33 @@
 
 ## Быстрый старт
 
+### Docker (рекомендуемый способ)
+
 ```bash
 docker compose up --build
 # интерфейс: http://localhost:8000, Swagger: http://localhost:8000/docs
 ```
 
-Без Docker (Python 3.10+, Node 20+). Для демо-входа диспетчера задайте PIN переменной окружения (`export LCT_DEMO_DISPATCHER_PIN=135790` или `set LCT_DEMO_DISPATCHER_PIN=135790` в Windows); `run_local.bat` делает это сам:
+> **Важно для Linux-хостов:** контейнер запускается от непривилегированного пользователя `app` (UID 1000). В образе каталог `/app/backend/data` доступен пользователю UID 1000 на запись. При монтировании каталога на Linux-хосте (`./backend/data:/app/backend/data` в `docker-compose.yml`) убедитесь, что хостовая директория `./backend/data` доступна на запись процессу с UID 1000 (например, `sudo chown -R 1000:1000 backend/data` или `chmod -R u+rwX,g+rwX backend/data`), чтобы сохранялись наряды, журнал решений (SHA-256 ledger) и настройки.
+>
+> **Безопасность Uvicorn:** в `Dockerfile` флаг `--forwarded-allow-ips='*'` удалён во избежание подделки IP-адресов клиента через заголовок `X-Forwarded-For`. Флаг `--proxy-headers` оставлен для корректной работы за обратными прокси-серверами (Render, Nginx, Cloudflare), терминирующими TLS.
+
+### Без Docker (Python 3.10+, Node 20+)
+
+Для демо-входа диспетчера задайте PIN переменной окружения (`export LCT_DEMO_DISPATCHER_PIN=135790` в Linux/macOS или `set LCT_DEMO_DISPATCHER_PIN=135790` в Windows). Скрипты одного клика `run_local.sh` (Linux/macOS) и `run_local.bat` (Windows) делают всё автоматически: экспортируют переменную, устанавливают зависимости `requirements.txt`, собирают frontend и запускают сервер Uvicorn.
+
+Ручной запуск:
 
 ```bash
+export LCT_DEMO_DISPATCHER_PIN=135790
 pip install -r requirements.txt
 cd frontend && npm ci && npm run build && cd ..
 python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Windows: `run_local.bat`.
+Скрипты запуска:
+- Linux / macOS: `./run_local.sh`
+- Windows: `run_local.bat`
 
 Облако: `render.yaml` — Render Blueprint (Docker, бесплатный план), стенд поднимается из этого репозитория без доработок.
 
