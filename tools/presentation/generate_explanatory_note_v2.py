@@ -318,6 +318,8 @@ def build(out_path):
     pos_all = sum(w_["all"]["persistence"]["positives"] for w_ in BT["weeks"])
     pos_new = sum(w_["new_incidents"]["persistence"]["positives"] for w_ in BT["weeks"])
     blind = pos_new / pos_all
+    import statistics
+    prev_med = statistics.median(w_["all"]["persistence"]["prevalence"] for w_ in BT["weeks"])
 
     # ---------------------------------------------------------------- титул
     p = doc.add_paragraph()
@@ -467,8 +469,8 @@ def build(out_path):
     T(["Вариант", "ROC-AUC", "PR-AUC", "Точность в топ-50", "в топ-100", "в топ-200"], rows,
       [1.9, 0.8, 0.8, 1.0, 0.9, 0.9], size=8.5, align_right_from=1, bold_first_col=True)
     P("Читать так: если диспетчер проверяет 100 каналов с наибольшим риском, то в среднем %s из них действительно окажутся с событием (демо-модель) "
-      "или %s (модель с еженедельным переобучением). Доля событий среди всех каналов (базовая частота) — менее 1 %%." %
-      (pct(med("all", "deployed", "precision_at_100")), pct(med("all", "lgbm_weekly", "precision_at_100"))))
+      "или %s (модель с еженедельным переобучением). Доля каналов с событием среди всех (базовая частота) — около %s (медиана по неделям), то есть случайный список из 100 каналов дал бы в среднем около одного попадания." %
+      (pct(med("all", "deployed", "precision_at_100")), pct(med("all", "lgbm_weekly", "precision_at_100")), pct(prev_med, 1)))
     H2("Сколько недель из %d модель лучше правила" % NW)
     T(["Показатель", "deployed vs правило", "lgbm_weekly vs правило"], [
         ["ROC-AUC (выиграла / проиграла / равно)", WLT("all", "deployed", "persistence", "roc_auc"), WLT("all", "lgbm_weekly", "persistence", "roc_auc")],
