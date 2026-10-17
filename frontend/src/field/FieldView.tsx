@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { ObjectItem, PredictionItem } from '../types';
-import { cleanName, plainReason, LEVEL_TEXT, LEVEL_VAR, LEVEL_SOFT } from '../lib/plain';
+import { cleanName, plainReason, LEVEL_TEXT, LEVEL_VAR, LEVEL_SOFT, probabilityOf } from '../lib/plain';
 
 interface Props {
   objects: ObjectItem[];
   predictions: PredictionItem[];
-  onOpenTickets: () => void;
+  onOpenTickets: (objectId?: string) => void;
 }
 
 const RISK_WEIGHT: Record<string, number> = {
@@ -17,8 +17,8 @@ const RISK_WEIGHT: Record<string, number> = {
 };
 
 export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets }) => {
+  const [showWatch, setShowWatch] = useState(false);
   const [showNormal, setShowNormal] = useState(false);
-  const [showAllUrgent, setShowAllUrgent] = useState(false);
 
   // Group and sort highest-risk prediction for each object
   const predsByObject = useMemo(() => {
@@ -30,7 +30,7 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
       } else {
         const curWeight = RISK_WEIGHT[p.risk_level] ?? 0;
         const prevWeight = RISK_WEIGHT[existing.risk_level] ?? 0;
-        if (curWeight > prevWeight || (curWeight === prevWeight && (p.failure_probability ?? 0) > (existing.failure_probability ?? 0))) {
+        if (curWeight > prevWeight || (curWeight === prevWeight && probabilityOf(p) > probabilityOf(existing))) {
           map.set(p.object_id, p);
         }
       }
@@ -38,38 +38,56 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
     return map;
   }, [predictions]);
 
-  // Separate urgent objects (CRITICAL, WARNING, ATTENTION) and normal objects (NORMAL)
-  const { urgentObjects, normalObjects } = useMemo(() => {
-    const urgent: ObjectItem[] = [];
+  // Object's max calibrated probability across predictions
+  const getObjectMaxProb = useMemo(() => {
+    const maxProbMap = new Map<string, number>();
+    for (const p of predictions) {
+      const prob = probabilityOf(p);
+      const prev = maxProbMap.get(p.object_id) ?? 0;
+      if (prob > prev) maxProbMap.set(p.object_id, prob);
+    }
+    return (objectId: string) => maxProbMap.get(objectId) ?? 0;
+  }, [predictions]);
+
+  // Separate CRITICAL objects (queue), WARNING/ATTENTION (watch), and NORMAL
+  const { criticalObjects, watchObjects, normalObjects } = useMemo(() => {
+    const critical: ObjectItem[] = [];
+    const watch: ObjectItem[] = [];
     const normal: ObjectItem[] = [];
 
     for (const obj of objects) {
-      if (obj.risk_level === 'CRITICAL' || obj.risk_level === 'WARNING' || obj.risk_level === 'ATTENTION') {
-        urgent.push(obj);
+      if (obj.risk_level === 'CRITICAL') {
+        critical.push(obj);
+      } else if (obj.risk_level === 'WARNING' || obj.risk_level === 'ATTENTION') {
+        watch.push(obj);
       } else {
         normal.push(obj);
       }
     }
 
-    urgent.sort((a, b) => {
+    // CRITICAL queue sorted by object's max calibrated probability descending
+    critical.sort((a, b) => {
+      const diff = getObjectMaxProb(b.object_id) - getObjectMaxProb(a.object_id);
+      if (Math.abs(diff) > 1e-6) return diff;
+      return (b.predicted_failures_count ?? 0) - (a.predicted_failures_count ?? 0);
+    });
+
+    // Watch objects sorted by risk level then max probability
+    watch.sort((a, b) => {
       const wa = RISK_WEIGHT[a.risk_level] ?? 0;
       const wb = RISK_WEIGHT[b.risk_level] ?? 0;
       if (wb !== wa) return wb - wa;
-      return (b.predicted_failures_count ?? 0) - (a.predicted_failures_count ?? 0);
+      return getObjectMaxProb(b.object_id) - getObjectMaxProb(a.object_id);
     });
 
     normal.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-    return { urgentObjects: urgent, normalObjects: normal };
-  }, [objects]);
+    return { criticalObjects: critical, watchObjects: watch, normalObjects: normal };
+  }, [objects, getObjectMaxProb]);
 
-  const isTruncated = urgentObjects.length > 10 && !showAllUrgent;
-  const displayedUrgent = isTruncated ? urgentObjects.slice(0, 10) : urgentObjects;
-  const counterText = urgentObjects.length === 0
+  const counterText = criticalObjects.length === 0
     ? 'Все в норме'
-    : isTruncated
-      ? `В очереди: ${urgentObjects.length} (показаны первые 10)`
-      : `В очереди: ${urgentObjects.length}`;
+    : `В очереди: ${criticalObjects.length} объектов`;
 
   const renderCard = (obj: ObjectItem) => {
     const highestPred = predsByObject.get(obj.object_id);
@@ -143,7 +161,7 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
                   {factorBullets}
                 </ul>
               )}
-              <div>Риск поломки в ближайшие 1–3 дня.</div>
+              <div>Риск отклонения в телеметрии в ближайшие 1–3 дня.</div>
               {(obj.predicted_failures_count ?? 0) > 1 && (
                 <div>Проблемных датчиков на объекте: {obj.predicted_failures_count}</div>
               )}
@@ -173,7 +191,7 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
         {/* Button «Открыть заявку» */}
         <button
           type="button"
-          onClick={onOpenTickets}
+          onClick={() => onOpenTickets(obj.object_id)}
           className="w-full min-h-[44px] px-4 py-2.5 rounded-xl font-semibold text-[15px] sm:text-[16px] flex items-center justify-center gap-2 border transition-colors active:scale-[0.99]"
           style={{
             background: 'var(--sf)',
@@ -210,46 +228,68 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
           </p>
         </div>
 
-        {/* Empty state or Urgent list */}
-        {urgentObjects.length === 0 ? (
+        {/* Empty state or CRITICAL queue */}
+        {criticalObjects.length === 0 ? (
           <div
             className="rounded-2xl border p-6 flex items-center gap-4 shadow-sm"
             style={{ background: 'var(--oks)', borderColor: 'var(--ok)' }}
           >
             <CheckCircle2 className="w-8 h-8 shrink-0" style={{ color: 'var(--ok)' }} />
             <p className="text-[17px] font-semibold" style={{ color: 'var(--ink)' }}>
-              Сейчас всё спокойно. Объектов, требующих выезда, нет.
+              Сейчас всё спокойно. Объектов с критическим риском нет.
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {displayedUrgent.map(renderCard)}
-            {isTruncated && (
-              <button
-                type="button"
-                onClick={() => setShowAllUrgent(true)}
-                className="w-full min-h-[48px] px-4 py-3 rounded-2xl border font-semibold text-[15px] sm:text-[16px] flex items-center justify-center gap-2 shadow-sm transition-colors hover:bg-[var(--sf2)]"
-                style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
-              >
-                Показать ещё {urgentObjects.length - 10}
-              </button>
+            {criticalObjects.map(renderCard)}
+          </div>
+        )}
+
+        {/* Collapsed section: Наблюдать (watchObjects) */}
+        {watchObjects.length > 0 && (
+          <div className="flex flex-col gap-4 mt-2">
+            <button
+              type="button"
+              onClick={() => setShowWatch(!showWatch)}
+              className="w-full min-h-[48px] px-4 py-3.5 rounded-2xl border font-semibold text-[16px] flex items-center justify-between gap-3 shadow-sm transition-colors hover:bg-[var(--sf2)]"
+              style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
+              aria-expanded={showWatch}
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--at)' }} />
+                <span>Наблюдать ({watchObjects.length} объектов)</span>
+              </span>
+              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--mut)' }}>
+                <span>{showWatch ? 'Скрыть' : `Показать ещё ${watchObjects.length}`}</span>
+                {showWatch ? (
+                  <ChevronUp className="w-5 h-5 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 shrink-0" />
+                )}
+              </span>
+            </button>
+
+            {showWatch && (
+              <div className="flex flex-col gap-4 pl-1">
+                {watchObjects.map(renderCard)}
+              </div>
             )}
           </div>
         )}
 
-        {/* Collapsed section: Остальные объекты (N) */}
+        {/* Collapsed section: Остальные объекты (normalObjects) */}
         {normalObjects.length > 0 && (
           <div className="flex flex-col gap-4 mt-2">
             <button
               type="button"
               onClick={() => setShowNormal(!showNormal)}
-              className="w-full min-h-[48px] px-4 py-3.5 rounded-2xl border font-semibold text-[16px] flex items-center justify-between gap-3 shadow-sm transition-colors"
+              className="w-full min-h-[48px] px-4 py-3.5 rounded-2xl border font-semibold text-[16px] flex items-center justify-between gap-3 shadow-sm transition-colors hover:bg-[var(--sf2)]"
               style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
               aria-expanded={showNormal}
             >
               <span className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ok)' }} />
-                <span>Остальные объекты ({normalObjects.length})</span>
+                <span>Остальные объекты в норме ({normalObjects.length})</span>
               </span>
               {showNormal ? (
                 <ChevronUp className="w-5 h-5 shrink-0" style={{ color: 'var(--mut)' }} />

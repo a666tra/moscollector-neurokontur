@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { ChevronRight, X, Plus, Minus, Maximize2, ArrowRight, ListOrdered, Search } from 'lucide-react';
 import { ObjectItem, PredictionItem, ConfirmedAlarmItem } from '../types';
@@ -10,6 +10,7 @@ interface Props {
   objects: ObjectItem[];
   predictions: PredictionItem[];
   confirmed: ConfirmedAlarmItem[];
+  totalPredictions?: number;
   onChanged: () => void;
 }
 
@@ -18,15 +19,38 @@ type Scope = 'today' | 'all';
 type Level = 'ALL' | 'CRITICAL' | 'WARNING';
 
 /** «Обстановка»: risk map + today's queue + channel card (dispatcher scenario, ТЗ §12). */
-export const Situation: React.FC<Props> = ({ objects, predictions, onChanged }) => {
+export const Situation: React.FC<Props> = ({ objects, predictions, confirmed, totalPredictions, onChanged }) => {
   const [scope, setScope] = useState<Scope>('today');
   const [level, setLevel] = useState<Level>('ALL');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [decided, setDecided] = useState<Record<string, string>>({});
+
+  // Derive decided from confirmed decisions returned by the API so it survives reload
+  const initialDecided = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of (confirmed || [])) {
+      if (c.channel_id) {
+        map[c.channel_id] = c.decision === 'CONFIRM_FALSE_ALARM'
+          ? `Отбой · ${c.notes || 'ложная тревога'}`
+          : `Бригада направлена · ${c.notes || 'выезд'}`;
+      }
+    }
+    return map;
+  }, [confirmed]);
+
+  const [localDecided, setLocalDecided] = useState<Record<string, string>>({});
+  const decided = useMemo(() => ({ ...initialDecided, ...localDecided }), [initialDecided, localDecided]);
+
   const [hint, setHint] = useState(true);
   const [listOpen, setListOpen] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!listOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setListOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [listOpen]);
 
   const objectsById = useMemo(() => Object.fromEntries(objects.map(o => [o.object_id, o])), [objects]);
   const ranked = useMemo(
@@ -66,7 +90,7 @@ export const Situation: React.FC<Props> = ({ objects, predictions, onChanged }) 
   };
 
   const onDecided = (cid: string, text: string) => {
-    setDecided(d => ({ ...d, [cid]: text }));
+    setLocalDecided(d => ({ ...d, [cid]: text }));
     onChanged();
     const next = list.find((p, i) => i > index && !decided[p.channel_id] && p.channel_id !== cid);
     if (next) setTimeout(() => setSelectedId(next.channel_id), 900);
@@ -90,13 +114,20 @@ export const Situation: React.FC<Props> = ({ objects, predictions, onChanged }) 
     <div className="flex flex-col h-full min-h-0">
       <div className="p-[18px] pb-3 space-y-3">
         <div className="flex items-center gap-2">
-          <div className="flex p-1 rounded-full" style={{ background: 'var(--sf2)' }}>
-            {(['today', 'all'] as Scope[]).map(s => (
-              <button key={s} onClick={() => setScope(s)} className="h-8 px-3 rounded-full text-[13px] font-medium"
-                      style={scope === s ? { background: 'var(--sf)', boxShadow: '0 1px 3px rgba(0,0,0,.12)' } : { color: 'var(--mut)' }}>
-                {s === 'today' ? 'Сегодня' : `Все каналы · ${ranked.length}`}
-              </button>
-            ))}
+          <div className="flex p-1 rounded-full overflow-hidden" style={{ background: 'var(--sf2)' }}>
+            {(['today', 'all'] as Scope[]).map(s => {
+              let label = s === 'today' ? 'Сегодня' : `Все каналы · ${ranked.length}`;
+              if (s === 'all') {
+                const totalCount = totalPredictions || 11485;
+                label = `показаны первые 500 из ${totalCount.toLocaleString('ru-RU')}`;
+              }
+              return (
+                <button key={s} onClick={() => setScope(s)} className="h-8 px-3 rounded-full text-[13px] font-medium whitespace-nowrap"
+                        style={scope === s ? { background: 'var(--sf)', boxShadow: '0 1px 3px rgba(0,0,0,.12)' } : { color: 'var(--mut)' }}>
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
         <div className="serif font-semibold text-[28px] leading-none">{scope === 'today' ? 'Очередь на сегодня' : 'Все каналы под риском'}</div>
@@ -201,7 +232,7 @@ export const Situation: React.FC<Props> = ({ objects, predictions, onChanged }) 
       </div>
       {listOpen && (
         <div className="lg:hidden fixed inset-0 z-[1250] flex items-end" style={{ background: 'rgba(10,10,12,.45)' }} onClick={() => setListOpen(false)}>
-          <div className="w-full h-[80vh] rounded-t-[28px] flex flex-col" style={{ background: 'var(--sf)' }} onClick={e => e.stopPropagation()}>{queuePanel}</div>
+          <div role="dialog" aria-modal="true" aria-label="Очередь каналов" className="w-full h-[80vh] rounded-t-[28px] flex flex-col" style={{ background: 'var(--sf)' }} onClick={e => e.stopPropagation()}>{queuePanel}</div>
         </div>
       )}
     </div>

@@ -105,12 +105,16 @@ export const ChannelCard: React.FC<Props> = ({ item, object, position, total, do
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto scroll-thin px-5">
-        <div className={compact ? 'pt-3 flex items-end gap-3' : 'pt-4'}>
-          {!compact && <div className="text-[13px]" style={{ color: 'var(--mut)' }}>Вероятность инцидента в ближайшие 1–3 дня</div>}
-          <div className={`serif font-semibold tracking-[-0.03em] ${compact ? 'text-[64px] leading-[.8]' : 'text-[104px] leading-[.8] mt-3'}`} style={{ color }}>
-            {pct}<span className={compact ? 'text-[28px]' : 'text-[44px]'}>%</span>
+        <div className={compact ? 'pt-3 flex flex-col gap-1' : 'pt-4'}>
+          <div className="text-[13px] font-medium" style={{ color: 'var(--mut)' }}>
+            Оценка по журналу СМВУ (калибровка по январю)
           </div>
-          {compact && <div className="text-xs pb-1" style={{ color: 'var(--mut)' }}>вероятность<br />за 1–3 дня</div>}
+          <div className={`serif font-semibold tracking-[-0.03em] ${compact ? 'text-[54px] leading-[.85] mt-1' : 'text-[96px] leading-[.8] mt-2'}`} style={{ color }}>
+            {pct}<span className={compact ? 'text-[24px]' : 'text-[40px]'}>%</span>
+          </div>
+          <div className="text-xs mt-1.5 leading-snug" style={{ color: 'var(--mut)' }}>
+            В списке из 100 самых рисковых каналов подтверждается около 1 из 5 (бэктест стенда)
+          </div>
         </div>
         {!compact && (
           <div className="h-2 rounded mt-3 overflow-hidden" style={{ background: 'var(--sf3)' }}>

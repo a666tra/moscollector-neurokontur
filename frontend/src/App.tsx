@@ -125,6 +125,7 @@ const Root: React.FC = () => {
 const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => void; onExit: () => void }> = ({ role, view, setView, onExit }) => {
   const [objects, setObjects] = useState<ObjectItem[]>([]);
   const [predictions, setPredictions] = useState<PredictionItem[]>([]);
+  const [totalPredictions, setTotalPredictions] = useState<number>(0);
   const [confirmed, setConfirmed] = useState<ConfirmedAlarmItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +133,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
   const [tool, setTool] = useState<Tool>(null);
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).has('settings'));
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [ticketFilterObjectId, setTicketFilterObjectId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,7 +151,10 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         fetch('/api/health').then(r => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       if (obj) setObjects(obj);
-      if (pred) setPredictions(pred.items || []);
+      if (pred) {
+        setPredictions(pred.items || []);
+        if (typeof pred.total === 'number') setTotalPredictions(pred.total);
+      }
       if (conf) setConfirmed(conf);
       if (health?.data_snapshot_date) setSnapshotDate(health.data_snapshot_date);
     } catch (err: any) {
@@ -171,8 +176,16 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
     if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
     return raw;
   };
+  const formatShortDate = (raw?: string | null): string => {
+    if (!raw) return 'данные до 28.01';
+    const parts = raw.split('-');
+    if (parts.length === 3) return `данные до ${parts[2]}.${parts[1]}`;
+    return `данные до ${raw}`;
+  };
   const snapshotFormatted = formatSnapshotDate(snapshotDate);
-  const clockText = snapshotFormatted ? `данные до ${snapshotFormatted} · прогноз на 1–3 дня` : 'прогноз на 1–3 дня';
+  const fullDateText = snapshotFormatted ? `данные до ${snapshotFormatted}` : 'данные до 28.01.2026';
+  const shortDateText = formatShortDate(snapshotDate);
+  const clockText = `${fullDateText} · прогноз на 1–3 дня`;
   const clockTooltip = 'Дата, до которой построены признаки модели в стенде';
 
   const isTech = role === 'tech';
@@ -198,8 +211,10 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               );
             })}
           </nav>
-          <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline cursor-help" style={{ color: 'var(--mut)' }} title={clockTooltip}>
-            {clockText}
+          <span className="ml-auto text-[13px] whitespace-nowrap cursor-help shrink-0" style={{ color: 'var(--mut)' }} title={clockTooltip}>
+            <span className="hidden xl:inline">{clockText}</span>
+            <span className="hidden md:inline xl:hidden">{fullDateText}</span>
+            <span className="md:hidden">{shortDateText}</span>
           </span>
           <button onClick={onExit} className="text-sm underline transition-colors" style={{ color: 'var(--mut)' }}>
             Сменить роль
@@ -221,8 +236,10 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               );
             })}
           </nav>
-          <span className="ml-auto text-[13px] whitespace-nowrap hidden xl:inline cursor-help" style={{ color: 'var(--mut)' }} title={clockTooltip}>
-            {clockText}
+          <span className="ml-auto text-[13px] whitespace-nowrap cursor-help shrink-0" style={{ color: 'var(--mut)' }} title={clockTooltip}>
+            <span className="hidden xl:inline">{clockText}</span>
+            <span className="hidden md:inline xl:hidden">{fullDateText}</span>
+            <span className="md:hidden">{shortDateText}</span>
           </span>
           <ToolsMenu open={toolsOpen} setOpen={setToolsOpen} onPick={openTool} />
           <ThemeButton />
@@ -236,8 +253,13 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
           <span className="font-semibold text-[17px] truncate">
             {view === 'tickets' ? 'Заявки' : 'Поле'}
           </span>
+          <span className="text-[11px] num font-medium px-2 py-0.5 rounded-full border shrink-0"
+                style={{ borderColor: 'var(--ln)', background: 'var(--sf2)', color: 'var(--mut)' }}
+                title={clockTooltip}>
+            {shortDateText}
+          </span>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={onExit} className="text-xs font-semibold underline px-2 py-1.5" style={{ color: 'var(--mut)' }}>
+            <button onClick={onExit} className="text-xs font-semibold underline px-1.5 py-1" style={{ color: 'var(--mut)' }}>
               Сменить роль
             </button>
             <ThemeButton className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" />
@@ -245,7 +267,12 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         </header>
       ) : (
         <header className="lg:hidden absolute z-[900] left-4 right-4 top-4 glass rounded-full flex items-center gap-2 py-1.5 pl-4 pr-1.5">
-          <button onClick={onExit} className="font-semibold text-[17px]">{VIEWS.find(v => v.id === view)!.title}</button>
+          <button onClick={onExit} className="font-semibold text-[17px] truncate">{VIEWS.find(v => v.id === view)!.title}</button>
+          <span className="text-[11px] num font-medium px-2 py-0.5 rounded-full border shrink-0"
+                style={{ borderColor: 'var(--ln)', background: 'var(--sf2)', color: 'var(--mut)' }}
+                title={clockTooltip}>
+            {shortDateText}
+          </span>
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeButton className="w-10 h-10 rounded-full flex items-center justify-center" />
             <ShiftButton compact />
@@ -271,9 +298,9 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         ) : (
           <>
             {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 pt-20 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
-            {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={() => setView('tickets')} />}
-            {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} onChanged={load} />}
-            {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets onRefreshStats={load} /></div></div>}
+            {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={(objId) => { setTicketFilterObjectId(objId || null); setView('tickets'); }} />}
+            {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} totalPredictions={totalPredictions} onChanged={load} />}
+            {view === 'tickets' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets filterObjectId={ticketFilterObjectId} onClearFilter={() => setTicketFilterObjectId(null)} onRefreshStats={load} /></div></div>}
             {view === 'quality' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
             {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 pt-20 pb-6 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
           </>
@@ -284,7 +311,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
       {isTech ? (
         <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-2 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
           {TECH_VIEWS.map(v => (
-            <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-1 text-[13px] font-semibold min-h-[48px]"
+            <button key={v.id} onClick={() => { if (v.id === 'tickets') setTicketFilterObjectId(null); setView(v.id); }} className="flex flex-col items-center justify-center gap-1 text-[13px] font-semibold min-h-[48px]"
                     style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
               <v.icon className="w-5 h-5 shrink-0" />
               <span>{v.short}</span>
@@ -293,17 +320,17 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         </nav>
       ) : (
         <>
-          <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-6 h-16 border-t" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
+          <nav className="lg:hidden fixed bottom-0 inset-x-0 z-[1100] grid grid-cols-6 h-16 border-t px-1" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
             {VIEWS.map(v => (
-              <button key={v.id} onClick={() => setView(v.id)} className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium min-w-0 px-0.5"
+              <button key={v.id} onClick={() => { if (v.id === 'tickets') setTicketFilterObjectId(null); setView(v.id); }} className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium min-w-0 px-0.5"
                       style={{ color: v.id === view ? 'var(--ac)' : 'var(--mut)' }}>
                 <v.icon className="w-[18px] h-[18px] shrink-0" />
-                <span className="truncate max-w-[48px] leading-tight">{v.short}</span>
+                <span className="leading-tight text-center whitespace-nowrap">{v.short}</span>
               </button>
             ))}
-            <button onClick={() => setToolsOpen(true)} className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium min-w-0 px-0.5" style={{ color: 'var(--mut)' }}>
+            <button onClick={() => setToolsOpen(true)} className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium min-w-0 px-0.5" style={{ color: 'var(--mut)' }}>
               <Briefcase className="w-[18px] h-[18px] shrink-0" />
-              <span className="truncate max-w-[48px] leading-tight">Ещё</span>
+              <span className="leading-tight text-center whitespace-nowrap">Ещё</span>
             </button>
           </nav>
           {toolsOpen && (
@@ -371,14 +398,31 @@ const ShiftButton: React.FC<{ compact?: boolean }> = ({ compact }) => {
   );
 };
 
-const Drawer: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 z-[1400] flex justify-end" style={{ background: 'rgba(10,10,12,.45)' }} onClick={onClose}>
-    <div className="w-full max-w-[920px] h-full flex flex-col" style={{ background: 'var(--bg)' }} onClick={e => e.stopPropagation()}>
-      <div className="flex items-center justify-between px-5 h-16 border-b shrink-0" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
-        <div className="serif font-semibold text-[28px] leading-none">{title}</div>
-        <button className="icon-btn" onClick={onClose} aria-label="Закрыть"><X className="w-4 h-4" /></button>
+const Drawer: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[1400] flex justify-end" style={{ background: 'rgba(10,10,12,.45)' }} onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full max-w-[920px] h-full flex flex-col"
+        style={{ background: 'var(--bg)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 h-16 border-b shrink-0" style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}>
+          <div className="serif font-semibold text-[28px] leading-none">{title}</div>
+          <button className="icon-btn" onClick={onClose} aria-label="Закрыть"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</div>
     </div>
-  </div>
-);
+  );
+};

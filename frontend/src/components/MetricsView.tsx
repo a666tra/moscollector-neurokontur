@@ -190,7 +190,7 @@ export const MetricsView: React.FC = () => {
               <div className="p-3 rounded-lg border space-y-1" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
                 <span className="font-medium block text-[var(--text)]">Топология сети:</span>
                 <p className="leading-relaxed">
-                  Координаты коллекторов схематизированы в соответствии с требованиями защиты объектов КИИ (149-ФЗ); инженерная привязка к пикетам (ПК) и трассам полностью сохранена из тегов СМВУ.
+                  Координаты на карте схематичные, сгенерированы для демонстрации; привязка к пикетам (ПК) взята из тегов СМВУ.
                 </p>
               </div>
 
@@ -552,17 +552,17 @@ export const MetricsView: React.FC = () => {
                       Общий модуль признаков
                     </div>
                     <p style={{ color: 'var(--muted)' }} className="text-[11px]">
-                      Модуль <code>backend/ml/features.py</code> гарантирует идентичный расчёт признаков при обучении и в боевом API.
+                      Модуль <code>backend/ml/features.py</code> используется при обучении и в бэктесте; стенд читает готовый кэш прогнозов.
                     </p>
                   </div>
 
                   <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
                     <div className="font-semibold flex items-center gap-1.5">
                       <Cpu className="w-3.5 h-3.5" style={{ color: 'var(--ok)' }} />
-                      Автономный контур КИИ (149-ФЗ / 152-ФЗ)
+                      Автономный контур
                     </div>
                     <p style={{ color: 'var(--muted)' }} className="text-[11px]">
-                      Все модели работают локально на CPU без облачных внешних вызовов, гарантируя безопасность технологических данных предприятия.
+                      Работает автономно, без выхода во внешние сети; соответствие требованиям КИИ и 152-ФЗ не оценивалось.
                     </p>
                   </div>
                 </div>

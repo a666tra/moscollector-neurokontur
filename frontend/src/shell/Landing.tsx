@@ -21,12 +21,20 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
   const [perf, setPerf] = useState<any>(null);
   const [objects, setObjects] = useState<ObjectItem[]>([]);
   const [preds, setPreds] = useState<PredictionItem[]>([]);
+  const [snapshotDate, setSnapshotDate] = useState<string>('28.01.2026');
   useEffect(() => {
     const get = (u: string) => fetch(u).then(r => (r.ok ? r.json() : null)).catch(() => null);
     get('/api/predictions/backtest').then(setBt);
     get('/api/predictions/metrics').then(d => setPerf(d?.performance_benchmark));
     get('/api/objects').then(d => d && setObjects(d));
     get('/api/predictions?limit=300').then(d => d && setPreds(d.items || []));
+    get('/api/health').then(h => {
+      if (h?.data_snapshot_date) {
+        const parts = h.data_snapshot_date.split('-');
+        if (parts.length === 3) setSnapshotDate(`${parts[2]}.${parts[1]}.${parts[0]}`);
+        else setSnapshotDate(h.data_snapshot_date);
+      }
+    });
   }, []);
 
   const pins: MapPin[] = useMemo(() => {
@@ -38,11 +46,15 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
   const s = bt?.summary?.all;
   const p100 = s?.lgbm_weekly?.precision_at_100?.median;
   const prev = s?.prevalence?.median;
+  const depRoc = s?.deployed?.roc_auc?.median;
+  const depP100 = s?.deployed?.precision_at_100?.median;
+  const depText = `в стенде: ${fmtNum(depRoc ?? 0.65, 2)} · ${typeof depP100 === 'number' ? Math.round(depP100 * 100) : 22} %`;
+
   const channels = typeof bt?.channels === 'number' ? bt.channels.toLocaleString('ru-RU') : '—';
   const kpis = [
     { v: bt?.test_weeks ?? '—', u: ' нед.', t: 'проверки на реальном журнале' },
-    { v: fmtNum(s?.lgbm_weekly?.roc_auc?.median, 2), u: '', t: 'ROC-AUC, медиана по неделям' },
-    { v: typeof p100 === 'number' ? Math.round(p100 * 100) : '—', u: ' %', t: typeof p100 === 'number' && prev ? `точность топ-100, в ${Math.round(p100 / prev)} раз выше случайной` : 'точность топ-100', accent: true },
+    { v: fmtNum(s?.lgbm_weekly?.roc_auc?.median, 2), u: '', t: 'ROC-AUC с еженедельным дообучением (расчёт для пилота)', sub: depText },
+    { v: typeof p100 === 'number' ? Math.round(p100 * 100) : '—', u: ' %', t: typeof p100 === 'number' && prev ? `точность топ-100 (в ${Math.round(p100 / prev)} раз выше случайной) с еженедельным дообучением (расчёт для пилота)` : 'точность топ-100 с еженедельным дообучением (расчёт для пилота)', sub: depText, accent: true },
     { v: typeof perf?.full_batch_latency_ms === 'number' ? Math.round(perf.full_batch_latency_ms) : '—', u: ' мс', t: 'пересчёт всех каналов' },
   ];
 
@@ -80,11 +92,11 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
         <h1 className={`serif font-medium tracking-[-0.035em] text-[76px] leading-[.8] ${short ? 'lg:text-[100px]' : 'lg:text-[150px]'} lg:leading-[.82] rise`} style={{ animationDelay: '.1s' }}>
           Контуры<br className="hidden lg:block" /> <i style={{ color: 'var(--ac)' }}>риска</i>
         </h1>
-        <p className={`text-base ${short ? 'lg:text-lg' : 'lg:text-xl'} leading-[1.45] max-w-[470px] lg:mt-3.5 rise`} style={{ color: 'var(--mut)', animationDelay: '.25s' }}>
-          Каждое утро показываем на карте, где в подземных коллекторах Москвы <b className="font-medium" style={{ color: 'var(--ink)' }}>может случиться поломка в ближайшие 1–3 дня</b> — и что с этим делать.
+        <p className={`text-base ${short ? 'lg:text-lg' : 'lg:text-xl'} leading-[1.45] max-w-[480px] lg:mt-3.5 rise`} style={{ color: 'var(--mut)', animationDelay: '.25s' }}>
+          Стенд показывает срез журнала СМВУ на <b className="font-medium" style={{ color: 'var(--ink)' }}>{snapshotDate}</b>: где в коллекторах Москвы вероятнее отклонения в ближайшие 1–3 дня — и что с этим делать.
         </p>
         <div className={`hidden ${short ? '' : 'lg:flex'} flex-col gap-2.5 rise`} style={{ animationDelay: '.35s' }}>
-          {[`Модель проверяет ${channels} датчиков`, 'Отмечает на карте опасные места и объясняет почему', 'Диспетчер одним нажатием решает: ремонт, выезд или отбой'].map((t, i) => (
+          {[`Модель проверяет ${channels} каналов`, 'Отмечает на карте опасные места и объясняет почему', 'Диспетчер одним нажатием решает: ремонт, выезд или отбой'].map((t, i) => (
             <div key={i} className="flex items-center gap-3.5 text-[15px]">
               <span className="w-8 h-8 rounded-full flex items-center justify-center num text-[13px] font-semibold" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)', color: 'var(--ac)' }}>{i + 1}</span>{t}
             </div>
@@ -98,7 +110,7 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
           {onOpenScenarios && <button onClick={onOpenScenarios} className="text-sm underline font-medium" style={{ color: 'var(--ac)' }}>Сценарии</button>}
         </div>
       </div>
-      <div className="hidden lg:grid absolute z-[600] left-14 bottom-11 w-[620px] grid-cols-4 gap-6 rise" style={{ animationDelay: '.45s' }}>
+      <div className="hidden lg:grid absolute z-[600] left-14 bottom-10 w-[700px] grid-cols-4 gap-6 rise" style={{ animationDelay: '.45s' }}>
         {kpis.map((k, i) => <Kpi key={i} {...k} />)}
       </div>
 
@@ -132,11 +144,16 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
   );
 };
 
-const Kpi: React.FC<{ v: React.ReactNode; u: string; t: string; accent?: boolean; small?: boolean }> = ({ v, u, t, accent, small }) => (
+const Kpi: React.FC<{ v: React.ReactNode; u: string; t: string; sub?: string; accent?: boolean; small?: boolean }> = ({ v, u, t, sub, accent, small }) => (
   <div className={small ? '' : 'border-t-[1.5px] pt-2.5'} style={{ borderColor: accent ? 'var(--ac)' : 'var(--ink)' }}>
     <div className={`serif font-semibold ${small ? 'text-[32px]' : 'text-[50px]'} leading-[.9]`} style={accent ? { color: 'var(--ac)' } : undefined}>
       {v}<span className={small ? 'text-[16px]' : 'text-[22px]'}>{u}</span>
     </div>
-    <div className="text-xs mt-1.5" style={{ color: 'var(--mut)' }}>{t}</div>
+    <div className="text-xs mt-1.5 leading-snug" style={{ color: 'var(--mut)' }}>{t}</div>
+    {sub && (
+      <div className="text-[11px] mt-1 font-semibold" style={{ color: 'var(--ink)' }}>
+        {sub}
+      </div>
+    )}
   </div>
 );

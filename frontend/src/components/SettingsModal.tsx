@@ -13,8 +13,8 @@ interface SettingsModalProps {
 
 const DEFAULT_SETTINGS: SystemSettings = {
   decision_threshold: 0.42,
-  chatter_window_seconds: 60,
-  chatter_min_flips: 4,
+  chatter_window_seconds: 90,
+  chatter_min_flips: 5,
   gas_warning_threshold_vol_pct: 1.0,
   callout_cost_rub: 18500,
   preventive_cost_rub: 3200,
@@ -28,14 +28,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   const toast = useToast();
 
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [defaultSettings, setDefaultSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [holdoutRocAuc, setHoldoutRocAuc] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      api<SystemSettings>('/api/settings')
-        .then(data => setSettings(prev => ({ ...prev, ...data })))
+      api<SystemSettings>('/api/settings/defaults')
+        .then(defs => {
+          if (defs) setDefaultSettings(prev => ({ ...prev, ...defs }));
+        })
         .catch(() => {});
+
+      api<SystemSettings>('/api/settings')
+        .then(data => {
+          setSettings(prev => ({ ...prev, ...data }));
+          setDefaultSettings(prev => ({
+            ...prev,
+            chatter_window_seconds: data.chatter_window_seconds ?? prev.chatter_window_seconds,
+            chatter_min_flips: data.chatter_min_flips ?? prev.chatter_min_flips,
+            decision_threshold: data.decision_threshold ?? prev.decision_threshold,
+            callout_cost_rub: data.callout_cost_rub ?? prev.callout_cost_rub,
+            preventive_cost_rub: data.preventive_cost_rub ?? prev.preventive_cost_rub,
+          }));
+        })
+        .catch(() => {});
+
       api<SystemStats>('/api/stats/summary')
         .then(data => {
           if (typeof data?.model_roc_auc === 'number') {
@@ -45,6 +63,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         .catch(() => {});
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -76,7 +103,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   };
 
   const handleReset = () => {
-    setSettings(DEFAULT_SETTINGS);
+    setSettings(defaultSettings);
   };
 
   return (
@@ -85,6 +112,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Параметры и пороги безопасности"
         className="panel w-full sm:max-w-2xl max-h-[90vh] flex flex-col rounded-b-none sm:rounded-xl shadow-2xl"
         style={{ background: 'var(--surface)' }}
         onClick={e => e.stopPropagation()}
@@ -148,35 +178,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               <span>0.10 (высокий Recall)</span>
               <span>0.90 (высокий Precision)</span>
             </div>
+            <p className="text-[11px] leading-relaxed pt-1" style={{ color: 'var(--muted)' }}>
+              Меняет, сколько каналов попадает в список проверки. Уровни объектов на карте считаются по калиброванной вероятности и этим порогом не меняются.
+            </p>
             <div className="pt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>Калибровочные пороги:</span>
+              <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>Пороги сырого балла (raw-score):</span>
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, decision_threshold: 0.845 })}
                 className="btn btn-secondary text-xs h-6 px-2 num"
               >
-                LGBM: порог 0.845
+                LGBM raw: 0.845
               </button>
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, decision_threshold: 0.80 })}
                 className="btn btn-secondary text-xs h-6 px-2 num"
               >
-                LR: 0.80
+                LR raw: 0.80
               </button>
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, decision_threshold: 0.7695 })}
                 className="btn btn-secondary text-xs h-6 px-2 num"
               >
-                RF: 0.7695
+                RF raw: 0.7695
               </button>
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, decision_threshold: 0.42 })}
                 className="btn btn-secondary text-xs h-6 px-2 num"
               >
-                Базовый: 0.42
+                Базовый raw: 0.42
               </button>
             </div>
           </div>
@@ -193,7 +226,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                   max="300"
                   className="input num text-xs"
                   value={settings.chatter_window_seconds}
-                  onChange={e => setSettings({ ...settings, chatter_window_seconds: parseInt(e.target.value, 10) || 60 })}
+                  onChange={e => setSettings({ ...settings, chatter_window_seconds: parseInt(e.target.value, 10) || defaultSettings.chatter_window_seconds })}
                 />
               </label>
 
@@ -205,7 +238,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                   max="15"
                   className="input num text-xs"
                   value={settings.chatter_min_flips}
-                  onChange={e => setSettings({ ...settings, chatter_min_flips: parseInt(e.target.value, 10) || 4 })}
+                  onChange={e => setSettings({ ...settings, chatter_min_flips: parseInt(e.target.value, 10) || defaultSettings.chatter_min_flips })}
                 />
               </label>
             </div>
@@ -248,14 +281,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
               Автоматическая отмена выездов без подтверждения оператором запрещена. Система генерирует рекомендацию, решение принимает диспетчер с фиксацией в журнале смены.
             </p>
-            <label className="flex items-center gap-2 pt-1 text-xs cursor-not-allowed">
-              <input
-                type="checkbox"
-                checked={settings.require_dispatcher_confirmation}
-                disabled
-              />
-              <span>Обязательное подтверждение диспетчером (активно)</span>
-            </label>
           </div>
         </div>
 

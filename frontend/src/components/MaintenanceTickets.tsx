@@ -9,6 +9,8 @@ import { useToast } from '../lib/toast';
 import { api } from '../lib/api';
 
 interface MaintenanceTicketsProps {
+  filterObjectId?: string | null;
+  onClearFilter?: () => void;
   onRefreshStats?: () => void;
 }
 
@@ -20,7 +22,7 @@ const STATUS_TABS = [
   { id: 'ВЫПОЛНЕН', label: 'Выполнен' },
 ];
 
-export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ onRefreshStats }) => {
+export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ filterObjectId, onClearFilter, onRefreshStats }) => {
   const { requireDispatcher } = useSession();
   const toast = useToast();
 
@@ -135,6 +137,7 @@ ${ticket.assigned_team}
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
+      if (filterObjectId && String(t.object_id) !== String(filterObjectId)) return false;
       if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
       if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) return false;
       if (searchQuery) {
@@ -148,7 +151,7 @@ ${ticket.assigned_team}
       }
       return true;
     });
-  }, [tickets, statusFilter, priorityFilter, searchQuery]);
+  }, [tickets, statusFilter, priorityFilter, searchQuery, filterObjectId]);
 
   const activeCount = tickets.filter(t => t.status === 'НАЗНАЧЕН' || t.status === 'В_РАБОТЕ').length;
   const completedCount = tickets.filter(t => t.status === 'ВЫПОЛНЕН').length;
@@ -178,6 +181,23 @@ ${ticket.assigned_team}
           <span>{isGenerating ? 'Формирование…' : 'Сформировать наряд по модели'}</span>
         </button>
       </div>
+
+      {filterObjectId && (
+        <div className="flex items-center justify-between p-3 rounded-xl border bg-amber-500/10 border-amber-500/30 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-amber-300">Фильтр по объекту #{filterObjectId}</span>
+            <span className="text-[var(--mut)]">({filteredTickets.length} {filteredTickets.length === 1 ? 'наряд' : 'нарядов'})</span>
+          </div>
+          {onClearFilter && (
+            <button
+              onClick={onClearFilter}
+              className="px-2.5 py-1 rounded-md text-xs font-medium border border-amber-500/40 hover:bg-amber-500/20 text-amber-200"
+            >
+              Сбросить фильтр
+            </button>
+          )}
+        </div>
+      )}
 
       {/* KPI Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

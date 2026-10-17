@@ -62,6 +62,14 @@ const ShiftDialog: React.FC<{ onCancel: () => void; onStarted: (d: Dispatcher) =
     if (demo.enabled && demo.badge && demo.pin) { setBadge(demo.badge); setPin(demo.pin); }
   }, [demo.enabled, demo.badge, demo.pin]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setError('');
@@ -81,6 +89,7 @@ const ShiftDialog: React.FC<{ onCancel: () => void; onStarted: (d: Dispatcher) =
     <div className="fixed inset-0 z-[1500] flex items-end sm:items-center justify-center p-0 sm:p-4"
          style={{ background: 'rgba(10,10,12,.45)', backdropFilter: 'blur(3px)' }} onClick={onCancel}>
       <form onSubmit={submit} onClick={e => e.stopPropagation()}
+            role="dialog" aria-modal="true" aria-label="Начать смену"
             className="w-full sm:max-w-[440px] p-8 rounded-t-[28px] sm:rounded-[28px] flex flex-col gap-4 rise"
             style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)', animationDuration: '.35s' }}>
         <div className="flex items-start justify-between">
