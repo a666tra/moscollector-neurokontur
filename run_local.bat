@@ -4,7 +4,12 @@ cd /d "%~dp0"
 echo ========================================================
 echo   Москоллектор.НейроКонтур — локальный запуск
 echo ========================================================
-echo.
+if not exist .venv\Scripts\activate.bat (
+    echo [0/3] Создание виртуального окружения (.venv)...
+    python -m venv .venv
+)
+call .venv\Scripts\activate.bat
+
 echo [1/3] Установка библиотек Python...
 python -m pip install -q -r requirements.txt
 echo [2/3] Сборка интерфейса (всегда свежая)...

@@ -1,5 +1,6 @@
-version: '3.8'
-
+# Compose specification (version attribute is obsolete and removed)
+# Using a named volume seeded from the image ensures UID 1000 (app user)
+# has full write permissions without requiring host-level chown 1000:1000 on Linux.
 services:
   neurokontur:
     build:
@@ -10,7 +11,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/backend/data
+      - neurokontur-data:/app/backend/data
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
@@ -22,3 +23,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  neurokontur-data:

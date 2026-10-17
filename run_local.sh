@@ -11,6 +11,12 @@ echo ""
 export PYTHONPATH=.
 export LCT_DEMO_DISPATCHER_PIN=135790
 
+if [ ! -d ".venv" ]; then
+    echo "[0/3] Создание виртуального окружения (.venv)..."
+    python3 -m venv .venv
+fi
+. .venv/bin/activate
+
 echo "[1/3] Установка библиотек Python..."
 python3 -m pip install -q -r requirements.txt
 
