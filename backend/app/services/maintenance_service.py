@@ -29,6 +29,8 @@ class MaintenanceService:
                 tickets = json.load(f)
             if not isinstance(tickets, list) or not all(isinstance(ticket, dict) for ticket in tickets):
                 raise ValueError("Реестр нарядов должен содержать список записей")
+            for ticket in tickets:
+                ticket.pop("saved_opex_rub", None)
             self.tickets = tickets
         except Exception as exc:
             raise RuntimeError("Не удалось безопасно загрузить реестр нарядов; запуск остановлен") from exc
@@ -89,7 +91,9 @@ class MaintenanceService:
                 work_desc = "Комплексная диагностика аппаратного узла и измерение сопротивления изоляции линии связи."
                 team = "Линейная бригада ОДС"
 
-            saved = settings.AVERAGE_CALLOUT_COST_RUB - settings.PREVENTIVE_MAINTENANCE_COST_RUB
+            prob = pred.get("calibrated_proxy_probability")
+            if prob is None:
+                prob = pred.get("failure_probability", 0.85)
 
             self.tickets.append({
                 "ticket_id": ticket_id,
@@ -102,14 +106,13 @@ class MaintenanceService:
                 "picket": coords.get("picket") or "не указан",
                 "corridor": coords.get("corridor", "Магистральный сектор"),
                 "priority": "ВЫСОКИЙ" if idx < 4 else "СРЕДНИЙ",
-                "failure_risk_percent": round(pred.get("failure_probability", 0.85) * 100, 1),
+                "failure_risk_percent": round(prob * 100, 1),
                 "required_materials": materials,
                 "work_description": work_desc,
                 "regulation_reference": f"{settings.REGULATION_NAME}, Разд. 4 (ППР систем телемеханики)",
                 "assigned_team": team,
                 "status": "ЧЕРНОВИК" if idx == 0 else ("НАЗНАЧЕН" if idx < 4 else "В_РАБОТЕ"),
-                "estimated_cost_rub": settings.PREVENTIVE_MAINTENANCE_COST_RUB,
-                "saved_opex_rub": saved
+                "estimated_cost_rub": settings.PREVENTIVE_MAINTENANCE_COST_RUB
             })
 
     def get_tickets(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -192,7 +195,10 @@ class MaintenanceService:
         )
 
         work_desc = notes or f"Превентивная замена/ремонт датчика {s_info.get('sensor_name', '')} на основе прогноза деградации."
-        saved = settings.AVERAGE_CALLOUT_COST_RUB - settings.PREVENTIVE_MAINTENANCE_COST_RUB
+
+        prob = pred.get("calibrated_proxy_probability")
+        if prob is None:
+            prob = pred.get("failure_probability", 0.75)
 
         ticket = {
             "ticket_id": ticket_id,
@@ -205,14 +211,13 @@ class MaintenanceService:
             "picket": coords.get("picket", "ПК30"),
             "corridor": coords.get("corridor", "Магистральный сектор"),
             "priority": priority,
-            "failure_risk_percent": round(pred.get("failure_probability", 0.75) * 100, 1),
+            "failure_risk_percent": round(prob * 100, 1),
             "required_materials": ["ЗИП датчика", "Монтажный комплект", "Газоанализатор (при входе)"],
             "work_description": work_desc,
             "regulation_reference": f"{settings.REGULATION_NAME}, План ППР",
             "assigned_team": "Оперативная бригада ОДС Москоллектор",
             "status": "ЧЕРНОВИК",
             "estimated_cost_rub": settings.PREVENTIVE_MAINTENANCE_COST_RUB,
-            "saved_opex_rub": saved,
             "created_by": dispatcher_badge,
             "created_by_name": dispatcher_name,
             "authorization_standard": "Local dispatcher account authorization"

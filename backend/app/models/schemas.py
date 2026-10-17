@@ -199,7 +199,6 @@ class MaintenanceTicket(BaseModel):
     assigned_team: str
     status: Literal["ЧЕРНОВИК", "НАЗНАЧЕН", "В_РАБОТЕ", "ВЫПОЛНЕН"]
     estimated_cost_rub: float
-    saved_opex_rub: float
     created_by: Optional[str] = None
     created_by_name: Optional[str] = None
 
@@ -231,8 +230,6 @@ class SystemStatsResponse(BaseModel):
     prediction_horizon_hours: int
     inference_sla_seconds: int
     false_alarms_filtered_ratio: Optional[float] = Field(None, description="Доля отсева на подтверждённой выборке; null, пока журнал исходов заказчика недоступен")
-    total_saved_opex_rub: float = Field(..., description="Устаревшее имя: сумма условной разницы затрат в локальном демо, не подтверждённая экономия")
-    annual_projected_opex_rub: float = Field(..., description="Годовой сценарный потенциал при заданных допущениях, не достигнутый эффект")
     financial_evidence_status: str = "SCENARIO_ONLY_NO_VERIFIED_SAVINGS"
     tickets_count: int
     critical_sensors_count: int

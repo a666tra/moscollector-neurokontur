@@ -81,6 +81,31 @@ def test_health():
     data = res.json()
     assert data["status"] == "online"
     assert "825.0 км" in data["monitored_infrastructure"]
+    assert "build" in data
+    assert data["data_snapshot_date"] == "2026-01-28"
+
+def test_info_and_build_env_precedence(monkeypatch):
+    res = client.get("/api/info")
+    assert res.status_code == 200
+    info = res.json()
+    assert info["data_snapshot_date"] == "2026-01-28"
+    assert "build" in info
+
+    # If neither is set, build is "unknown"
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    monkeypatch.delenv("GIT_COMMIT", raising=False)
+    assert client.get("/api/health").json()["build"] == "unknown"
+    assert client.get("/api/info").json()["build"] == "unknown"
+
+    # GIT_COMMIT is used when RENDER_GIT_COMMIT is missing
+    monkeypatch.setenv("GIT_COMMIT", "git-commit-hash-123")
+    assert client.get("/api/health").json()["build"] == "git-commit-hash-123"
+    assert client.get("/api/info").json()["build"] == "git-commit-hash-123"
+
+    # RENDER_GIT_COMMIT takes precedence over GIT_COMMIT
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "render-commit-hash-456")
+    assert client.get("/api/health").json()["build"] == "render-commit-hash-456"
+    assert client.get("/api/info").json()["build"] == "render-commit-hash-456"
 
 def test_stats_summary():
     res = client.get("/api/stats/summary")
@@ -90,7 +115,8 @@ def test_stats_summary():
     assert data["total_objects"] == 95
     assert data["model_roc_auc"] >= 0.70
     assert data["inference_latency_ms"] < 300.0
-    assert data["annual_projected_opex_rub"] > 1000000.0
+    assert "annual_projected_opex_rub" not in data
+    assert "total_saved_opex_rub" not in data
     assert data["false_alarms_filtered_ratio"] is None
     assert data["financial_evidence_status"] == "SCENARIO_ONLY_NO_VERIFIED_SAVINGS"
 
@@ -188,8 +214,11 @@ def test_real_risk_classification():
 def test_tickets_crud():
     res = client.get("/api/tickets")
     assert res.status_code == 200
-    initial_count = len(res.json())
+    tickets_list = res.json()
+    initial_count = len(tickets_list)
     assert initial_count > 0
+    for t in tickets_list:
+        assert "saved_opex_rub" not in t
     assert client.get("/api/tickets?status=UNKNOWN").status_code == 422
 
     unauth = client.post("/api/tickets/generate", json={"channel_id": "120504"})
@@ -222,6 +251,11 @@ def test_tickets_crud():
     ticket = res_gen.json()
     assert ticket["channel_id"] == "120504"
     assert ticket["created_by"] == badge
+    assert "saved_opex_rub" not in ticket
+    from backend.app.services.data_service import data_service
+    p = data_service.predictions_by_channel.get("120504", {})
+    expected_risk = round(p["calibrated_proxy_probability"] * 100, 1)
+    assert ticket["failure_risk_percent"] == expected_risk
 
     no_auth_status = client.patch(
         f"/api/tickets/{ticket['ticket_id']}/status",
@@ -976,11 +1010,10 @@ def test_high_risk_and_top_k_metrics():
     assert delta["delta_brier_absolute"] == 0.00115
 
 
-def test_pin_lockout_scoped_by_client_ip():
-    """Проверка блокировки по паре (badge, client_id):
-    5 неверных PIN с IP A блокируют IP A, но не блокируют IP B;
-    верный PIN сбрасывает счетчик только для своей пары IP/badge.
-    При client_id=None логика работает по badge как раньше.
+def test_pin_lockout_scoped_by_badge_not_bypassable_by_client_id():
+    """Проверка блокировки строго по badge:
+    5 неверных PIN (например, с client_id=ip_a) блокируют табельный номер;
+    6-я попытка с другим client_id (ip_b / поддельный X-Forwarded-For) всё равно отклоняется.
     """
     from backend.app.services.ml_service import (
         DispatcherAuthenticationError,
@@ -994,8 +1027,6 @@ def test_pin_lockout_scoped_by_client_ip():
     ip_b = "192.168.1.20"
 
     with ml_service._pin_failures_lock:
-        ml_service._pin_failures.pop((badge, ip_a), None)
-        ml_service._pin_failures.pop((badge, ip_b), None)
         ml_service._pin_failures.pop(badge, None)
 
     try:
@@ -1004,44 +1035,20 @@ def test_pin_lockout_scoped_by_client_ip():
             with pytest.raises(DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
                 ml_service.authenticate_dispatcher(badge, wrong_pin, client_id=ip_a)
 
-        # 6-я попытка с IP A заблокирована даже с верным PIN
+        # 6-я попытка с другим client_id (ip_b) отклоняется
         with pytest.raises(DispatcherAuthenticationError, match="Слишком много неверных попыток PIN"):
-            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_a)
+            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_b)
 
-        # IP B с тем же badge НЕ заблокирован и успешно аутентифицируется
-        res_b_badge, _ = ml_service.authenticate_dispatcher(badge, pin, client_id=ip_b)
-        assert res_b_badge == badge
-
-        # IP A всё ещё заблокирован после успешного входа IP B
+        # Попытка без client_id также отклоняется
         with pytest.raises(DispatcherAuthenticationError, match="Слишком много неверных попыток PIN"):
-            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_a)
-
-        # IP B делает 1 неудачную попытку
-        with pytest.raises(DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
-            ml_service.authenticate_dispatcher(badge, wrong_pin, client_id=ip_b)
-        assert len(ml_service._pin_failures.get((badge, ip_b), [])) == 1
-
-        # Верный PIN с IP B сбрасывает счетчик ТОЛЬКО для пары (badge, ip_b)
-        ml_service.authenticate_dispatcher(badge, pin, client_id=ip_b)
-        assert (badge, ip_b) not in ml_service._pin_failures
-
-        # IP A всё ещё заблокирован
-        with pytest.raises(DispatcherAuthenticationError, match="Слишком много неверных попыток PIN"):
-            ml_service.authenticate_dispatcher(badge, pin, client_id=ip_a)
-
-        # Если client_id is None, поведение остается привязанным к badge
-        with pytest.raises(DispatcherAuthenticationError, match="неверный badge или 6-значный PIN-код"):
             ml_service.authenticate_dispatcher(badge, wrong_pin, client_id=None)
-        assert badge in ml_service._pin_failures
     finally:
         with ml_service._pin_failures_lock:
-            ml_service._pin_failures.pop((badge, ip_a), None)
-            ml_service._pin_failures.pop((badge, ip_b), None)
             ml_service._pin_failures.pop(badge, None)
 
 
 def test_pin_lockout_via_api_client_ip():
-    """Интеграционный тест: API-обработчики изолируют блокировки по request.client.host."""
+    """Интеграционный тест: API-блокировка по badge не обходится сменой request.client.host."""
     from backend.app.services.ml_service import ml_service, MAX_PIN_FAILURES
 
     badge, pin = require_dispatcher_credentials()
@@ -1053,8 +1060,7 @@ def test_pin_lockout_via_api_client_ip():
     client_b = TestClient(app, client=(ip_b, 50000))
 
     with ml_service._pin_failures_lock:
-        ml_service._pin_failures.pop((badge, ip_a), None)
-        ml_service._pin_failures.pop((badge, ip_b), None)
+        ml_service._pin_failures.pop(badge, None)
 
     try:
         # 5 неверных попыток с IP A
@@ -1074,25 +1080,16 @@ def test_pin_lockout_via_api_client_ip():
         assert locked_a.status_code == 401
         assert "Слишком много неверных попыток PIN" in locked_a.json()["detail"]
 
-        # IP B НЕ заблокирован и может войти
-        ok_b = client_b.post("/api/alarms/session", json={
+        # 6-я попытка с другого IP (IP B): табельный номер заблокирован, смена IP не помогает
+        locked_b = client_b.post("/api/alarms/session", json={
             "dispatcher_badge": badge,
             "dispatcher_pin": pin,
         })
-        assert ok_b.status_code == 200
-        assert ok_b.json()["badge"] == badge
-
-        # IP A всё ещё заблокирован
-        still_locked_a = client_a.post("/api/alarms/session", json={
-            "dispatcher_badge": badge,
-            "dispatcher_pin": pin,
-        })
-        assert still_locked_a.status_code == 401
-        assert "Слишком много неверных попыток PIN" in still_locked_a.json()["detail"]
+        assert locked_b.status_code == 401
+        assert "Слишком много неверных попыток PIN" in locked_b.json()["detail"]
     finally:
         with ml_service._pin_failures_lock:
-            ml_service._pin_failures.pop((badge, ip_a), None)
-            ml_service._pin_failures.pop((badge, ip_b), None)
+            ml_service._pin_failures.pop(badge, None)
 
 
 def test_settings_reset_to_defaults():

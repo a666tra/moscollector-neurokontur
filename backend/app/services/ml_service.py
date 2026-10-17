@@ -221,7 +221,7 @@ class MLService:
                 "Отказ в аутентификации: табельный номер не зарегистрирован."
             )
 
-        lockout_key = (badge, client_id) if client_id is not None else badge
+        lockout_key = badge
         now = time.time()
         with self._pin_failures_lock:
             recent = [t for t in self._pin_failures.get(lockout_key, []) if now - t < PIN_LOCKOUT_SECONDS]

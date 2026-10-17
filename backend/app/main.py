@@ -48,12 +48,32 @@ app.include_router(synthetic_router, prefix="/api/synthetic", tags=["Синте�
 app.include_router(scenarios_router, prefix="/api/scenarios", tags=["Сценарный полигон"])
 
 
+def get_build_info() -> str:
+    for env_var in ("RENDER_GIT_COMMIT", "GIT_COMMIT"):
+        val = os.environ.get(env_var)
+        if val and val.strip():
+            return val.strip()
+    return "unknown"
+
+
+def get_data_snapshot_date() -> str:
+    from backend.app.services.data_service import data_service
+    rep = getattr(data_service, "metrics_report", {}) or {}
+    prov = rep.get("dataset_provenance", {})
+    cutoff = prov.get("prediction_cutoff")
+    if cutoff and isinstance(cutoff, str):
+        return cutoff[:10]
+    return "2026-01-28"
+
+
 @app.get("/api/health", tags=["Система"])
 def health_check():
     return {
         "status": "online",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
+        "build": get_build_info(),
+        "data_snapshot_date": get_data_snapshot_date(),
         "monitored_infrastructure": f"{settings.TOTAL_COLLECTOR_KM} км коллекторов Москвы",
         "inference_engine": "LightGBM Classifier + Rule Engine",
         "compliance": settings.COMPLIANCE_STANDARDS
@@ -64,6 +84,8 @@ def get_system_info():
     return {
         "name": settings.PROJECT_NAME,
         "version": settings.VERSION,
+        "build": get_build_info(),
+        "data_snapshot_date": get_data_snapshot_date(),
         "regulation": settings.REGULATION_NAME,
         "description": settings.DESCRIPTION,
         "docs_url": "/docs"
