@@ -1265,3 +1265,38 @@ def test_validation_alarms_classify_negative():
     assert res_duration.status_code == 422
 
 
+def test_ticket_id_uniqueness_after_cleanup():
+    """Проверка генератора ID нарядов: новый наряд получает ID на основе
+    max existing numeric suffix + 1 и не дублирует ни один существующий наряд.
+    """
+    import re
+    badge, pin = require_dispatcher_credentials()
+    existing_tickets = client.get("/api/tickets").json()
+    existing_ids = {t["ticket_id"] for t in existing_tickets}
+    assert len(existing_ids) > 0
+
+    numeric_suffixes = []
+    for tid in existing_ids:
+        m = re.search(r"-(\d+)$", tid)
+        if m:
+            numeric_suffixes.append(int(m.group(1)))
+    max_suffix = max(numeric_suffixes)
+
+    res = client.post("/api/tickets/generate", json={
+        "channel_id": "120504",
+        "priority": "ВЫСОКИЙ",
+        "notes": "Проверка уникальности ID после очистки датасета",
+        "dispatcher_badge": badge,
+        "dispatcher_pin": pin,
+    })
+    assert res.status_code == 200
+    new_ticket = res.json()
+    new_id = new_ticket["ticket_id"]
+
+    assert new_id not in existing_ids
+    new_suffix_match = re.search(r"-(\d+)$", new_id)
+    assert new_suffix_match is not None
+    assert int(new_suffix_match.group(1)) == max_suffix + 1
+
+
+

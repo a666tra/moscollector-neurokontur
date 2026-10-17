@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import re
 import tempfile
 import threading
 from copy import deepcopy
@@ -146,6 +147,20 @@ class MaintenanceService:
             raise
         return deepcopy(ticket)
 
+    def _next_numeric_suffix(self) -> int:
+        max_suffix = 1000
+        for t in self.tickets:
+            tid = str(t.get("ticket_id") or "")
+            m = re.search(r"-(\d+)$", tid)
+            if m:
+                try:
+                    val = int(m.group(1))
+                    if val > max_suffix:
+                        max_suffix = val
+                except ValueError:
+                    pass
+        return max_suffix + 1
+
     def create_ticket(
         self,
         channel_id: str,
@@ -191,7 +206,7 @@ class MaintenanceService:
         ticket_id = (
             f"SIM-ТО-{now.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8].upper()}"
             if simulation_only
-            else f"З-ТО-{now.strftime('%Y%m')}-{1001 + len(self.tickets)}"
+            else f"З-ТО-{now.strftime('%Y%m')}-{self._next_numeric_suffix()}"
         )
 
         work_desc = notes or f"Превентивная замена/ремонт датчика {s_info.get('sensor_name', '')} на основе прогноза деградации."
