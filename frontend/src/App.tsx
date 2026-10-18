@@ -286,26 +286,26 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
 
       {/* Mobile Header */}
       <header
-        className="lg:hidden shrink-0 h-14 flex items-center justify-between px-3.5 border-b relative z-[900]"
+        className="lg:hidden shrink-0 h-14 flex items-center justify-between px-3 sm:px-3.5 border-b relative z-[900] max-w-full overflow-hidden"
         style={{ background: 'var(--bg)', borderColor: 'var(--ln)' }}
       >
         <button
           onClick={onExit}
-          className="serif italic font-medium text-[22px] leading-none text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer"
+          className="serif italic font-medium text-[20px] sm:text-[22px] leading-none text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer shrink-0 truncate max-w-[130px] sm:max-w-none"
           title="На главную"
         >
           НейроКонтур
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <span
-            className="font-mono text-[11.5px] font-medium px-2.5 py-1 rounded-full border flex items-center gap-1.5"
+            className="font-mono text-[11px] sm:text-[11.5px] font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border flex items-center gap-1.5 shrink-0"
             style={{ borderColor: 'var(--ln)', background: 'var(--sf2)', color: 'var(--ink)' }}
             title={clockTooltip}
           >
             <i className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--gn)' }} />
             <span>{shortDateText}</span>
           </span>
-          <ThemeButton className="w-9 h-9 rounded-full bg-[var(--sf2)] text-[var(--ink)] flex items-center justify-center border-0 cursor-pointer" />
+          <ThemeButton className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[var(--sf2)] text-[var(--ink)] flex items-center justify-center border-0 cursor-pointer shrink-0" />
         </div>
       </header>
 

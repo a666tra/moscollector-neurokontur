@@ -7,6 +7,7 @@ import { DecisionLedger } from './DecisionLedger';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { api } from '../lib/api';
+import { formatPk } from '../lib/plain';
 
 interface MaintenanceTicketsProps {
   filterObjectId?: string | null;
@@ -342,7 +343,7 @@ ${ticket.assigned_team}
                       {ticket.sensor_name} <span className="num text-xs font-normal" style={{ color: 'var(--muted)' }}>(#{ticket.channel_id})</span>
                     </div>
                     <div className="truncate" style={{ color: 'var(--muted)' }}>
-                      {ticket.object_name} · ПК <span className="num">{ticket.picket}</span> · {ticket.corridor}
+                      {ticket.object_name} · <span className="num">{formatPk(ticket.picket)}</span> · {ticket.corridor}
                     </div>
                   </div>
 

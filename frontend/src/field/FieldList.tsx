@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RefreshCw, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { ObjectItem, PredictionItem, MaintenanceTicket } from '../types';
-import { probabilityOf } from '../lib/plain';
+import { probabilityOf, formatPk } from '../lib/plain';
 
 interface Props {
   criticalObjects: ObjectItem[];
@@ -70,8 +70,8 @@ export const FieldList: React.FC<Props> = ({
 
   const renderRow = (obj: ObjectItem) => {
     const pred = predsByObject.get(obj.object_id);
-    const prob = pred ? probabilityOf(pred) : (obj.risk_level === 'CRITICAL' ? 0.71 : obj.risk_level === 'WARNING' ? 0.45 : 0.1);
-    const pct = Math.round(prob * 100);
+    const prob = pred ? probabilityOf(pred) : null;
+    const pct = prob != null ? Math.round(prob * 100) : null;
     const dist = getDistance(obj);
     const distStr = formatDistance(dist);
     const isSelected = obj.object_id === selectedObjectId;
@@ -82,7 +82,7 @@ export const FieldList: React.FC<Props> = ({
     const isWarning = obj.risk_level === 'WARNING';
 
     const area = obj.route_name || obj.corridor || 'Москва';
-    const picket = obj.picket ? `ПК${obj.picket}` : '';
+    const picket = formatPk(obj.picket);
     const subtitle = [area, picket, distStr].filter(Boolean).join(' · ');
 
     const badgeBg = isDone ? 'var(--gns)' : isCritical ? 'var(--rds)' : isWarning ? 'var(--ams)' : 'var(--sf2)';
@@ -130,8 +130,8 @@ export const FieldList: React.FC<Props> = ({
         role="listitem"
         type="button"
         onClick={() => onSelectObject(obj.object_id)}
-        aria-label={`${obj.name}, риск ${pct} %, статус ${statusText}, расстояние ${distStr}`}
-        className="w-full min-h-[76px] p-2.5 sm:p-3 rounded-[18px] border-2 flex items-center gap-3 text-left transition-all active:scale-[0.99] cursor-pointer"
+        aria-label={`${obj.name}${pct != null ? `, риск ${pct} %` : ''}, статус ${statusText}, расстояние ${distStr}`}
+        className="w-full max-w-full min-h-[76px] p-2.5 sm:p-3 rounded-[18px] border-2 flex items-center gap-2.5 sm:gap-3 text-left transition-all active:scale-[0.99] cursor-pointer overflow-hidden"
         style={{
           background: isSelected ? 'var(--sf2)' : 'var(--sf)',
           borderColor: isSelected ? 'var(--ac)' : 'var(--ln)',
@@ -140,10 +140,10 @@ export const FieldList: React.FC<Props> = ({
       >
         {/* Risk Percentage Badge */}
         <span
-          className="w-11 h-11 rounded-[14px] flex items-center justify-center font-bold text-[15px] font-mono shrink-0 tabular-nums"
+          className="w-11 h-11 rounded-[14px] flex items-center justify-center font-bold text-[14px] sm:text-[15px] font-mono shrink-0 tabular-nums"
           style={{ background: badgeBg, color: badgeFg }}
         >
-          {isDone ? '✓' : `${pct}%`}
+          {isDone ? '✓' : pct != null ? `${pct}%` : '—'}
         </span>
 
         {/* Info Column */}

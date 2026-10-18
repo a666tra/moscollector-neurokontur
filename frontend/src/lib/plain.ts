@@ -27,5 +27,13 @@ export const probabilityOf = (p: PredictionItem) =>
 
 /** «[Охранная зона]ДП Ленинский» → «Охранная зона · ДП Ленинский» */
 export const cleanName = (n: string) => (n || '').replace(/^\[([^\]]+)\]\s*/, '$1 · ').replace(/\s+/g, ' ').trim();
-/** Short title for lists: drop the zone prefix. */
 export const shortName = (n: string) => cleanName(n).replace(/^[^·]+·\s*/, '') || cleanName(n);
+
+/** Formats picket so "ПК" prefix is never duplicated (e.g. "ПК33" -> "ПК33", "33" -> "ПК33") */
+export const formatPk = (picket?: string | number | null): string => {
+  if (picket == null) return '';
+  const trimmed = String(picket).trim();
+  if (!trimmed) return '';
+  if (/^пк/i.test(trimmed)) return trimmed;
+  return `ПК${trimmed}`;
+};

@@ -7,6 +7,7 @@ import { SimulationResult } from '../types';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { api } from '../lib/api';
+import { formatPk } from '../lib/plain';
 
 interface StreamSimulatorProps {
   onRefreshStats?: () => void;
@@ -287,7 +288,7 @@ export const StreamSimulator: React.FC<StreamSimulatorProps> = ({ onRefreshStats
                         (#{step.channel_id})
                       </span>
                       <span className="chip text-[11px]" style={{ background: 'var(--surface-3)', color: 'var(--muted)' }}>
-                        ПК <span className="num">{step.picket}</span>
+                        <span className="num">{formatPk(step.picket)}</span>
                       </span>
                     </div>
 

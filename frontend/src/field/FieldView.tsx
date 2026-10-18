@@ -78,7 +78,13 @@ export const FieldView: React.FC<Props> = ({
   });
   const [offlineQueue, setOfflineQueue] = useState<
     Array<{ id: string; type: string; objectId: string; text: string }>
-  >([]);
+  >(() => {
+    try {
+      const stored = localStorage.getItem('nk_tech_queue');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return [];
+  });
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -88,28 +94,40 @@ export const FieldView: React.FC<Props> = ({
   // Step flow state per object: 0 = Не начато, 1 = В пути, 2 = На месте, 3 = Проверено
   const [objectSteps, setObjectSteps] = useState<Record<string, number>>(() => {
     try {
+      const stored = localStorage.getItem('nk_tech_steps');
+      const fromStore = stored ? JSON.parse(stored) : {};
       const stepParam = new URLSearchParams(window.location.search).get('step');
       const objParam = new URLSearchParams(window.location.search).get('obj');
-      if (stepParam && objParam) {
+      if (stepParam && objParam && fromStore[objParam] === undefined) {
         const s = parseInt(stepParam, 10);
-        if (!isNaN(s)) return { [objParam]: s };
+        if (!isNaN(s)) return { ...fromStore, [objParam]: s };
       }
+      return fromStore;
     } catch {}
     return {};
   });
   // Checklist checked items per object
   const [checklistState, setChecklistState] = useState<Record<string, boolean[]>>(() => {
     try {
+      const stored = localStorage.getItem('nk_tech_checklist');
+      const fromStore = stored ? JSON.parse(stored) : {};
       const checkParam = new URLSearchParams(window.location.search).get('check');
       const objParam = new URLSearchParams(window.location.search).get('obj');
       if (checkParam && objParam) {
-        return { [objParam]: checkParam.split(',').map(v => v === '1' || v === 'true') };
+        return { ...fromStore, [objParam]: checkParam.split(',').map(v => v === '1' || v === 'true') };
       }
+      return fromStore;
     } catch {}
     return {};
   });
   // SOS help sent status per object
-  const [helpSent, setHelpSent] = useState<Record<string, boolean>>({});
+  const [helpSent, setHelpSent] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem('nk_tech_help');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return {};
+  });
 
   // Geolocation
   const [technicianPos, setTechnicianPos] = useState<[number, number]>(DEMO_POS);
@@ -135,6 +153,45 @@ export const FieldView: React.FC<Props> = ({
       );
     }
   }, []);
+
+  // Persist demo states to localStorage safely
+  useEffect(() => {
+    try {
+      localStorage.setItem('nk_tech_steps', JSON.stringify(objectSteps));
+    } catch {}
+  }, [objectSteps]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nk_tech_checklist', JSON.stringify(checklistState));
+    } catch {}
+  }, [checklistState]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nk_tech_queue', JSON.stringify(offlineQueue));
+    } catch {}
+  }, [offlineQueue]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nk_tech_help', JSON.stringify(helpSent));
+    } catch {}
+  }, [helpSent]);
+
+  const handleResetDemoMarks = useCallback(() => {
+    try {
+      localStorage.removeItem('nk_tech_steps');
+      localStorage.removeItem('nk_tech_checklist');
+      localStorage.removeItem('nk_tech_queue');
+      localStorage.removeItem('nk_tech_help');
+    } catch {}
+    setObjectSteps({});
+    setChecklistState({});
+    setOfflineQueue([]);
+    setHelpSent({});
+    toast('Демо-отметки сброшены', 'info');
+  }, [toast]);
 
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
@@ -275,11 +332,11 @@ export const FieldView: React.FC<Props> = ({
       .filter(o => o.risk_level !== 'NORMAL' || o.object_id === selectedObjectId)
       .map(o => {
         const pred = predsByObject.get(o.object_id);
-        const prob = pred ? probabilityOf(pred) : o.risk_level === 'CRITICAL' ? 0.71 : 0.45;
+        const prob = pred ? probabilityOf(pred) : null;
         const step = objectSteps[o.object_id] ?? 0;
         return {
           objectId: o.object_id,
-          pct: Math.round(prob * 100),
+          pct: prob != null ? Math.round(prob * 100) : null,
           risk: o.risk_level || 'NORMAL',
           done: step === 3,
         };
@@ -294,7 +351,7 @@ export const FieldView: React.FC<Props> = ({
     } else {
       setIsOffline(false);
       if (offlineQueue.length > 0) {
-        toast(`Отметки отправлены диспетчеру (${offlineQueue.length})`, 'success');
+        toast(`Связь восстановлена · в пилоте отметки уйдут диспетчеру (${offlineQueue.length})`, 'info');
         setOfflineQueue([]);
       } else {
         toast('Связь восстановлена', 'info');
@@ -306,6 +363,11 @@ export const FieldView: React.FC<Props> = ({
   const handleStepChange = (newStep: number) => {
     if (!selectedObjectId) return;
     setObjectSteps(prev => ({ ...prev, [selectedObjectId]: newStep }));
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('step');
+      window.history.replaceState({}, '', u);
+    } catch {}
 
     if (isOffline) {
       setOfflineQueue(prev => [
@@ -344,9 +406,9 @@ export const FieldView: React.FC<Props> = ({
           text: 'Сигнал помощи',
         },
       ]);
-      toast('Сигнал о помощи записан · отправится, когда появится связь', 'info');
+      toast('Сигнал помощи записан на этом устройстве', 'info');
     } else {
-      toast('Диспетчер получил сигнал о помощи', 'success');
+      toast('Сигнал помощи записан на этом устройстве (демо: диспетчеру не отправляется)', 'info');
     }
   };
 
@@ -375,21 +437,19 @@ export const FieldView: React.FC<Props> = ({
 
   const selectedPct = selectedPred
     ? Math.round(probabilityOf(selectedPred) * 100)
-    : selectedObject?.risk_level === 'CRITICAL'
-    ? 71
-    : 45;
+    : null;
 
   const selectedDistanceStr = selectedObject ? formatDistance(getDistance(selectedObject)) : '';
 
   return (
     <div className="relative w-full h-full overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* Top-Left Connection Pill */}
-      <div className="absolute left-3.5 top-3.5 z-40 flex items-center gap-2 flex-wrap pointer-events-none">
+      <div className="absolute left-3.5 top-3.5 z-40 flex items-center gap-2 flex-wrap pointer-events-none max-w-[calc(100vw-28px)]">
         <button
           type="button"
           onClick={handleToggleOffline}
           aria-pressed={isOffline}
-          className="pointer-events-auto min-h-[44px] px-3.5 rounded-full flex items-center gap-2 text-xs sm:text-[13px] font-semibold border shadow-md transition-all active:scale-95 cursor-pointer"
+          className="pointer-events-auto min-h-[44px] px-3.5 rounded-full flex items-center gap-2 text-xs sm:text-[13px] font-semibold border shadow-md transition-all active:scale-95 cursor-pointer max-w-full"
           style={{
             background: isOffline ? 'var(--ams)' : 'var(--sf)',
             borderColor: isOffline ? 'var(--am)' : 'var(--ln2)',
@@ -397,35 +457,43 @@ export const FieldView: React.FC<Props> = ({
           }}
         >
           {isOffline ? (
-            <WifiOff className="w-4 h-4 text-[var(--amt)]" />
+            <WifiOff className="w-4 h-4 text-[var(--amt)] shrink-0" />
           ) : (
-            <Wifi className="w-4 h-4 text-[var(--gn)]" />
+            <Wifi className="w-4 h-4 text-[var(--gn)] shrink-0" />
           )}
-          <span>
-            {isOffline ? `Офлайн · ${snapshotDate}` : `Есть связь · ${snapshotDate}`}
+          <span className="truncate">
+            {isOffline
+              ? offlineQueue.length > 0
+                ? `Офлайн · отметки на устройстве (${offlineQueue.length})`
+                : `Офлайн · данные до ${snapshotDate}`
+              : `Есть связь · ${snapshotDate}`}
           </span>
         </button>
-
-        {offlineQueue.length > 0 && (
-          <span
-            className="pointer-events-auto min-h-[44px] px-3.5 rounded-full flex items-center gap-1.5 text-xs sm:text-[13px] font-semibold shadow-md animate-pulse"
-            style={{ background: 'var(--ams)', color: 'var(--amt)' }}
-          >
-            <span>ждут отправки:</span>
-            <span className="font-mono font-bold">{offlineQueue.length}</span>
-          </span>
-        )}
       </div>
 
       {/* Offline Alert Banner */}
       {isOffline && (
         <div
           role="status"
-          className="absolute left-3.5 right-3.5 sm:left-4 sm:right-auto sm:max-w-md top-16 z-40 p-3 rounded-2xl flex items-center gap-2.5 text-xs sm:text-sm font-medium shadow-lg"
-          style={{ background: 'var(--sf2)', color: 'var(--ink)', border: '1px solid var(--ln)' }}
+          className="absolute left-3.5 right-3.5 sm:left-4 sm:right-auto sm:max-w-md top-16 z-40 p-3.5 rounded-2xl flex flex-col gap-1.5 text-xs sm:text-[13px] font-medium shadow-lg"
+          style={{ background: 'var(--sf)', color: 'var(--ink)', border: '1px solid var(--am)' }}
         >
-          <WifiOff className="w-4 h-4 text-[var(--am)] shrink-0" />
-          <span>Нет сети. Данные до {snapshotDate} сохранены на телефоне, отметки отправятся позже.</span>
+          <div className="flex items-center gap-2">
+            <WifiOff className="w-4 h-4 text-[var(--am)] shrink-0" />
+            <span className="font-semibold text-[var(--amt)]">Режим «Офлайн»</span>
+          </div>
+          <div className="text-[var(--mu)] leading-snug">
+            Нет сети. Данные сохранены на телефоне. Демо режима техника: отметки видны только на этом телефоне и не меняют заявки на сервере.
+          </div>
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleResetDemoMarks}
+              className="text-xs text-[var(--mu)] hover:text-[var(--ink)] underline cursor-pointer bg-transparent border-0 p-0"
+            >
+              Сбросить демо-отметки
+            </button>
+          </div>
         </div>
       )}
 
@@ -440,7 +508,7 @@ export const FieldView: React.FC<Props> = ({
           center={selectedObject ? [selectedObject.lat, selectedObject.lon] : DEMO_POS}
           zoom={13}
           you={technicianPos}
-          youLabel={isDemoPosition ? 'Вы здесь (демо-позиция)' : 'Вы здесь (GPS)'}
+          youLabel={isDemoPosition ? 'Вы здесь (демо-позиция)' : 'Вы здесь'}
           routeTo={selectedObject ? [selectedObject.lat, selectedObject.lon] : null}
           zoomOnSelect={true}
           focusOffsetY={mobileSnap === 'half' ? 0.0035 : 0}
@@ -459,6 +527,7 @@ export const FieldView: React.FC<Props> = ({
             ticket={selectedTicket}
             pct={selectedPct}
             distanceText={selectedDistanceStr}
+            isDemoPosition={isDemoPosition}
             step={objectSteps[selectedObject.object_id] ?? 0}
             onStepChange={handleStepChange}
             checklistState={checklistState[selectedObject.object_id] || []}
@@ -469,6 +538,7 @@ export const FieldView: React.FC<Props> = ({
             onSendHelp={handleSendHelp}
             helpSent={!!helpSent[selectedObject.object_id]}
             isOffline={isOffline}
+            onResetDemoMarks={handleResetDemoMarks}
           />
         ) : (
           <FieldList
@@ -500,6 +570,7 @@ export const FieldView: React.FC<Props> = ({
             ticket={selectedTicket}
             pct={selectedPct}
             distanceText={selectedDistanceStr}
+            isDemoPosition={isDemoPosition}
             step={objectSteps[selectedObject.object_id] ?? 0}
             onStepChange={handleStepChange}
             checklistState={checklistState[selectedObject.object_id] || []}
@@ -510,6 +581,7 @@ export const FieldView: React.FC<Props> = ({
             onSendHelp={handleSendHelp}
             helpSent={!!helpSent[selectedObject.object_id]}
             isOffline={isOffline}
+            onResetDemoMarks={handleResetDemoMarks}
           />
         ) : (
           <FieldList

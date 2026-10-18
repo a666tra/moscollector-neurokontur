@@ -4,15 +4,16 @@ import {
   ClipboardList, AlertCircle, Eye, Wrench, ShieldAlert
 } from 'lucide-react';
 import { ObjectItem, PredictionItem, MaintenanceTicket } from '../types';
-import { plainReason, cleanName } from '../lib/plain';
+import { plainReason, cleanName, formatPk } from '../lib/plain';
 import { useToast } from '../lib/toast';
 
 interface Props {
   object: ObjectItem;
   highestPred?: PredictionItem;
   ticket?: MaintenanceTicket;
-  pct: number;
+  pct: number | null;
   distanceText: string;
+  isDemoPosition?: boolean;
   step: number; // 0 = Не начато, 1 = В пути, 2 = На месте, 3 = Проверено
   onStepChange: (step: number) => void;
   checklistState: boolean[];
@@ -23,6 +24,7 @@ interface Props {
   onSendHelp: () => void;
   helpSent: boolean;
   isOffline: boolean;
+  onResetDemoMarks?: () => void;
 }
 
 export const FieldObjectCard: React.FC<Props> = ({
@@ -31,6 +33,7 @@ export const FieldObjectCard: React.FC<Props> = ({
   ticket,
   pct,
   distanceText,
+  isDemoPosition = true,
   step,
   onStepChange,
   checklistState,
@@ -41,6 +44,7 @@ export const FieldObjectCard: React.FC<Props> = ({
   onSendHelp,
   helpSent,
   isOffline,
+  onResetDemoMarks,
 }) => {
   const toast = useToast();
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -122,22 +126,23 @@ export const FieldObjectCard: React.FC<Props> = ({
   const statusDot = isDone ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--mu)';
   const statusText = isDone ? 'Выполнена' : isCritical ? 'Срочно проверить' : isWarning ? 'Проверить скоро' : 'Наблюдать';
 
-  const placeParts = [object.route_name, object.corridor, object.picket].filter(Boolean);
+  const placeParts = [object.route_name, object.corridor, formatPk(object.picket)].filter(Boolean);
   const place = placeParts.join(' · ') || 'Коллекторная сеть Москвы';
+  const distDisplay = isDemoPosition ? `${distanceText} от демо-позиции` : distanceText;
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col justify-between overflow-hidden bg-[var(--sf)]">
       {/* Scrollable Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-3.5 sm:gap-4">
         {/* Header navigation bar */}
-        <div className="flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center justify-between gap-2 shrink-0 max-w-full overflow-hidden">
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] px-2 -ml-2 rounded-xl flex items-center gap-1.5 text-[15px] font-semibold text-[var(--ac)] bg-transparent border-0 cursor-pointer hover:opacity-80 transition-opacity"
+            className="min-h-[48px] px-2 -ml-2 rounded-xl flex items-center gap-1.5 text-[15px] font-semibold text-[var(--ac)] bg-transparent border-0 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
             aria-label="Вернуться к списку объектов"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 shrink-0" />
             <span>Все</span>
           </button>
 
@@ -145,7 +150,7 @@ export const FieldObjectCard: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => onOpenTickets(object.object_id)}
-              className="min-h-[40px] px-3.5 rounded-full flex items-center gap-1.5 text-xs font-semibold border cursor-pointer transition-colors"
+              className="min-h-[40px] px-3 sm:px-3.5 rounded-full flex items-center gap-1.5 text-xs font-semibold border cursor-pointer transition-colors shrink-0 max-w-[200px]"
               style={{
                 background: ticket.status === 'НАЗНАЧЕН' ? 'var(--ams)' : 'var(--acs)',
                 color: ticket.status === 'НАЗНАЧЕН' ? 'var(--amt)' : 'var(--ac)',
@@ -153,22 +158,22 @@ export const FieldObjectCard: React.FC<Props> = ({
               }}
               title="Открыть наряд в разделе заявок"
             >
-              <ClipboardList className="w-4 h-4" />
-              <span>Заявка {ticket.ticket_id.slice(-6)}</span>
+              <ClipboardList className="w-4 h-4 shrink-0" />
+              <span className="truncate">Заявка {ticket.ticket_id.slice(-6)}</span>
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => toast('Диспетчер ещё не назначил эту заявку', 'info')}
-              className="min-h-[40px] px-3 rounded-full flex items-center gap-1.5 text-xs font-medium border cursor-pointer"
+              onClick={() => toast('Заявка не назначена диспетчером', 'info')}
+              className="min-h-[40px] px-3 rounded-full flex items-center gap-1.5 text-xs font-medium border cursor-pointer shrink-0 max-w-[200px]"
               style={{
                 background: 'var(--sf2)',
                 color: 'var(--mu)',
                 borderColor: 'var(--ln)',
               }}
             >
-              <ClipboardList className="w-3.5 h-3.5" />
-              <span>Заявка не назначена</span>
+              <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Заявка не назначена</span>
             </button>
           )}
         </div>
@@ -184,30 +189,36 @@ export const FieldObjectCard: React.FC<Props> = ({
               {statusText}
             </span>
 
-            <h1 className="serif font-normal text-[26px] sm:text-[30px] leading-[1.1] text-[var(--ink)] mt-2.5 mb-1 break-words">
+            <h1 className="serif font-normal text-[24px] sm:text-[30px] leading-[1.1] text-[var(--ink)] mt-2.5 mb-1 break-words">
               {object.name}
             </h1>
 
-            <div className="text-[13.5px] font-medium text-[var(--mu)] break-words">
+            <div className="text-[13px] sm:text-[13.5px] font-medium text-[var(--mu)] break-words">
               {place}
             </div>
           </div>
 
           <div className="text-right shrink-0">
             <div
-              className="serif font-normal text-[44px] sm:text-[52px] leading-none"
+              className="serif font-normal text-[38px] sm:text-[50px] leading-none"
               style={{ color: isDone ? 'var(--gnt)' : isCritical ? 'var(--rdt)' : 'var(--amt)' }}
             >
-              {pct}<span className="text-[20px] font-sans font-light">%</span>
+              {pct != null ? (
+                <>
+                  {pct}<span className="text-[18px] sm:text-[20px] font-sans font-light">%</span>
+                </>
+              ) : (
+                '—'
+              )}
             </div>
-            <div className="text-[13.5px] font-semibold text-[var(--ac)] mt-1">
-              {distanceText}
+            <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--ac)] mt-1 whitespace-nowrap">
+              {distDisplay}
             </div>
           </div>
         </div>
 
         {/* 3-Step Progress Bar */}
-        <div className="grid grid-cols-3 gap-1.5 shrink-0 pt-1">
+        <div className="grid grid-cols-3 gap-1 shrink-0 pt-1 text-[11px] sm:text-[12px]">
           {[
             { label: 'В пути', idx: 1 },
             { label: 'На месте', idx: 2 },
@@ -216,13 +227,13 @@ export const FieldObjectCard: React.FC<Props> = ({
             const isCompleted = step >= s.idx;
             const isCurrent = step === s.idx - 1;
             return (
-              <div key={s.idx} className="text-center">
+              <div key={s.idx} className="text-center min-w-0">
                 <i
                   className="block h-2 rounded-full transition-all duration-300"
                   style={{ background: isCompleted ? 'var(--gn)' : 'var(--ln2)' }}
                 />
                 <span
-                  className="block text-[12px] mt-1.5 font-medium transition-colors"
+                  className="block mt-1.5 font-medium transition-colors truncate"
                   style={{
                     color: isCompleted ? 'var(--ink)' : isCurrent ? 'var(--ac)' : 'var(--mu)',
                     fontWeight: isCompleted || isCurrent ? 700 : 500,
@@ -233,6 +244,11 @@ export const FieldObjectCard: React.FC<Props> = ({
               </div>
             );
           })}
+        </div>
+
+        {/* Small permanent demo disclaimer */}
+        <div className="text-[11.5px] text-[var(--mu)] text-center pt-0.5 leading-snug shrink-0">
+          Демо режима техника: отметки видны только на этом телефоне и не меняют заявки на сервере
         </div>
 
         {/* Telemetry info & Reasons */}
@@ -367,7 +383,19 @@ export const FieldObjectCard: React.FC<Props> = ({
               style={{ background: 'var(--ams)', color: 'var(--amt)' }}
             >
               <Bell className="w-5 h-5 shrink-0" />
-              <span>SOS отправлен диспетчеру</span>
+              <span>Сигнал помощи записан на этом устройстве</span>
+            </div>
+          )}
+
+          {onResetDemoMarks && (
+            <div className="text-center pt-2 pb-1">
+              <button
+                type="button"
+                onClick={onResetDemoMarks}
+                className="text-[12px] text-[var(--mu)] hover:text-[var(--ink)] underline cursor-pointer bg-transparent border-0 p-1"
+              >
+                Сбросить демо-отметки
+              </button>
             </div>
           )}
         </div>
@@ -375,13 +403,13 @@ export const FieldObjectCard: React.FC<Props> = ({
 
       {/* Fixed Bottom Action Bar */}
       <div
-        className="shrink-0 p-3.5 sm:p-4 border-t flex items-center gap-2.5 z-10"
+        className="shrink-0 p-3 sm:p-4 border-t flex items-center gap-2 sm:gap-2.5 z-10 max-w-full overflow-hidden"
         style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}
       >
         <button
           type="button"
           onClick={handleMainAction}
-          className="flex-1 min-w-0 min-h-[64px] px-5 rounded-2xl font-bold text-[17px] sm:text-[18px] flex items-center justify-center gap-2.5 border-0 cursor-pointer shadow-md transition-all active:scale-[0.98]"
+          className="flex-1 min-w-0 min-h-[58px] sm:min-h-[64px] px-3 sm:px-5 rounded-2xl font-bold text-[15px] sm:text-[17px] flex items-center justify-center gap-2 border-0 cursor-pointer shadow-md transition-all active:scale-[0.98] overflow-hidden text-center"
           style={
             step === 0
               ? { background: 'var(--ac)', color: 'var(--onac, #fff)' }
@@ -396,27 +424,27 @@ export const FieldObjectCard: React.FC<Props> = ({
         >
           {step === 0 && (
             <>
-              <Navigation className="w-6 h-6 shrink-0" />
-              <span>Еду на объект</span>
+              <Navigation className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+              <span className="truncate">Еду на объект</span>
             </>
           )}
           {step === 1 && (
             <>
-              <Navigation className="w-6 h-6 shrink-0 animate-pulse" />
-              <span>В пути… (нажмите: «Вы на месте»)</span>
+              <Navigation className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 animate-pulse" />
+              <span className="leading-tight text-center">В пути… · Нажмите «На месте»</span>
             </>
           )}
           {step === 2 && (
             <>
               {allChecked ? (
                 <>
-                  <Check className="w-6 h-6 shrink-0" strokeWidth={3} />
+                  <Check className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" strokeWidth={3} />
                   <span>Завершить заявку</span>
                 </>
               ) : (
                 <>
-                  <Lock className="w-5 h-5 shrink-0" />
-                  <span>Отметьте шаги · {doneCount}/{totalCount}</span>
+                  <Lock className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span className="leading-tight text-center">Отметьте шаги ({tasks.filter((_, i) => checklistState[i]).length}/{tasks.length})</span>
                 </>
               )}
             </>
@@ -424,7 +452,7 @@ export const FieldObjectCard: React.FC<Props> = ({
           {step === 3 && (
             <>
               <span>Следующий объект</span>
-              <ArrowRight className="w-6 h-6 shrink-0" />
+              <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
             </>
           )}
         </button>
@@ -433,15 +461,15 @@ export const FieldObjectCard: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => setHelpModalOpen(true)}
-          aria-label="Позвать диспетчера на помощь"
-          className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 cursor-pointer transition-transform active:scale-95 shrink-0"
+          aria-label="Записать сигнал о помощи на устройстве"
+          className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 cursor-pointer transition-transform active:scale-95 shrink-0"
           style={{
             background: 'var(--ams)',
             borderColor: 'var(--am)',
             color: 'var(--amt)',
           }}
         >
-          <Bell className="w-6 h-6 shrink-0" />
+          <Bell className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
           <span className="font-extrabold text-[11px] tracking-wider leading-none">SOS</span>
         </button>
       </div>
@@ -470,15 +498,15 @@ export const FieldObjectCard: React.FC<Props> = ({
               </h2>
             </div>
 
-            <p className="text-[15px] leading-relaxed text-[var(--mu)] m-0">
-              Диспетчер получит сообщение: <b className="text-[var(--ink)]">«{object.name} — нужна помощь»</b>. Положение на карте условное.
+            <p className="text-[14px] sm:text-[15px] leading-relaxed text-[var(--mu)] m-0">
+              Демо: сигнал о помощи будет сохранён на телефоне (<b className="text-[var(--ink)]">«{object.name} — нужна помощь»</b>). В пилоте он передаётся диспетчеру.
             </p>
 
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setHelpModalOpen(false)}
-                className="flex-1 min-h-[52px] rounded-xl border font-semibold text-[15px] text-[var(--ink)] bg-[var(--sf)] cursor-pointer"
+                className="flex-1 min-h-[48px] sm:min-h-[52px] rounded-xl border font-semibold text-[14px] sm:text-[15px] text-[var(--ink)] bg-[var(--sf)] cursor-pointer"
                 style={{ borderColor: 'var(--ln2)' }}
               >
                 Отмена
@@ -489,10 +517,10 @@ export const FieldObjectCard: React.FC<Props> = ({
                   setHelpModalOpen(false);
                   onSendHelp();
                 }}
-                className="flex-1 min-h-[52px] rounded-xl border-0 font-bold text-[15px] cursor-pointer"
+                className="flex-1 min-h-[48px] sm:min-h-[52px] rounded-xl border-0 font-bold text-[14px] sm:text-[15px] cursor-pointer"
                 style={{ background: 'var(--am)', color: '#241a00' }}
               >
-                Отправить
+                Записать сигнал
               </button>
             </div>
           </div>

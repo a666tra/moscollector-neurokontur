@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { ObjectItem } from '../types';
 
-export interface MapPin { objectId: string; pct: number; risk: string; done?: boolean }
+export interface MapPin { objectId: string; pct?: number | null; risk: string; done?: boolean }
 
 interface Props {
   objects: ObjectItem[];
@@ -190,13 +190,13 @@ export const RiskMap: React.FC<Props> = ({
 
     // 5. Render pins sorted so selected and higher risk pins are on top
     [...pins]
-      .sort((a, b) => (a.objectId === selectedObjectId ? 1 : 0) - (b.objectId === selectedObjectId ? 1 : 0) || a.pct - b.pct)
+      .sort((a, b) => (a.objectId === selectedObjectId ? 1 : 0) - (b.objectId === selectedObjectId ? 1 : 0) || (a.pct ?? -1) - (b.pct ?? -1))
       .forEach(p => {
         const o = objBy[p.objectId];
         if (!o) return;
 
         const sel = p.objectId === selectedObjectId;
-        const showPill = showPillSet.has(p.objectId);
+        const showPill = showPillSet.has(p.objectId) && (p.done || p.pct != null);
         const inTop100 = top100RiskSet.has(p.objectId);
         const pulse = inTop100 && !p.done;
         const isCritical = p.risk === 'CRITICAL';
@@ -204,13 +204,14 @@ export const RiskMap: React.FC<Props> = ({
 
         const colorVar = p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)';
 
+        const pctText = p.pct != null ? `риск ${p.pct} %` : 'без оценки';
         const ariaLabel = p.done
           ? `${o.name}, решено`
           : isCritical
-          ? `${o.name}, риск ${p.pct} %, срочно проверить`
+          ? `${o.name}, ${pctText}, срочно проверить`
           : isWarning
-          ? `${o.name}, риск ${p.pct} %, проверить скоро`
-          : `${o.name}, риск ${p.pct} %`;
+          ? `${o.name}, ${pctText}, проверить скоро`
+          : `${o.name}, ${pctText}`;
 
         const pulseHtml = pulse
           ? isCritical
@@ -219,6 +220,12 @@ export const RiskMap: React.FC<Props> = ({
           : '';
 
         const checkSvg = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5L4.5 9L10 3"/></svg>`;
+
+        const pillHtml = p.done
+          ? `<div class="nk-pin-pill">решено</div>`
+          : p.pct != null
+          ? `<div class="nk-pin-pill">${p.pct}%</div>`
+          : '';
 
         const html = `
           <div class="nk-pin-wrap ${sel ? 'sel' : ''} ${showPill ? 'show-pill' : ''}" style="--pin-color: ${colorVar}; --r: ${r}px; --halo-d: ${haloD}px;">
@@ -229,9 +236,7 @@ export const RiskMap: React.FC<Props> = ({
               <div class="nk-pin-core ${p.done ? 'done' : ''}">
                 ${p.done ? checkSvg : ''}
               </div>
-              <div class="nk-pin-pill">
-                ${p.done ? 'решено' : p.pct + '%'}
-              </div>
+              ${pillHtml}
               <div class="nk-pin-tip">${o.name}</div>
             </div>
           </div>
@@ -320,5 +325,5 @@ export const RiskMap: React.FC<Props> = ({
     }
   }, [selectedObjectId, zoomOnSelect, focusOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={box} className="absolute inset-0" />;
+  return <div ref={box} className="absolute inset-0 overflow-hidden" />;
 };

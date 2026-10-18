@@ -4,7 +4,7 @@ import { ObjectItem, PredictionItem } from '../types';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
-import { LEVEL_SOFT, LEVEL_TEXT, LEVEL_VAR, cleanName, plainReason, probabilityOf } from '../lib/plain';
+import { LEVEL_SOFT, LEVEL_TEXT, LEVEL_VAR, cleanName, plainReason, probabilityOf, formatPk } from '../lib/plain';
 
 // Справочник причин решения диспетчера (ТЗ §12, шаг 5)
 const FALSE_REASONS = ['Дребезг контакта / геркона', 'Плановые работы на объекте', 'Проверено по камерам — норма', 'Помеха связи, показания восстановились'];
@@ -125,7 +125,7 @@ export const ChannelCard: React.FC<Props> = ({ item, object, position, total, do
           <div className="serif font-semibold text-[26px] leading-[1.05]">{cleanName(item.sensor_name)}</div>
           <div className="text-sm mt-1 flex items-center gap-1.5" style={{ color: 'var(--mut)' }}>
             <MapPin className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{item.object_name}{object ? ` · ${object.corridor} · ${object.picket}` : ''}</span>
+            <span className="truncate">{item.object_name}{object ? ` · ${object.corridor} · ${formatPk(object.picket)}` : ''}</span>
           </div>
         </div>
 

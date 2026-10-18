@@ -4,7 +4,7 @@ import { ChevronRight, X, Plus, Minus, Maximize2, ArrowRight, ListOrdered, Searc
 import { ObjectItem, PredictionItem, ConfirmedAlarmItem } from '../types';
 import { RiskMap, MOSCOW, MapPin } from './RiskMap';
 import { ChannelCard } from './ChannelCard';
-import { LEVEL_SOFT, LEVEL_VAR, probabilityOf, shortName } from '../lib/plain';
+import { LEVEL_SOFT, LEVEL_VAR, probabilityOf, shortName, formatPk } from '../lib/plain';
 
 interface Props {
   objects: ObjectItem[];
@@ -168,7 +168,7 @@ export const Situation: React.FC<Props> = ({ objects, predictions, confirmed, to
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium truncate">{shortName(p.sensor_name)}</span>
-                <span className="block text-xs truncate" style={{ color: 'var(--mut)' }}>{o ? `${o.corridor} · ${o.picket}` : p.object_name}</span>
+                <span className="block text-xs truncate" style={{ color: 'var(--mut)' }}>{o ? `${o.corridor} · ${formatPk(o.picket)}` : p.object_name}</span>
               </span>
               <ChevronRight className="w-4 h-4" style={{ color: 'var(--mut)' }} />
             </button>
