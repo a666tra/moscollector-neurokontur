@@ -332,7 +332,17 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
             {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 py-4 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
             {view === 'quality' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
             {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
-            {view === 'field' && <FieldView objects={objects} predictions={predictions} onOpenTickets={(objId) => { setTicketFilterObjectId(objId || null); setView('tickets'); }} />}
+            {view === 'field' && (
+              <FieldView
+                objects={objects}
+                predictions={predictions}
+                snapshotDate={snapshotFormatted || '28.01.2026'}
+                onOpenTickets={(objId) => {
+                  setTicketFilterObjectId(objId || null);
+                  setView('tickets');
+                }}
+              />
+            )}
           </>
         )}
       </main>
@@ -340,7 +350,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
       {/* Mobile Bottom Tab Bar */}
       {isTech ? (
         <nav
-          className="lg:hidden shrink-0 h-[68px] grid grid-cols-2 border-t z-[1100]"
+          className="lg:hidden shrink-0 h-[68px] grid grid-cols-3 border-t z-[1100]"
           style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}
         >
           {TECH_VIEWS.map(v => {
@@ -365,6 +375,19 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               </button>
             );
           })}
+          <button
+            onClick={() => setMoreOpen(true)}
+            className="flex flex-col items-center justify-center gap-1 text-[11.5px] font-medium cursor-pointer border-0 bg-transparent min-h-[48px]"
+            style={{ color: moreOpen ? 'var(--ink)' : 'var(--mu)', fontWeight: moreOpen ? 700 : 500 }}
+          >
+            <span
+              className="w-14 h-7.5 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: moreOpen ? 'var(--acs)' : 'transparent' }}
+            >
+              <MoreHorizontal className="w-5 h-5 shrink-0" style={moreOpen ? { color: 'var(--ac)' } : undefined} />
+            </span>
+            <span>Ещё</span>
+          </button>
         </nav>
       ) : (
         <nav

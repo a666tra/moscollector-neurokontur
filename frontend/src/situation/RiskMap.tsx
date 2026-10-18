@@ -13,6 +13,11 @@ interface Props {
   center?: [number, number];
   zoom?: number;
   onReady?: (map: L.Map) => void;
+  you?: [number, number] | null;
+  youLabel?: string;
+  routeTo?: [number, number] | null;
+  focusOffsetY?: number;
+  zoomOnSelect?: boolean;
 }
 
 export const MOSCOW: [number, number] = [55.756, 37.632];
@@ -46,6 +51,11 @@ export const RiskMap: React.FC<Props> = ({
   center = MOSCOW,
   zoom = 12,
   onReady,
+  you = null,
+  youLabel,
+  routeTo = null,
+  focusOffsetY = 0,
+  zoomOnSelect = false,
 }) => {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -263,15 +273,52 @@ export const RiskMap: React.FC<Props> = ({
           }
         }
       });
-  }, [objects, pins, selectedObjectId, currentZoom, interactive]);
+
+    // 6. Draw 'You' position marker if provided
+    if (you && you[0] && you[1]) {
+      const youLabelText = youLabel || 'Вы здесь (демо-позиция)';
+      const youHtml = `
+        <div class="nk-you-wrap">
+          <div class="nk-you-hit" tabindex="${interactive ? 0 : -1}" role="img" aria-label="${youLabelText}">
+            <div class="nk-you-halo"></div>
+            <div class="nk-you-core"></div>
+            <div class="nk-you-tip">${youLabelText}</div>
+          </div>
+        </div>
+      `;
+      const youIcon = L.divIcon({
+        className: 'nk-leaflet-pin',
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+        html: youHtml,
+      });
+      L.marker([you[0], you[1]], { icon: youIcon, zIndexOffset: 2500, interactive }).addTo(mk);
+
+      // 7. Route line from 'you' to selected object
+      if (routeTo && routeTo[0] && routeTo[1]) {
+        L.polyline([you, routeTo], {
+          color: 'var(--ac)',
+          weight: 2.5,
+          dashArray: '6, 6',
+          opacity: 0.85,
+          interactive: false,
+        }).addTo(mk);
+      }
+    }
+  }, [objects, pins, selectedObjectId, currentZoom, interactive, you, youLabel, routeTo]);
 
   useEffect(() => {
     const m = map.current;
     const o = objects.find(x => x.object_id === selectedObjectId);
-    if (m && o && interactive && !m.getBounds().pad(-0.2).contains([o.lat, o.lon])) {
-      m.flyTo([o.lat, o.lon], Math.max(m.getZoom(), 12.5), { duration: 0.6 });
+    if (m && o && interactive) {
+      const targetLat = focusOffsetY ? o.lat - focusOffsetY : o.lat;
+      if (zoomOnSelect) {
+        m.flyTo([targetLat, o.lon], 16, { duration: 0.6 });
+      } else if (!m.getBounds().pad(-0.2).contains([o.lat, o.lon])) {
+        m.flyTo([targetLat, o.lon], Math.max(m.getZoom(), 12.5), { duration: 0.6 });
+      }
     }
-  }, [selectedObjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedObjectId, zoomOnSelect, focusOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={box} className="absolute inset-0" />;
 };

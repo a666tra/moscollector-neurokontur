@@ -1,12 +1,19 @@
-import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, ClipboardList, CheckCircle2 } from 'lucide-react';
-import { ObjectItem, PredictionItem } from '../types';
-import { cleanName, plainReason, LEVEL_TEXT, LEVEL_VAR, LEVEL_SOFT, probabilityOf } from '../lib/plain';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Wifi, WifiOff, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ObjectItem, PredictionItem, MaintenanceTicket } from '../types';
+import { probabilityOf, LEVEL_TEXT } from '../lib/plain';
+import { RiskMap, MapPin } from '../situation/RiskMap';
+import { FieldList } from './FieldList';
+import { FieldObjectCard } from './FieldObjectCard';
+import { FieldBottomSheet, SnapHeight } from './FieldBottomSheet';
+import { useToast } from '../lib/toast';
+import { api } from '../lib/api';
 
 interface Props {
   objects: ObjectItem[];
   predictions: PredictionItem[];
   onOpenTickets: (objectId?: string) => void;
+  snapshotDate?: string | null;
 }
 
 const RISK_WEIGHT: Record<string, number> = {
@@ -16,9 +23,162 @@ const RISK_WEIGHT: Record<string, number> = {
   NORMAL: 0,
 };
 
-export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets }) => {
-  const [showWatch, setShowWatch] = useState(false);
-  const [showNormal, setShowNormal] = useState(false);
+// Default technician demo position in central Moscow
+const DEMO_POS: [number, number] = [55.7512, 37.6184];
+
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+export const FieldView: React.FC<Props> = ({
+  objects,
+  predictions,
+  onOpenTickets,
+  snapshotDate = '28.01.2026',
+}) => {
+  const toast = useToast();
+
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('obj');
+    } catch {
+      return null;
+    }
+  });
+  const [filter, setFilter] = useState<'all' | 'near' | 'tickets'>(() => {
+    try {
+      const f = new URLSearchParams(window.location.search).get('filter');
+      if (f === 'near' || f === 'tickets') return f;
+    } catch {}
+    return 'all';
+  });
+  const [mobileSnap, setMobileSnap] = useState<SnapHeight>(() => {
+    try {
+      const s = new URLSearchParams(window.location.search).get('snap');
+      if (s === 'peek' || s === 'full') return s;
+    } catch {}
+    return 'half';
+  });
+  const [isOffline, setIsOffline] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('offline');
+    } catch {
+      return false;
+    }
+  });
+  const [offlineQueue, setOfflineQueue] = useState<
+    Array<{ id: string; type: string; objectId: string; text: string }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // Tickets
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+
+  // Step flow state per object: 0 = Не начато, 1 = В пути, 2 = На месте, 3 = Проверено
+  const [objectSteps, setObjectSteps] = useState<Record<string, number>>(() => {
+    try {
+      const stepParam = new URLSearchParams(window.location.search).get('step');
+      const objParam = new URLSearchParams(window.location.search).get('obj');
+      if (stepParam && objParam) {
+        const s = parseInt(stepParam, 10);
+        if (!isNaN(s)) return { [objParam]: s };
+      }
+    } catch {}
+    return {};
+  });
+  // Checklist checked items per object
+  const [checklistState, setChecklistState] = useState<Record<string, boolean[]>>(() => {
+    try {
+      const checkParam = new URLSearchParams(window.location.search).get('check');
+      const objParam = new URLSearchParams(window.location.search).get('obj');
+      if (checkParam && objParam) {
+        return { [objParam]: checkParam.split(',').map(v => v === '1' || v === 'true') };
+      }
+    } catch {}
+    return {};
+  });
+  // SOS help sent status per object
+  const [helpSent, setHelpSent] = useState<Record<string, boolean>>({});
+
+  // Geolocation
+  const [technicianPos, setTechnicianPos] = useState<[number, number]>(DEMO_POS);
+  const [isDemoPosition, setIsDemoPosition] = useState(true);
+
+  // Try real GPS if available and within Moscow bounds
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude, longitude } = pos.coords;
+          if (latitude >= 55.4 && latitude <= 56.1 && longitude >= 37.1 && longitude <= 38.0) {
+            setTechnicianPos([latitude, longitude]);
+            setIsDemoPosition(false);
+          }
+        },
+        () => {
+          // Fallback to demo position
+          setTechnicianPos(DEMO_POS);
+          setIsDemoPosition(true);
+        },
+        { timeout: 5000, maximumAge: 60000 }
+      );
+    }
+  }, []);
+
+  // Fetch tickets
+  const fetchTickets = useCallback(async () => {
+    try {
+      const data = await api<MaintenanceTicket[]>('/api/tickets');
+      setTickets(data || []);
+      setApiError(null);
+    } catch {
+      // offline or network issue
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  const handleRefresh = async () => {
+    if (isOffline) {
+      setApiError('Офлайн-режим. Показаны сохранённые данные.');
+      toast('Офлайн-режим: обновление по сети недоступно', 'info');
+      return;
+    }
+    setLoading(true);
+    setApiError(null);
+    try {
+      await fetchTickets();
+      toast('Данные обновлены', 'success');
+    } catch {
+      setApiError('Не удалось обновить данные');
+    } finally {
+      setTimeout(() => setLoading(false), 400);
+    }
+  };
+
+  // Group tickets by object_id
+  const ticketsByObject = useMemo(() => {
+    const map = new Map<string, MaintenanceTicket[]>();
+    for (const t of tickets) {
+      const list = map.get(t.object_id) || [];
+      list.push(t);
+      map.set(t.object_id, list);
+    }
+    return map;
+  }, [tickets]);
 
   // Group and sort highest-risk prediction for each object
   const predsByObject = useMemo(() => {
@@ -30,7 +190,10 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
       } else {
         const curWeight = RISK_WEIGHT[p.risk_level] ?? 0;
         const prevWeight = RISK_WEIGHT[existing.risk_level] ?? 0;
-        if (curWeight > prevWeight || (curWeight === prevWeight && probabilityOf(p) > probabilityOf(existing))) {
+        if (
+          curWeight > prevWeight ||
+          (curWeight === prevWeight && probabilityOf(p) > probabilityOf(existing))
+        ) {
           map.set(p.object_id, p);
         }
       }
@@ -85,227 +248,289 @@ export const FieldView: React.FC<Props> = ({ objects, predictions, onOpenTickets
     return { criticalObjects: critical, watchObjects: watch, normalObjects: normal };
   }, [objects, getObjectMaxProb]);
 
-  const counterText = criticalObjects.length === 0
-    ? 'Все в норме'
-    : `В очереди: ${criticalObjects.length} объектов`;
+  // Selected object and prediction
+  const selectedObject = useMemo(
+    () => (selectedObjectId ? objects.find(o => o.object_id === selectedObjectId) : null),
+    [objects, selectedObjectId]
+  );
+  const selectedPred = useMemo(
+    () => (selectedObjectId ? predsByObject.get(selectedObjectId) : undefined),
+    [predsByObject, selectedObjectId]
+  );
+  const selectedTicket = useMemo(
+    () => (selectedObjectId ? ticketsByObject.get(selectedObjectId)?.[0] : undefined),
+    [ticketsByObject, selectedObjectId]
+  );
 
-  const renderCard = (obj: ObjectItem) => {
-    const highestPred = predsByObject.get(obj.object_id);
-    const riskLevel = obj.risk_level || 'NORMAL';
-    const label = LEVEL_TEXT[riskLevel] || LEVEL_TEXT.NORMAL;
-    const color = LEVEL_VAR[riskLevel] || LEVEL_VAR.NORMAL;
-    const bg = LEVEL_SOFT[riskLevel] || LEVEL_SOFT.NORMAL;
+  // Distance helper
+  const getDistance = useCallback(
+    (obj: ObjectItem) => getDistanceKm(technicianPos[0], technicianPos[1], obj.lat, obj.lon),
+    [technicianPos]
+  );
+  const formatDistance = useCallback((km: number) => `≈ ${km.toFixed(1).replace('.', ',')} км`, []);
 
-    const placeParts = [obj.route_name, obj.corridor, obj.picket].filter(Boolean);
-    const place = placeParts.join(' · ');
+  // Map pins
+  const pins = useMemo<MapPin[]>(() => {
+    return objects
+      .filter(o => o.risk_level !== 'NORMAL' || o.object_id === selectedObjectId)
+      .map(o => {
+        const pred = predsByObject.get(o.object_id);
+        const prob = pred ? probabilityOf(pred) : o.risk_level === 'CRITICAL' ? 0.71 : 0.45;
+        const step = objectSteps[o.object_id] ?? 0;
+        return {
+          objectId: o.object_id,
+          pct: Math.round(prob * 100),
+          risk: o.risk_level || 'NORMAL',
+          done: step === 3,
+        };
+      });
+  }, [objects, predsByObject, selectedObjectId, objectSteps]);
 
-    const whatToDo = highestPred?.recommended_action
-      || (obj.risk_level === 'NORMAL' ? 'Плановое наблюдение; выезд не требуется.' : 'Провести визуальный осмотр оборудования и колодцев.');
-
-    const factorBullets = highestPred?.explanation_factors
-      ? highestPred.explanation_factors.slice(0, 2).map((factor, idx) => (
-          <li key={idx} className="leading-snug">
-            {plainReason(factor)}
-          </li>
-        ))
-      : null;
-
-    return (
-      <article
-        key={obj.object_id}
-        className="w-full rounded-2xl border p-3.5 sm:p-4 flex flex-col gap-2.5 shadow-sm min-w-0 overflow-hidden"
-        style={{
-          background: 'var(--sf)',
-          borderColor: 'var(--ln)',
-          borderLeftWidth: '5px',
-          borderLeftColor: color,
-        }}
-      >
-        {/* Status badge + Place info */}
-        <div className="flex items-center justify-between gap-2 flex-wrap min-w-0">
-          <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-[14px] sm:text-[15px] leading-none shrink-0"
-            style={{
-              background: bg,
-              color,
-            }}
-          >
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-            {label}
-          </span>
-          {place && (
-            <span className="text-[13px] sm:text-[14px] font-medium break-words text-right flex-1 min-w-[120px]" style={{ color: 'var(--mut)' }}>
-              {place}
-            </span>
-          )}
-        </div>
-
-        {/* Object Name */}
-        <h2 className="text-[18px] sm:text-[19px] font-bold leading-tight break-words" style={{ color: 'var(--ink)' }}>
-          {obj.name}
-        </h2>
-
-        {/* Что происходит */}
-        <div
-          className="rounded-xl p-2.5 sm:p-3 flex flex-col gap-1 min-w-0"
-          style={{ background: 'var(--sf2)' }}
-        >
-          <span className="text-[16px] font-bold" style={{ color: 'var(--mut)' }}>
-            Что происходит:
-          </span>
-          {highestPred ? (
-            <div className="text-[15px] leading-snug font-medium flex flex-col gap-1 break-words" style={{ color: 'var(--ink)' }}>
-              <div>Датчик: {cleanName(highestPred.sensor_name)}</div>
-              {factorBullets && factorBullets.length > 0 && (
-                <ul className="list-disc list-inside space-y-0.5">
-                  {factorBullets}
-                </ul>
-              )}
-              <div>Риск отклонения в телеметрии в ближайшие 1–3 дня.</div>
-              {(obj.predicted_failures_count ?? 0) > 1 && (
-                <div>Проблемных датчиков на объекте: {obj.predicted_failures_count}</div>
-              )}
-            </div>
-          ) : (
-            <p className="text-[15px] leading-snug font-medium break-words" style={{ color: 'var(--ink)' }}>
-              {obj.risk_level === 'NORMAL'
-                ? 'Отклонений не зафиксировано, датчики в норме'
-                : 'Требуется плановая проверка объекта'}
-            </p>
-          )}
-        </div>
-
-        {/* Что сделать */}
-        <div
-          className="rounded-xl p-2.5 sm:p-3 flex flex-col gap-1 min-w-0"
-          style={{ background: 'var(--sf2)' }}
-        >
-          <span className="text-[16px] font-bold" style={{ color: 'var(--mut)' }}>
-            Что сделать:
-          </span>
-          <p className="text-[15px] leading-snug font-medium break-words" style={{ color: 'var(--ink)' }}>
-            {whatToDo}
-          </p>
-        </div>
-
-        {/* Button «Открыть заявку» */}
-        <button
-          type="button"
-          onClick={() => onOpenTickets(obj.object_id)}
-          className="w-full min-h-[44px] px-4 py-2.5 rounded-xl font-semibold text-[15px] sm:text-[16px] flex items-center justify-center gap-2 border transition-colors active:scale-[0.99]"
-          style={{
-            background: 'var(--sf)',
-            borderColor: 'var(--ln2)',
-            color: 'var(--ink)',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          }}
-        >
-          <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" style={{ color: 'var(--ac)' }} />
-          <span>Открыть заявку</span>
-        </button>
-      </article>
-    );
+  // Offline toggle
+  const handleToggleOffline = () => {
+    if (!isOffline) {
+      setIsOffline(true);
+      toast('Включён режим «Офлайн». Данные сохранены на телефоне.', 'info');
+    } else {
+      setIsOffline(false);
+      if (offlineQueue.length > 0) {
+        toast(`Отметки отправлены диспетчеру (${offlineQueue.length})`, 'success');
+        setOfflineQueue([]);
+      } else {
+        toast('Связь восстановлена', 'info');
+      }
+    }
   };
 
+  // Step and checklist actions
+  const handleStepChange = (newStep: number) => {
+    if (!selectedObjectId) return;
+    setObjectSteps(prev => ({ ...prev, [selectedObjectId]: newStep }));
+
+    if (isOffline) {
+      setOfflineQueue(prev => [
+        ...prev,
+        {
+          id: Math.random().toString(),
+          type: 'step_change',
+          objectId: selectedObjectId,
+          text: `Шаг ${newStep}`,
+        },
+      ]);
+    }
+  };
+
+  const handleChecklistToggle = (index: number) => {
+    if (!selectedObjectId) return;
+    setChecklistState(prev => {
+      const current = prev[selectedObjectId] || [];
+      const updated = [...current];
+      updated[index] = !updated[index];
+      return { ...prev, [selectedObjectId]: updated };
+    });
+  };
+
+  const handleSendHelp = () => {
+    if (!selectedObjectId) return;
+    setHelpSent(prev => ({ ...prev, [selectedObjectId]: true }));
+
+    if (isOffline) {
+      setOfflineQueue(prev => [
+        ...prev,
+        {
+          id: Math.random().toString(),
+          type: 'help_signal',
+          objectId: selectedObjectId,
+          text: 'Сигнал помощи',
+        },
+      ]);
+      toast('Сигнал о помощи записан · отправится, когда появится связь', 'info');
+    } else {
+      toast('Диспетчер получил сигнал о помощи', 'success');
+    }
+  };
+
+  const handleSelectObject = (id: string | null) => {
+    setSelectedObjectId(id);
+    try {
+      const u = new URL(window.location.href);
+      if (id) u.searchParams.set('obj', id);
+      else u.searchParams.delete('obj');
+      window.history.replaceState({}, '', u);
+    } catch {}
+  };
+
+  // Auto-advance to next object in critical queue
+  const handleNextObject = () => {
+    const remaining = criticalObjects.filter(
+      o => (objectSteps[o.object_id] ?? 0) < 3 && o.object_id !== selectedObjectId
+    );
+    if (remaining.length > 0) {
+      handleSelectObject(remaining[0].object_id);
+    } else {
+      handleSelectObject(null);
+      toast('Все срочные объекты осмотрены!', 'success');
+    }
+  };
+
+  const selectedPct = selectedPred
+    ? Math.round(probabilityOf(selectedPred) * 100)
+    : selectedObject?.risk_level === 'CRITICAL'
+    ? 71
+    : 45;
+
+  const selectedDistanceStr = selectedObject ? formatDistance(getDistance(selectedObject)) : '';
+
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden px-3.5 sm:px-4 pt-[70px] pb-20 lg:pt-6 lg:pb-8">
-      <div className="w-full max-w-[760px] mx-auto flex flex-col gap-3.5 sm:gap-5 min-w-0">
-        {/* Header */}
-        <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 flex-wrap min-w-0">
-            <h1 className="text-[22px] sm:text-[28px] font-bold tracking-tight" style={{ color: 'var(--ink)' }}>
-              Обход объектов
-            </h1>
-            <span
-              className="text-[14px] sm:text-[16px] font-semibold px-2.5 py-0.5 rounded-full border shrink-0"
-              style={{ background: 'var(--sf2)', color: 'var(--mut)', borderColor: 'var(--ln)' }}
-            >
-              {counterText}
-            </span>
-          </div>
-          <p className="text-[14px] sm:text-[16px] leading-snug" style={{ color: 'var(--mut)' }}>
-            Список коллекторов и камер в порядке срочности проверки.
-          </p>
-        </div>
+    <div className="relative w-full h-full overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
+      {/* Top-Left Connection Pill */}
+      <div className="absolute left-3.5 top-3.5 z-40 flex items-center gap-2 flex-wrap pointer-events-none">
+        <button
+          type="button"
+          onClick={handleToggleOffline}
+          aria-pressed={isOffline}
+          className="pointer-events-auto min-h-[44px] px-3.5 rounded-full flex items-center gap-2 text-xs sm:text-[13px] font-semibold border shadow-md transition-all active:scale-95 cursor-pointer"
+          style={{
+            background: isOffline ? 'var(--ams)' : 'var(--sf)',
+            borderColor: isOffline ? 'var(--am)' : 'var(--ln2)',
+            color: 'var(--ink)',
+          }}
+        >
+          {isOffline ? (
+            <WifiOff className="w-4 h-4 text-[var(--amt)]" />
+          ) : (
+            <Wifi className="w-4 h-4 text-[var(--gn)]" />
+          )}
+          <span>
+            {isOffline ? `Офлайн · ${snapshotDate}` : `Есть связь · ${snapshotDate}`}
+          </span>
+        </button>
 
-        {/* Empty state or CRITICAL queue */}
-        {criticalObjects.length === 0 ? (
-          <div
-            className="rounded-2xl border p-6 flex items-center gap-4 shadow-sm"
-            style={{ background: 'var(--oks)', borderColor: 'var(--ok)' }}
+        {offlineQueue.length > 0 && (
+          <span
+            className="pointer-events-auto min-h-[44px] px-3.5 rounded-full flex items-center gap-1.5 text-xs sm:text-[13px] font-semibold shadow-md animate-pulse"
+            style={{ background: 'var(--ams)', color: 'var(--amt)' }}
           >
-            <CheckCircle2 className="w-8 h-8 shrink-0" style={{ color: 'var(--ok)' }} />
-            <p className="text-[17px] font-semibold" style={{ color: 'var(--ink)' }}>
-              Сейчас всё спокойно. Объектов с критическим риском нет.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {criticalObjects.map(renderCard)}
-          </div>
-        )}
-
-        {/* Collapsed section: Наблюдать (watchObjects) */}
-        {watchObjects.length > 0 && (
-          <div className="flex flex-col gap-4 mt-2">
-            <button
-              type="button"
-              onClick={() => setShowWatch(!showWatch)}
-              className="w-full min-h-[48px] px-4 py-3.5 rounded-2xl border font-semibold text-[16px] flex items-center justify-between gap-3 shadow-sm transition-colors hover:bg-[var(--sf2)]"
-              style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
-              aria-expanded={showWatch}
-            >
-              <span className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--at)' }} />
-                <span>Наблюдать ({watchObjects.length} объектов)</span>
-              </span>
-              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--mut)' }}>
-                <span>{showWatch ? 'Скрыть' : `Показать ещё ${watchObjects.length}`}</span>
-                {showWatch ? (
-                  <ChevronUp className="w-5 h-5 shrink-0" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 shrink-0" />
-                )}
-              </span>
-            </button>
-
-            {showWatch && (
-              <div className="flex flex-col gap-4 pl-1">
-                {watchObjects.map(renderCard)}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Collapsed section: Остальные объекты (normalObjects) */}
-        {normalObjects.length > 0 && (
-          <div className="flex flex-col gap-4 mt-2">
-            <button
-              type="button"
-              onClick={() => setShowNormal(!showNormal)}
-              className="w-full min-h-[48px] px-4 py-3.5 rounded-2xl border font-semibold text-[16px] flex items-center justify-between gap-3 shadow-sm transition-colors hover:bg-[var(--sf2)]"
-              style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
-              aria-expanded={showNormal}
-            >
-              <span className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ok)' }} />
-                <span>Остальные объекты в норме ({normalObjects.length})</span>
-              </span>
-              {showNormal ? (
-                <ChevronUp className="w-5 h-5 shrink-0" style={{ color: 'var(--mut)' }} />
-              ) : (
-                <ChevronDown className="w-5 h-5 shrink-0" style={{ color: 'var(--mut)' }} />
-              )}
-            </button>
-
-            {showNormal && (
-              <div className="flex flex-col gap-4 pl-1">
-                {normalObjects.map(renderCard)}
-              </div>
-            )}
-          </div>
+            <span>ждут отправки:</span>
+            <span className="font-mono font-bold">{offlineQueue.length}</span>
+          </span>
         )}
       </div>
+
+      {/* Offline Alert Banner */}
+      {isOffline && (
+        <div
+          role="status"
+          className="absolute left-3.5 right-3.5 sm:left-4 sm:right-auto sm:max-w-md top-16 z-40 p-3 rounded-2xl flex items-center gap-2.5 text-xs sm:text-sm font-medium shadow-lg"
+          style={{ background: 'var(--sf2)', color: 'var(--ink)', border: '1px solid var(--ln)' }}
+        >
+          <WifiOff className="w-4 h-4 text-[var(--am)] shrink-0" />
+          <span>Нет сети. Данные до {snapshotDate} сохранены на телефоне, отметки отправятся позже.</span>
+        </div>
+      )}
+
+      {/* Full-Screen Map */}
+      <div className="absolute inset-0 z-0">
+        <RiskMap
+          objects={objects}
+          pins={pins}
+          selectedObjectId={selectedObjectId || undefined}
+          onPick={id => handleSelectObject(id)}
+          interactive={true}
+          center={selectedObject ? [selectedObject.lat, selectedObject.lon] : DEMO_POS}
+          zoom={13}
+          you={technicianPos}
+          youLabel={isDemoPosition ? 'Вы здесь (демо-позиция)' : 'Вы здесь (GPS)'}
+          routeTo={selectedObject ? [selectedObject.lat, selectedObject.lon] : null}
+          zoomOnSelect={true}
+          focusOffsetY={mobileSnap === 'half' ? 0.0035 : 0}
+        />
+      </div>
+
+      {/* Desktop Floating Right Panel */}
+      <aside
+        className="hidden lg:flex absolute right-4 top-4 bottom-4 w-[430px] rounded-[26px] overflow-hidden shadow-2xl z-30 flex-col border"
+        style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}
+      >
+        {selectedObject ? (
+          <FieldObjectCard
+            object={selectedObject}
+            highestPred={selectedPred}
+            ticket={selectedTicket}
+            pct={selectedPct}
+            distanceText={selectedDistanceStr}
+            step={objectSteps[selectedObject.object_id] ?? 0}
+            onStepChange={handleStepChange}
+            checklistState={checklistState[selectedObject.object_id] || []}
+            onChecklistToggle={handleChecklistToggle}
+            onBack={() => handleSelectObject(null)}
+            onNextObject={handleNextObject}
+            onOpenTickets={onOpenTickets}
+            onSendHelp={handleSendHelp}
+            helpSent={!!helpSent[selectedObject.object_id]}
+            isOffline={isOffline}
+          />
+        ) : (
+          <FieldList
+            criticalObjects={criticalObjects}
+            watchObjects={watchObjects}
+            normalObjects={normalObjects}
+            predsByObject={predsByObject}
+            ticketsByObject={ticketsByObject}
+            objectSteps={objectSteps}
+            selectedObjectId={selectedObjectId || undefined}
+            onSelectObject={id => handleSelectObject(id)}
+            getDistance={getDistance}
+            formatDistance={formatDistance}
+            filter={filter}
+            onFilterChange={setFilter}
+            snapshotDate={snapshotDate}
+            loading={loading}
+            onRefresh={handleRefresh}
+          />
+        )}
+      </aside>
+
+      {/* Mobile Draggable Bottom Sheet */}
+      <FieldBottomSheet snap={mobileSnap} onSnapChange={setMobileSnap}>
+        {selectedObject ? (
+          <FieldObjectCard
+            object={selectedObject}
+            highestPred={selectedPred}
+            ticket={selectedTicket}
+            pct={selectedPct}
+            distanceText={selectedDistanceStr}
+            step={objectSteps[selectedObject.object_id] ?? 0}
+            onStepChange={handleStepChange}
+            checklistState={checklistState[selectedObject.object_id] || []}
+            onChecklistToggle={handleChecklistToggle}
+            onBack={() => handleSelectObject(null)}
+            onNextObject={handleNextObject}
+            onOpenTickets={onOpenTickets}
+            onSendHelp={handleSendHelp}
+            helpSent={!!helpSent[selectedObject.object_id]}
+            isOffline={isOffline}
+          />
+        ) : (
+          <FieldList
+            criticalObjects={criticalObjects}
+            watchObjects={watchObjects}
+            normalObjects={normalObjects}
+            predsByObject={predsByObject}
+            ticketsByObject={ticketsByObject}
+            objectSteps={objectSteps}
+            selectedObjectId={selectedObjectId || undefined}
+            onSelectObject={id => handleSelectObject(id)}
+            getDistance={getDistance}
+            formatDistance={formatDistance}
+            filter={filter}
+            onFilterChange={setFilter}
+            snapshotDate={snapshotDate}
+            loading={loading}
+            onRefresh={handleRefresh}
+          />
+        )}
+      </FieldBottomSheet>
     </div>
   );
 };
