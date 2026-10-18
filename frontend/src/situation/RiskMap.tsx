@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { ObjectItem } from '../types';
 
@@ -17,84 +17,260 @@ interface Props {
 
 export const MOSCOW: [number, number] = [55.756, 37.632];
 
-/** «Изолинии» map: grey OSM base, collector routes, risk halos with contour rings and % pins.
- *  Colours come from CSS classes, so the map follows the light/dark theme without re-rendering. */
-export const RiskMap: React.FC<Props> = ({ objects, pins, selectedObjectId, onPick, interactive = true, center = MOSCOW, zoom = 12, onReady }) => {
+/**
+ * Linear scale for pin radius based on zoom:
+ * 7px at zoom <= 10, 12px at zoom >= 15, linear in between.
+ */
+function getPinRadius(z: number): number {
+  if (z <= 10) return 7;
+  if (z >= 15) return 12;
+  return 7 + (z - 10) * 1;
+}
+
+/**
+ * RiskMap component:
+ * - Shared component for Landing, Situation, Field (and later Tickets, Scenarios).
+ * - Blue collector routes with small hollow circular nodes.
+ * - Zoom-scaled pins with animated risk zones (halos).
+ * - CRITICAL: 2 pulsing rings (2.4s period); WARNING: 1 pulsing ring (3.6s period).
+ * - Limits animated elements to top 100 pins by risk.
+ * - Non-overlapping auto-labels for top pins, always showing selected/hovered.
+ * - Hit target >= 44x44px, keyboard focusable, tooltip on hover/focus.
+ */
+export const RiskMap: React.FC<Props> = ({
+  objects,
+  pins,
+  selectedObjectId,
+  onPick,
+  interactive = true,
+  center = MOSCOW,
+  zoom = 12,
+  onReady,
+}) => {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const halos = useRef<L.LayerGroup | null>(null);
   const marks = useRef<L.LayerGroup | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
 
+  const [currentZoom, setCurrentZoom] = useState(zoom);
+
   useEffect(() => {
     if (!box.current || map.current) return;
     const m = L.map(box.current, {
-      center, zoom, zoomSnap: 0.1, zoomControl: false, attributionControl: true,
-      dragging: interactive, scrollWheelZoom: interactive, doubleClickZoom: interactive, touchZoom: interactive, keyboard: interactive,
+      center,
+      zoom,
+      zoomSnap: 0.1,
+      zoomControl: false,
+      attributionControl: true,
+      dragging: interactive,
+      scrollWheelZoom: interactive,
+      doubleClickZoom: interactive,
+      touchZoom: interactive,
+      keyboard: interactive,
     });
     m.attributionControl.setPrefix(false);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
-    halos.current = L.layerGroup().addTo(m);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap · трассы схематичны',
+    }).addTo(m);
+
     const routes = L.layerGroup().addTo(m);
     marks.current = L.layerGroup().addTo(m);
-    fetch('/api/objects/geojson/network').then(r => r.json()).then(geo => {
-      geo.features.filter((f: any) => f.geometry.type === 'LineString').forEach((f: any) => {
-        const ll = f.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
-        L.polyline(ll, { className: 'rt-casing', weight: 7, interactive: false }).addTo(routes);
-        L.polyline(ll, { className: 'rt', weight: 3, interactive: false }).addTo(routes);
-        ll.forEach((p: [number, number]) => L.circleMarker(p, { radius: 2.4, className: 'rt-node', interactive: false }).addTo(routes));
-      });
-    }).catch(() => {});
+
+    // Update zoom level state on zoomend to scale pins and recalculate label collisions
+    m.on('zoomend', () => {
+      setCurrentZoom(m.getZoom());
+    });
+
+    fetch('/api/objects/geojson/network')
+      .then(r => r.json())
+      .then(geo => {
+        geo.features
+          .filter((f: any) => f.geometry.type === 'LineString')
+          .forEach((f: any) => {
+            const ll = f.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+            L.polyline(ll, { className: 'rt', weight: 2.6, interactive: false }).addTo(routes);
+            ll.forEach((p: [number, number]) =>
+              L.circleMarker(p, { radius: 2.8, className: 'rt-node', interactive: false }).addTo(routes)
+            );
+          });
+      })
+      .catch(() => {});
+
     map.current = m;
     onReady?.(m);
     const ro = new ResizeObserver(() => m.invalidateSize());
     ro.observe(box.current);
-    return () => { ro.disconnect(); m.remove(); map.current = null; };
+    return () => {
+      ro.disconnect();
+      m.remove();
+      map.current = null;
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const h = halos.current, mk = marks.current;
-    if (!h || !mk) return;
-    h.clearLayers(); mk.clearLayers();
+    const mk = marks.current;
+    const m = map.current;
+    if (!mk) return;
+    mk.clearLayers();
+
     const pinBy = Object.fromEntries(pins.map(p => [p.objectId, p]));
-    objects.forEach(o => {
-      if (o.risk_level === 'NORMAL') return;
-      const p = pinBy[o.object_id];
-      const R = p ? 320 + p.pct * 9 : 260;
-      [1, 0.66, 0.36].forEach((f, i) => {
-        L.circle([o.lat, o.lon], { radius: R * f, className: `halo halo-${o.risk_level}`, interactive: false }).addTo(h);
-        if (o.risk_level !== 'ATTENTION') {
-          L.circle([o.lat, o.lon], { radius: R * f, className: `iso iso-${o.risk_level} iso-${i}`, interactive: false, fill: false }).addTo(h);
-        }
-      });
-    });
+    const objBy = Object.fromEntries(objects.map(o => [o.object_id, o]));
+
+    // 1. Draw non-pin background objects along collector lines
     objects.forEach(o => {
       if (pinBy[o.object_id]) return;
-      L.circleMarker([o.lat, o.lon], { radius: o.risk_level === 'NORMAL' ? 2.6 : 4, className: `obj obj-${o.risk_level}`, interactive: !!pick.current })
-        .on('click', () => pick.current?.(o.object_id)).addTo(mk);
+      L.circleMarker([o.lat, o.lon], {
+        radius: o.risk_level === 'NORMAL' ? 2.6 : 3.5,
+        className: `obj obj-${o.risk_level}`,
+        interactive: interactive && !!pick.current,
+      })
+        .on('click', () => pick.current?.(o.object_id))
+        .addTo(mk);
     });
-    const objBy = Object.fromEntries(objects.map(o => [o.object_id, o]));
-    [...pins].sort((a, b) => (a.objectId === selectedObjectId ? 1 : 0) - (b.objectId === selectedObjectId ? 1 : 0) || a.pct - b.pct)
+
+    // 2. Identify top 100 pins by risk (for capping animated pulsing rings to ~100 elements)
+    const sortedByRisk = [...pins].sort((a, b) => b.pct - a.pct);
+    const top100RiskSet = new Set(sortedByRisk.slice(0, 100).map(p => p.objectId));
+
+    // 3. Collision detection for labels (avoid overlapping labels)
+    // Selected pin has highest priority, then highest risk %
+    const priorityPins = [...pins].sort((a, b) => {
+      if (a.objectId === selectedObjectId) return -1;
+      if (b.objectId === selectedObjectId) return 1;
+      return b.pct - a.pct;
+    });
+
+    const showPillSet = new Set<string>();
+    const approvedPoints: { x: number; y: number }[] = [];
+
+    priorityPins.forEach((p, idx) => {
+      const o = objBy[p.objectId];
+      if (!o) return;
+      const isSel = p.objectId === selectedObjectId;
+      if (isSel) {
+        showPillSet.add(p.objectId);
+        if (m) approvedPoints.push(m.latLngToLayerPoint([o.lat, o.lon]));
+        return;
+      }
+
+      // Auto-label candidates: top 12 pins (or top 24 at high zoom)
+      const isCandidate = idx < (currentZoom >= 13.5 ? 24 : 12);
+      if (!isCandidate) return;
+
+      if (m) {
+        const pt = m.latLngToLayerPoint([o.lat, o.lon]);
+        // Bounding box collision check (approx 46px wide x 24px high)
+        const collides = approvedPoints.some(
+          ap => Math.abs(ap.x - pt.x) < 46 && Math.abs(ap.y - pt.y) < 24
+        );
+        if (!collides) {
+          showPillSet.add(p.objectId);
+          approvedPoints.push(pt);
+        }
+      } else if (idx < 8) {
+        showPillSet.add(p.objectId);
+      }
+    });
+
+    // 4. Calculate zoom-scaled radius & halo size
+    const r = getPinRadius(currentZoom);
+    const haloD = Math.round(r * 6.5);
+
+    // 5. Render pins sorted so selected and higher risk pins are on top
+    [...pins]
+      .sort((a, b) => (a.objectId === selectedObjectId ? 1 : 0) - (b.objectId === selectedObjectId ? 1 : 0) || a.pct - b.pct)
       .forEach(p => {
         const o = objBy[p.objectId];
         if (!o) return;
+
         const sel = p.objectId === selectedObjectId;
+        const showPill = showPillSet.has(p.objectId);
+        const inTop100 = top100RiskSet.has(p.objectId);
+        const pulse = inTop100 && !p.done;
+        const isCritical = p.risk === 'CRITICAL';
+        const isWarning = p.risk === 'WARNING';
+
+        const colorVar = p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)';
+
+        const ariaLabel = p.done
+          ? `${o.name}, решено`
+          : isCritical
+          ? `${o.name}, риск ${p.pct} %, срочно проверить`
+          : isWarning
+          ? `${o.name}, риск ${p.pct} %, проверить скоро`
+          : `${o.name}, риск ${p.pct} %`;
+
+        const pulseHtml = pulse
+          ? isCritical
+            ? `<div class="nk-pulse-ring crit-1"></div><div class="nk-pulse-ring crit-2"></div>`
+            : `<div class="nk-pulse-ring warn-1"></div>`
+          : '';
+
+        const checkSvg = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5L4.5 9L10 3"/></svg>`;
+
+        const html = `
+          <div class="nk-pin-wrap ${sel ? 'sel' : ''} ${showPill ? 'show-pill' : ''}" style="--pin-color: ${colorVar}; --r: ${r}px; --halo-d: ${haloD}px;">
+            <div class="nk-pin-hit" tabindex="${interactive ? 0 : -1}" role="${interactive ? 'button' : 'img'}" aria-label="${ariaLabel}">
+              ${pulseHtml}
+              <div class="nk-soft-halo"></div>
+              ${sel || p.done ? '<div class="nk-sel-ring"></div>' : ''}
+              <div class="nk-pin-core ${p.done ? 'done' : ''}">
+                ${p.done ? checkSvg : ''}
+              </div>
+              <div class="nk-pin-pill">
+                ${p.done ? 'решено' : p.pct + '%'}
+              </div>
+              <div class="nk-pin-tip">${o.name}</div>
+            </div>
+          </div>
+        `;
+
         const icon = L.divIcon({
-          className: '', iconSize: [0, 0],
-          html: `<div class="nk-pin ${sel ? 'sel' : ''} ${p.done ? 'done' : ''}" style="color:var(--${p.risk === 'CRITICAL' ? 'cr' : p.risk === 'WARNING' ? 'wr' : 'at'})">`
-            + `${sel ? '<div class="ring"></div>' : ''}<div class="stem"></div><div class="dot"></div>`
-            + `<div class="pill"><span>${p.done ? '✓' : p.pct + '%'}</span></div></div>`,
+          className: 'nk-leaflet-pin',
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+          html,
         });
-        L.marker([o.lat, o.lon], { icon, zIndexOffset: sel ? 1000 : p.pct, keyboard: false, title: o.name })
-          .on('click', () => pick.current?.(p.objectId)).addTo(mk);
+
+        const marker = L.marker([o.lat, o.lon], {
+          icon,
+          zIndexOffset: sel ? 1000 : p.pct,
+          keyboard: false,
+          interactive: interactive,
+        });
+
+        if (interactive && pick.current) {
+          marker.on('click', () => pick.current?.(p.objectId));
+        }
+
+        marker.addTo(mk);
+
+        // Attach keyboard navigation to the hit element
+        if (interactive && pick.current) {
+          const el = marker.getElement();
+          if (el) {
+            const hitBtn = el.querySelector('.nk-pin-hit') as HTMLElement | null;
+            if (hitBtn) {
+              hitBtn.addEventListener('keydown', (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  pick.current?.(p.objectId);
+                }
+              });
+            }
+          }
+        }
       });
-  }, [objects, pins, selectedObjectId]);
+  }, [objects, pins, selectedObjectId, currentZoom, interactive]);
 
   useEffect(() => {
     const m = map.current;
     const o = objects.find(x => x.object_id === selectedObjectId);
-    if (m && o && interactive && !m.getBounds().pad(-0.2).contains([o.lat, o.lon])) m.flyTo([o.lat, o.lon], Math.max(m.getZoom(), 12.5), { duration: 0.6 });
+    if (m && o && interactive && !m.getBounds().pad(-0.2).contains([o.lat, o.lon])) {
+      m.flyTo([o.lat, o.lon], Math.max(m.getZoom(), 12.5), { duration: 0.6 });
+    }
   }, [selectedObjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={box} className="absolute inset-0" />;
