@@ -371,7 +371,13 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
                 </div>
               </div>
             )}
-            {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
+            {view === 'scenarios' && (
+              <div className="h-full overflow-y-auto px-4 py-4 lg:p-6">
+                <div className="max-w-[1320px] mx-auto">
+                  <ScenarioLab objects={objects} />
+                </div>
+              </div>
+            )}
             {view === 'field' && (
               <FieldView
                 objects={objects}
