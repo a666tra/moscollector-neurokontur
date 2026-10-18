@@ -5,6 +5,8 @@ interface AccuracyRingsProps {
   pilotPrecisionPct?: number | null;
   standMinPct?: number | null;
   standMaxPct?: number | null;
+  lgbmWeeklyPrecisionAt100Median?: number | null;
+  prevalenceMedian?: number | null;
 }
 
 export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
@@ -12,6 +14,8 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
   pilotPrecisionPct,
   standMinPct,
   standMaxPct,
+  lgbmWeeklyPrecisionAt100Median,
+  prevalenceMedian,
 }) => {
   const [selected, setSelected] = useState<'stand' | 'pilot'>('stand');
 
@@ -27,6 +31,21 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
   const maxVal = typeof standMaxPct === 'number' && Number.isFinite(standMaxPct)
     ? Math.round(standMaxPct)
     : 38;
+
+  // Lift computed from real API fields: lgbm_weekly precision@100 median / prevalence median
+  const lift =
+    typeof lgbmWeeklyPrecisionAt100Median === 'number' &&
+    Number.isFinite(lgbmWeeklyPrecisionAt100Median) &&
+    typeof prevalenceMedian === 'number' &&
+    Number.isFinite(prevalenceMedian) &&
+    prevalenceMedian > 0
+      ? Math.round(lgbmWeeklyPrecisionAt100Median / prevalenceMedian)
+      : null;
+
+  const pilotCaption =
+    lift !== null && Number.isFinite(lift) && lift > 0
+      ? `В пилоте с дообучением (расчёт): в ${lift} раз выше случайного выбора.`
+      : '';
 
   const rings: Array<{
     id: 'stand' | 'pilot';
@@ -52,7 +71,7 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
       displayVal: `${pilotVal} %`,
       label: 'Пилот (расчёт)',
       color: 'var(--gnt)',
-      caption: 'В пилоте с дообучением (расчёт): в 29 раз выше случайного выбора.',
+      caption: pilotCaption,
       ariaLabel: `Точность ${pilotVal}%: Пилот (расчёт)`,
     },
   ];
@@ -64,7 +83,7 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
     return `${(frac * 276.46).toFixed(1)} 276.46`;
   };
 
-  const currentCaption = rings.find(r => r.id === selected)?.caption || rings[0].caption;
+  const currentCaption = rings.find(r => r.id === selected)?.caption || '';
 
   return (
     <section className="space-y-4">
@@ -144,12 +163,14 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
         })}
       </div>
 
-      <div
-        className="text-lg sm:text-xl leading-snug max-w-2xl min-h-[48px] pt-1"
-        style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
-      >
-        {currentCaption}
-      </div>
+      {currentCaption && (
+        <div
+          className="text-lg sm:text-xl leading-snug max-w-2xl min-h-[44px] pt-1"
+          style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
+        >
+          {currentCaption}
+        </div>
+      )}
     </section>
   );
 };

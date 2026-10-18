@@ -327,12 +327,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-w-0">
           {/* Model info card with mandatory labeled 0.771 */}
           <div
-            className="rounded-[20px] p-4 border flex items-center justify-between gap-3 min-w-0"
+            className="rounded-[20px] p-3.5 sm:p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0"
             style={{ background: 'var(--sf2)', borderColor: 'var(--ln)' }}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
               <Cpu className="w-5 h-5 text-[var(--ac)] shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <span className="font-bold text-xs sm:text-sm text-[var(--ink)] block">
                   Модель: LightGBM (чемпион)
                 </span>
@@ -342,9 +342,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               </div>
             </div>
 
-            <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-full bg-[var(--sf)] border text-[var(--ac)] text-right shrink-0">
-              ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '0.771'} (отложенная выборка (январь))
-            </span>
+            <div className="flex flex-wrap max-w-full">
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[var(--sf)] border text-[var(--ac)] text-left sm:text-right max-w-full whitespace-normal break-words"
+                style={{ borderColor: 'var(--ln)' }}
+              >
+                ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '0.771'} — отложенная выборка (январь)
+              </span>
+            </div>
           </div>
 
           {/* Group 1: Queue threshold (tau) with live preview */}

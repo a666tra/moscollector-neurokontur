@@ -58,7 +58,7 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
       displayVal: fmtRoc(pilotVal),
       label: 'Пилот, расчёт',
       color: 'var(--gnt)',
-      caption: 'В пилоте с еженедельным дообучением. Это расчёт, а не замер на стенде.',
+      caption: '', // Kept only in the grey box under the rings, not repeated in large serif text
       ariaLabel: `ROC-AUC ${fmtRoc(pilotVal)}: Пилот, расчёт`,
     },
   ];
@@ -70,7 +70,7 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
     return `${(frac * 276.46).toFixed(1)} 276.46`;
   };
 
-  const currentCaption = rings.find(r => r.id === selected)?.caption || rings[2].caption;
+  const currentCaption = rings.find(r => r.id === selected)?.caption || '';
 
   return (
     <section className="space-y-4">
@@ -81,6 +81,7 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
         Насколько хорошо различает каналы
       </h2>
 
+      {/* Rings Row */}
       <div className="flex items-start gap-4 sm:gap-10 flex-wrap">
         {rings.map((r) => {
           const isSelected = selected === r.id;
@@ -152,15 +153,7 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
         })}
       </div>
 
-      {/* Selected dynamic commentary */}
-      <div
-        className="text-lg sm:text-xl leading-snug max-w-2xl min-h-[48px] pt-1"
-        style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
-      >
-        {currentCaption}
-      </div>
-
-      {/* Mandatory permanent caption banner */}
+      {/* Mandatory caption banner: directly under the rings (shown only once) */}
       <div
         className="text-xs sm:text-sm px-3.5 py-2.5 rounded-lg inline-flex items-center gap-2"
         style={{ background: 'var(--sf2)', color: 'var(--mu)', border: '1px solid var(--ln2)' }}
@@ -168,6 +161,16 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
         <span className="w-2 h-2 rounded-full" style={{ background: 'var(--gnt)' }} />
         <span>В пилоте с еженедельным дообучением. Это расчёт, а не замер на стенде.</span>
       </div>
+
+      {/* Selected dynamic commentary for stand or holdout */}
+      {selected !== 'pilot' && currentCaption && (
+        <div
+          className="text-lg sm:text-xl leading-snug max-w-2xl min-h-[44px] pt-1"
+          style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
+        >
+          {currentCaption}
+        </div>
+      )}
     </section>
   );
 };

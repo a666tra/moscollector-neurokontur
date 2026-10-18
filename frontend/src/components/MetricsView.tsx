@@ -188,6 +188,8 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
         pilotPrecisionPct={backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median ? backtest.summary.all.lgbm_weekly.precision_at_100.median * 100 : 38}
         standMinPct={backtest?.summary?.all?.deployed?.precision_at_100?.min ? backtest.summary.all.deployed.precision_at_100.min * 100 : 14}
         standMaxPct={backtest?.summary?.all?.deployed?.precision_at_100?.max ? backtest.summary.all.deployed.precision_at_100.max * 100 : 38}
+        lgbmWeeklyPrecisionAt100Median={backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median}
+        prevalenceMedian={backtest?.summary?.all?.prevalence?.median}
       />
 
       {/* 4. Three checks accordion */}
@@ -204,6 +206,16 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
       <ReproduceBlock
         reproductionCommand={backtest?.reproduction_command ?? report?.reproduction_command}
         consistency={backtest?.consistency_with_training_cache}
+        baseline={{
+          deployedRoc: backtest?.summary?.all?.deployed?.roc_auc?.median,
+          deployedP100: backtest?.summary?.all?.deployed?.precision_at_100?.median,
+          lgbmRoc: backtest?.summary?.all?.lgbm_weekly?.roc_auc?.median,
+          lgbmP100: backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median,
+          mismatchesTrain: backtest?.consistency_with_training_cache?.train?.label_mismatches,
+          mismatchesVal: backtest?.consistency_with_training_cache?.val?.label_mismatches,
+          mismatchesTest: backtest?.consistency_with_training_cache?.test?.label_mismatches,
+        }}
+        onReloaded={(newData) => setBacktest(newData)}
       />
 
       {/* 6. Model limits block */}
