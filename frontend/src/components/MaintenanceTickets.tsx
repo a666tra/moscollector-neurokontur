@@ -1,40 +1,61 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, Search, Download, CheckCircle, Clock, Wrench, AlertTriangle, Layers
-} from 'lucide-react';
-import { MaintenanceTicket } from '../types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, Sparkles, Map as MapIcon, RotateCcw, Plus, RefreshCw } from 'lucide-react';
+import { MaintenanceTicket, ObjectItem, PredictionItem } from '../types';
 import { DecisionLedger } from './DecisionLedger';
+import { TicketTiles, TicketTileType } from '../tickets/TicketTiles';
+import { TicketStatusTrack, StageCounts } from '../tickets/TicketStatusTrack';
+import { TicketRow } from '../tickets/TicketRow';
+import { TicketMiniMap } from '../tickets/TicketMiniMap';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { api } from '../lib/api';
-import { formatPk } from '../lib/plain';
 
 interface MaintenanceTicketsProps {
   filterObjectId?: string | null;
   onClearFilter?: () => void;
   onRefreshStats?: () => void;
+  objects?: ObjectItem[];
+  predictions?: PredictionItem[];
 }
 
-const STATUS_TABS = [
-  { id: 'ALL', label: 'Все' },
-  { id: 'ЧЕРНОВИК', label: 'Черновик' },
-  { id: 'НАЗНАЧЕН', label: 'Назначен' },
-  { id: 'В_РАБОТЕ', label: 'В работе' },
-  { id: 'ВЫПОЛНЕН', label: 'Выполнен' },
-];
-
-export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ filterObjectId, onClearFilter, onRefreshStats }) => {
+export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
+  filterObjectId,
+  onClearFilter,
+  onRefreshStats,
+  objects: initialObjects,
+  predictions: initialPredictions,
+}) => {
   const { requireDispatcher } = useSession();
   const toast = useToast();
 
   const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+  const [objects, setObjects] = useState<ObjectItem[]>(initialObjects || []);
+  const [predictions, setPredictions] = useState<PredictionItem[]>(initialPredictions || []);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [priorityFilter, setPriorityFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [tileFilter, setTileFilter] = useState<TicketTileType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAssigningUrgent, setIsAssigningUrgent] = useState(false);
+  const [showMobileMap, setShowMobileMap] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
-  const fetchTickets = async () => {
+  // Sync objects and predictions if passed via props
+  useEffect(() => {
+    if (initialObjects && initialObjects.length > 0) {
+      setObjects(initialObjects);
+    }
+  }, [initialObjects]);
+
+  useEffect(() => {
+    if (initialPredictions && initialPredictions.length > 0) {
+      setPredictions(initialPredictions);
+    }
+  }, [initialPredictions]);
+
+  // Fetch tickets, and objects/predictions if not provided
+  const fetchTickets = useCallback(async () => {
     try {
       const data = await api<MaintenanceTicket[]>('/api/tickets');
       setTickets(data || []);
@@ -43,15 +64,34 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ filterOb
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTickets();
-  }, []);
 
+    if (!initialObjects || initialObjects.length === 0) {
+      api<ObjectItem[]>('/api/objects')
+        .then((res) => {
+          if (res) setObjects(res);
+        })
+        .catch(() => {});
+    }
+
+    if (!initialPredictions || initialPredictions.length === 0) {
+      api<{ items: PredictionItem[] }>('/api/predictions?limit=500')
+        .then((res) => {
+          if (res?.items) setPredictions(res.items);
+        })
+        .catch(() => {});
+    }
+  }, [fetchTickets, initialObjects, initialPredictions]);
+
+  // Status change handler (with dispatcher PIN authentication)
   const handleStatusChange = async (ticketId: string, newStatus: string) => {
     const d = await requireDispatcher();
     if (!d) return;
+
+    setStatusUpdatingId(ticketId);
     try {
       const updated = await api<MaintenanceTicket>(`/api/tickets/${ticketId}/status`, {
         method: 'PATCH',
@@ -61,30 +101,56 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ filterOb
           dispatcher_pin: d.pin,
         },
       });
-      setTickets(prev => prev.map(t => (t.ticket_id === ticketId ? updated : t)));
+      setTickets((prev) => prev.map((t) => (t.ticket_id === ticketId ? updated : t)));
       toast(`Статус наряда ${ticketId} изменён: ${newStatus}`, 'success');
       onRefreshStats?.();
     } catch (err: any) {
       toast(err?.message || 'Не удалось обновить статус наряда', 'error');
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
+  // Assign brigade selection handler
+  const handleSelectBrigade = (ticketId: string, brigadeName: string) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.ticket_id === ticketId ? { ...t, assigned_team: brigadeName } : t
+      )
+    );
+    toast(`Наряд ${ticketId}: назначена ${brigadeName}`, 'success');
+  };
+
+  // Candidates for model suggestions: critical predictions that don't yet have tickets
+  const candidatePredictions = useMemo(() => {
+    const ticketChannelSet = new Set(tickets.map((t) => t.channel_id));
+    return predictions
+      .filter((p) => p.risk_level === 'CRITICAL' && !ticketChannelSet.has(p.channel_id))
+      .slice(0, 5);
+  }, [predictions, tickets]);
+
+  // Generate ticket from model prediction (with dispatcher PIN authentication)
   const handleGenerateTicket = async () => {
     const d = await requireDispatcher();
     if (!d) return;
+
     setIsGenerating(true);
+    // Pick the top critical candidate channel, or fallback to known channel
+    const targetChannelId = candidatePredictions[0]?.channel_id || '120466';
+
     try {
       const newTicket = await api<MaintenanceTicket>('/api/tickets/generate', {
         method: 'POST',
         json: {
-          channel_id: '120466',
+          channel_id: targetChannelId,
           priority: 'ВЫСОКИЙ',
           notes: 'Автоматическая генерация по факту прогнозирования предаварийного состояния (горизонт 24–72 ч).',
           dispatcher_badge: d.badge,
           dispatcher_pin: d.pin,
         },
       });
-      setTickets(prev => [newTicket, ...prev]);
+      setTickets((prev) => [newTicket, ...prev]);
+      setExpandedTicketId(newTicket.ticket_id);
       toast(`Сформирован наряд ${newTicket.ticket_id}`, 'success');
       onRefreshStats?.();
     } catch (err: any) {
@@ -94,6 +160,39 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ filterOb
     }
   };
 
+  // Assign all urgent draft tickets
+  const handleAssignAllUrgent = async () => {
+    const urgentDrafts = tickets.filter(
+      (t) => t.status === 'ЧЕРНОВИК' && (t.priority === 'ВЫСОКИЙ' || t.failure_risk_percent >= 70)
+    );
+    if (urgentDrafts.length === 0) return;
+
+    const d = await requireDispatcher();
+    if (!d) return;
+
+    setIsAssigningUrgent(true);
+    try {
+      for (const t of urgentDrafts) {
+        await api<MaintenanceTicket>(`/api/tickets/${t.ticket_id}/status`, {
+          method: 'PATCH',
+          json: {
+            new_status: 'НАЗНАЧЕН',
+            dispatcher_badge: d.badge,
+            dispatcher_pin: d.pin,
+          },
+        });
+      }
+      await fetchTickets();
+      toast(`Все срочные наряды (${urgentDrafts.length}) переданы бригадам`, 'success');
+      onRefreshStats?.();
+    } catch (err: any) {
+      toast(err?.message || 'Не удалось передать все срочные наряды', 'error');
+    } finally {
+      setIsAssigningUrgent(false);
+    }
+  };
+
+  // Export TXT order sheet (preserving exact existing download format)
   const handleExportPrint = (ticket: MaintenanceTicket) => {
     const content = `
 ================================================================================
@@ -117,7 +216,7 @@ ${ticket.regulation_reference}
 ${ticket.work_description}
 
 НЕОБХОДИМЫЕ МАТЕРИАЛЫ И ЗИП:
-${ticket.required_materials.map(m => ` - ${m}`).join('\n')}
+${ticket.required_materials.map((m) => ` - ${m}`).join('\n')}
 
 ОТВЕТСТВЕННАЯ БРИГАДА:
 ${ticket.assigned_team}
@@ -134,15 +233,59 @@ ${ticket.assigned_team}
     link.download = `Наряд_${ticket.ticket_id}.txt`;
     link.click();
     URL.revokeObjectURL(url);
+    toast(`Наряд ${ticket.ticket_id} скачан (TXT)`, 'success');
   };
 
+  // Counts for top tiles
+  const urgentCount = useMemo(() => {
+    return tickets.filter(
+      (t) => t.status === 'ЧЕРНОВИК' && (t.priority === 'ВЫСОКИЙ' || t.failure_risk_percent >= 70)
+    ).length;
+  }, [tickets]);
+
+  const soonCount = useMemo(() => {
+    return tickets.filter(
+      (t) => t.status === 'ЧЕРНОВИК' && !(t.priority === 'ВЫСОКИЙ' || t.failure_risk_percent >= 70)
+    ).length;
+  }, [tickets]);
+
+  const idleCount = useMemo(() => {
+    return tickets.filter((t) => t.status !== 'ЧЕРНОВИК').length;
+  }, [tickets]);
+
+  // Counts for status track
+  const stageCounts: StageCounts = useMemo(() => {
+    return {
+      draft: tickets.filter((t) => t.status === 'ЧЕРНОВИК').length,
+      assigned: tickets.filter((t) => t.status === 'НАЗНАЧЕН').length,
+      work: tickets.filter((t) => t.status === 'В_РАБОТЕ').length,
+      done: tickets.filter((t) => t.status === 'ВЫПОЛНЕН').length,
+    };
+  }, [tickets]);
+
+  // Filtered tickets
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => {
+    return tickets.filter((t) => {
+      // 1. External filter by object
       if (filterObjectId && String(t.object_id) !== String(filterObjectId)) return false;
+
+      // 2. Tile filter (Срочно / Скоро / Не трогать)
+      if (tileFilter === 'crit') {
+        const isCrit = t.status === 'ЧЕРНОВИК' && (t.priority === 'ВЫСОКИЙ' || t.failure_risk_percent >= 70);
+        if (!isCrit) return false;
+      } else if (tileFilter === 'soon') {
+        const isSoon = t.status === 'ЧЕРНОВИК' && !(t.priority === 'ВЫСОКИЙ' || t.failure_risk_percent >= 70);
+        if (!isSoon) return false;
+      } else if (tileFilter === 'idle') {
+        if (t.status === 'ЧЕРНОВИК') return false;
+      }
+
+      // 3. Status track stage filter
       if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
-      if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+
+      // 4. Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
         const matchId = t.ticket_id.toLowerCase().includes(q);
         const matchObj = t.object_name.toLowerCase().includes(q);
         const matchSensor = t.sensor_name.toLowerCase().includes(q);
@@ -150,49 +293,45 @@ ${ticket.assigned_team}
         const matchChannel = String(t.channel_id).includes(q);
         if (!matchId && !matchObj && !matchSensor && !matchPicket && !matchChannel) return false;
       }
+
       return true;
     });
-  }, [tickets, statusFilter, priorityFilter, searchQuery, filterObjectId]);
+  }, [tickets, filterObjectId, tileFilter, statusFilter, searchQuery]);
 
-  const activeCount = tickets.filter(t => t.status === 'НАЗНАЧЕН' || t.status === 'В_РАБОТЕ').length;
-  const completedCount = tickets.filter(t => t.status === 'ВЫПОЛНЕН').length;
+  const handleResetFilters = () => {
+    setStatusFilter('ALL');
+    setTileFilter('all');
+    setSearchQuery('');
+    onClearFilter?.();
+  };
+
+  const selectedTicket = useMemo(() => {
+    return tickets.find((t) => t.ticket_id === expandedTicketId) || null;
+  }, [tickets, expandedTicketId]);
 
   return (
-    <div className="space-y-6">
-      {/* Top Header & Metrics Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold">Наряды и заявки ТО</h1>
-            <span className="chip" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-              Регламент ТОиР
-            </span>
-          </div>
-          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-            Реестр заявок на техническое обслуживание по результатам предиктивного анализа телеметрии
-          </p>
-        </div>
-
-        <button
-          onClick={handleGenerateTicket}
-          disabled={isGenerating}
-          className="btn btn-primary self-start sm:self-auto h-9 text-xs"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{isGenerating ? 'Формирование…' : 'Сформировать наряд по модели'}</span>
-        </button>
+    <div className="space-y-6 sm:space-y-7 pb-10">
+      {/* Title */}
+      <div>
+        <h1 className="serif text-3xl sm:text-[42px] font-normal leading-tight tracking-tight" style={{ color: 'var(--ink)' }}>
+          Заявки
+        </h1>
       </div>
 
+      {/* External Filter Banner */}
       {filterObjectId && (
-        <div className="flex items-center justify-between p-3 rounded-xl border bg-amber-500/10 border-amber-500/30 text-xs">
+        <div className="flex items-center justify-between p-3.5 rounded-2xl border bg-amber-500/10 border-amber-500/30 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-amber-300">Фильтр по объекту #{filterObjectId}</span>
-            <span className="text-[var(--mut)]">({filteredTickets.length} {filteredTickets.length === 1 ? 'наряд' : 'нарядов'})</span>
+            <span className="font-semibold text-amber-500">Фильтр по объекту #{filterObjectId}</span>
+            <span style={{ color: 'var(--mu)' }}>
+              ({filteredTickets.length} {filteredTickets.length === 1 ? 'наряд' : 'нарядов'})
+            </span>
           </div>
           {onClearFilter && (
             <button
+              type="button"
               onClick={onClearFilter}
-              className="px-2.5 py-1 rounded-md text-xs font-medium border border-amber-500/40 hover:bg-amber-500/20 text-amber-200"
+              className="px-3 py-1 rounded-full text-xs font-semibold border border-amber-500/40 hover:bg-amber-500/20 text-amber-500 cursor-pointer"
             >
               Сбросить фильтр
             </button>
@@ -200,239 +339,186 @@ ${ticket.assigned_team}
         </div>
       )}
 
-      {/* KPI Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="panel p-3.5 space-y-1">
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>Всего нарядов</div>
-          <div className="num text-2xl font-bold">{tickets.length}</div>
-          <div className="text-[11px]" style={{ color: 'var(--faint)' }}>СМВУ Москоллектор</div>
-        </div>
+      {/* Top 3 Tiles: Срочно / Скоро / Не трогать */}
+      <TicketTiles
+        urgentCount={urgentCount}
+        soonCount={soonCount}
+        idleCount={idleCount}
+        activeTile={tileFilter}
+        onSelectTile={(t) => setTileFilter(t)}
+        onAssignAllUrgent={handleAssignAllUrgent}
+        isAssigningUrgent={isAssigningUrgent}
+      />
 
-        <div className="panel p-3.5 space-y-1">
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>В работе бригад</div>
-          <div className="num text-2xl font-bold" style={{ color: 'var(--warn)' }}>{activeCount}</div>
-          <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Назначено или выполняется</div>
-        </div>
+      {/* Status Track: Новая → Передана → В работе → Готово */}
+      <TicketStatusTrack
+        counts={stageCounts}
+        activeStatus={statusFilter}
+        onSelectStatus={(s) => setStatusFilter(s)}
+        onDropTicket={(ticketId, targetStatus) => handleStatusChange(ticketId, targetStatus)}
+      />
 
-        <div className="panel p-3.5 space-y-1">
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>Выполнено</div>
-          <div className="num text-2xl font-bold" style={{ color: 'var(--ok)' }}>{completedCount}</div>
-          <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Завершенные наряды</div>
-        </div>
+      {/* Mobile Map Toggle Button */}
+      <div className="lg:hidden">
+        <button
+          type="button"
+          onClick={() => setShowMobileMap(!showMobileMap)}
+          className="w-full min-h-[48px] rounded-full border border-[var(--ln2)] bg-transparent flex items-center justify-center gap-2 text-sm font-semibold cursor-pointer"
+          style={{ color: 'var(--ink)' }}
+        >
+          <MapIcon className="w-4 h-4 text-[var(--ac)]" />
+          <span>{showMobileMap ? 'Скрыть карту' : 'Показать заявки на карте'}</span>
+        </button>
       </div>
 
-      {/* Filter Toolbar (Segmented Tabs + Priority + Search) */}
-      <div className="panel p-3.5 space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Status segmented buttons */}
-          <div className="flex gap-1 p-1 rounded-lg overflow-x-auto scroll-thin" style={{ background: 'var(--bg)' }} role="tablist">
-            {STATUS_TABS.map(tab => {
-              const active = statusFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setStatusFilter(tab.id)}
-                  className="px-3 h-7 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0"
-                  style={active ? { background: 'var(--surface-3)', color: 'var(--text)' } : { color: 'var(--muted)' }}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+      {/* Mobile Mini Map (when toggled open) */}
+      {showMobileMap && (
+        <div className="lg:hidden">
+          <TicketMiniMap
+            objects={objects}
+            tickets={filteredTickets}
+            selectedObjectId={selectedTicket?.object_id}
+            onPickObject={(objId) => {
+              const matched = filteredTickets.find((t) => t.object_id === objId);
+              if (matched) setExpandedTicketId(matched.ticket_id);
+            }}
+            className="h-[300px]"
+          />
+        </div>
+      )}
 
-          {/* Search + Priority */}
-          <div className="flex items-center gap-2 w-full lg:w-auto">
-            <div className="relative flex-1 lg:w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--faint)' }} />
+      {/* Main Grid: Left List (filtered) + Right Sticky Mini Map (desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-6 lg:gap-8 items-start">
+        {/* Left Column: Search Bar & Tickets List */}
+        <div className="min-w-0 space-y-3.5">
+          {/* Search + Model Suggestions Toolbar */}
+          <div
+            className="flex items-center gap-3 pb-2.5 border-b-[1.5px]"
+            style={{ borderColor: 'var(--ink)' }}
+          >
+            <label className="flex-1 min-w-[120px] flex items-center gap-2 text-[var(--mu)]">
+              <Search className="w-4 h-4 shrink-0 text-[var(--mu)]" />
               <input
-                className="input pl-9 h-8 text-xs"
-                placeholder="Поиск по номеру, объекту, ПК…"
+                type="text"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Номер или объект"
+                aria-label="Поиск по заявкам"
+                className="w-full border-0 bg-transparent outline-none text-sm sm:text-base font-medium min-h-[44px]"
+                style={{ color: 'var(--ink)' }}
               />
-            </div>
-            <select
-              className="input h-8 text-xs w-36 shrink-0"
-              value={priorityFilter}
-              onChange={e => setPriorityFilter(e.target.value)}
-              aria-label="Фильтр по приоритету"
+            </label>
+
+            {/* Model Suggestions Button */}
+            <button
+              type="button"
+              onClick={handleGenerateTicket}
+              disabled={isGenerating}
+              aria-label="Сформировать наряд по модели"
+              title="Модель подскажет, что проверить и создаст наряд"
+              className="relative min-h-[48px] px-4 sm:px-5 rounded-full flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-[var(--onac)] border-0 cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
+              style={{ background: 'var(--ac)' }}
             >
-              <option value="ALL">Все приоритеты</option>
-              <option value="ВЫСОКИЙ">Высокий</option>
-              <option value="СРЕДНИЙ">Средний</option>
-              <option value="НИЗКИЙ">Низкий</option>
-            </select>
-          </div>
-        </div>
-      </div>
+              <Sparkles className={`w-4 h-4 shrink-0 ${isGenerating ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">
+                {isGenerating ? 'Создаём…' : 'Подсказки модели'}
+              </span>
 
-      {/* Tickets List: 2 Columns on desktop (≥1280px), 1 Column below */}
-      <div>
-        <div className="flex items-center justify-between mb-3 text-xs" style={{ color: 'var(--muted)' }}>
-          <span>Найдено нарядов: <span className="num font-semibold text-[var(--text)]">{filteredTickets.length}</span></span>
-          <span>Сортировка: новые первыми</span>
-        </div>
-
-        {loading ? (
-          <div className="panel p-10 text-center text-xs" style={{ color: 'var(--muted)' }}>
-            Загрузка наряд-заказов…
-          </div>
-        ) : filteredTickets.length === 0 ? (
-          <div className="panel p-10 text-center text-xs" style={{ color: 'var(--muted)' }}>
-            Нет нарядов, соответствующих выбранным фильтрам
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {filteredTickets.map(ticket => {
-              const priorityClass =
-                ticket.priority === 'ВЫСОКИЙ'
-                  ? 'risk-CRITICAL'
-                  : ticket.priority === 'СРЕДНИЙ'
-                    ? 'risk-WARNING'
-                    : 'risk-NORMAL';
-
-              const statusChipClass =
-                ticket.status === 'ВЫПОЛНЕН'
-                  ? 'risk-NORMAL'
-                  : ticket.status === 'В_РАБОТЕ'
-                    ? 'risk-WARNING'
-                    : ticket.status === 'НАЗНАЧЕН'
-                      ? 'risk-ATTENTION'
-                      : '';
-
-              const riskPercent = Math.round(ticket.failure_risk_percent);
-
-              return (
-                <div
-                  key={ticket.ticket_id}
-                  className="panel p-4 flex flex-col justify-between space-y-3 transition-colors hover:border-[var(--line-2)]"
+              {/* Red counter badge */}
+              {candidatePredictions.length > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1 min-w-[20px] h-5 rounded-full text-white font-bold text-[11px] leading-5 text-center px-1 border-2 border-[var(--bg)] shadow-sm"
+                  style={{ background: 'var(--rd)' }}
                 >
-                  {/* Top line: chips & IDs */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`chip ${priorityClass}`}>
-                        {ticket.priority}
-                      </span>
-                      <span className="num font-semibold text-sm">
-                        {ticket.ticket_id}
-                      </span>
-                      <span
-                        className={`chip ${statusChipClass}`}
-                        style={!statusChipClass ? { background: 'var(--surface-2)', color: 'var(--muted)' } : undefined}
-                      >
-                        {ticket.status === 'В_РАБОТЕ' ? 'В работе' : ticket.status === 'ЧЕРНОВИК' ? 'Черновик' : ticket.status === 'НАЗНАЧЕН' ? 'Назначен' : 'Выполнен'}
-                      </span>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="num font-semibold text-xs" style={{ color: 'var(--ink)' }}>
-                        ТО: {ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽
-                      </div>
-                      <div className="num text-[11px]" style={{ color: 'var(--muted)' }}>
-                        Риск по журналу: {riskPercent} %
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Location & Sensor */}
-                  <div className="space-y-1 text-xs">
-                    <div className="font-medium truncate text-sm">
-                      {ticket.sensor_name} <span className="num text-xs font-normal" style={{ color: 'var(--muted)' }}>(#{ticket.channel_id})</span>
-                    </div>
-                    <div className="truncate" style={{ color: 'var(--muted)' }}>
-                      {ticket.object_name} · <span className="num">{formatPk(ticket.picket)}</span> · {ticket.corridor}
-                    </div>
-                  </div>
-
-                  {/* Work description (2 lines clamped) */}
-                  <p className="text-xs line-clamp-2 leading-relaxed" style={{ color: 'var(--muted)' }}>
-                    {ticket.work_description?.replace(
-                      /вероятность инцидента \d+ %/,
-                      `вероятность инцидента ${riskPercent} %`
-                    )}
-                  </p>
-
-                  {/* Materials chips */}
-                  {ticket.required_materials && ticket.required_materials.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      {ticket.required_materials.slice(0, 3).map((mat, i) => (
-                        <span key={i} className="chip text-[11px]" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
-                          {mat}
-                        </span>
-                      ))}
-                      {ticket.required_materials.length > 3 && (
-                        <span className="chip text-[11px]" style={{ background: 'var(--surface-2)', color: 'var(--faint)' }}>
-                          +{ticket.required_materials.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Bottom line: brigade & actions */}
-                  <div className="pt-2 border-t flex flex-wrap items-center justify-between gap-2" style={{ borderColor: 'var(--line)' }}>
-                    <div className="text-xs" style={{ color: 'var(--muted)' }}>
-                      Бригада: <span className="font-medium text-[var(--text)]">{ticket.assigned_team}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <button
-                        onClick={() => handleExportPrint(ticket)}
-                        className="icon-btn h-8 w-8"
-                        title="Скачать бланк наряда (TXT)"
-                        aria-label="Скачать бланк"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-
-                      {ticket.status === 'ЧЕРНОВИК' && (
-                        <button
-                          onClick={() => handleStatusChange(ticket.ticket_id, 'НАЗНАЧЕН')}
-                          className="btn btn-secondary h-8 text-xs"
-                        >
-                          Назначить
-                        </button>
-                      )}
-
-                      {ticket.status === 'НАЗНАЧЕН' && (
-                        <button
-                          onClick={() => handleStatusChange(ticket.ticket_id, 'В_РАБОТЕ')}
-                          className="btn btn-secondary h-8 text-xs"
-                        >
-                          В работу
-                        </button>
-                      )}
-
-                      {ticket.status === 'В_РАБОТЕ' && (
-                        <button
-                          onClick={() => handleStatusChange(ticket.ticket_id, 'ВЫПОЛНЕН')}
-                          className="btn btn-primary h-8 text-xs"
-                        >
-                          Выполнить
-                        </button>
-                      )}
-
-                      {ticket.status === 'ВЫПОЛНЕН' && (
-                        <button
-                          onClick={() => handleStatusChange(ticket.ticket_id, 'В_РАБОТЕ')}
-                          className="btn btn-secondary h-8 text-xs"
-                          title="Вернуть в работу"
-                        >
-                          Вернуть
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  {candidatePredictions.length}
+                </span>
+              )}
+            </button>
           </div>
-        )}
+
+          {/* List Count and Filters indicator */}
+          <div className="flex items-center justify-between text-xs px-1" style={{ color: 'var(--mu)' }}>
+            <span>
+              Показано нарядов: <b className="num text-[var(--ink)]">{filteredTickets.length}</b> из {tickets.length}
+            </span>
+            {(statusFilter !== 'ALL' || tileFilter !== 'all' || searchQuery || filterObjectId) && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-[var(--ac)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0 font-medium"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Сбросить фильтры</span>
+              </button>
+            )}
+          </div>
+
+          {/* Tickets List or Empty State */}
+          {loading ? (
+            <div className="rounded-[22px] border border-[var(--ln)] p-12 text-center text-xs" style={{ color: 'var(--mu)' }}>
+              Загрузка наряд-заказов…
+            </div>
+          ) : filteredTickets.length === 0 ? (
+            <div
+              className="rounded-[22px] border border-[var(--ln)] p-8 sm:p-12 text-center space-y-3 bg-[var(--sf)]"
+              style={{ boxShadow: 'var(--sh)' }}
+            >
+              <h3 className="serif text-xl sm:text-2xl font-normal" style={{ color: 'var(--ink)' }}>
+                Ничего не найдено
+              </h3>
+              <p className="text-xs sm:text-sm max-w-sm mx-auto leading-relaxed" style={{ color: 'var(--mu)' }}>
+                Сбросьте фильтры или измените поисковый запрос, чтобы увидеть все наряды.
+              </p>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="btn btn-secondary h-10 px-5 text-xs sm:text-sm font-semibold cursor-pointer"
+              >
+                Сбросить фильтры
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5" role="list">
+              {filteredTickets.map((ticket) => (
+                <TicketRow
+                  key={ticket.ticket_id}
+                  ticket={ticket}
+                  isExpanded={expandedTicketId === ticket.ticket_id}
+                  onToggleExpand={() =>
+                    setExpandedTicketId(
+                      expandedTicketId === ticket.ticket_id ? null : ticket.ticket_id
+                    )
+                  }
+                  onStatusChange={handleStatusChange}
+                  onFocusMap={(objId) => {
+                    setExpandedTicketId(ticket.ticket_id);
+                    if (window.innerWidth < 1024) setShowMobileMap(true);
+                  }}
+                  onDownload={handleExportPrint}
+                  onSelectBrigade={handleSelectBrigade}
+                  isUpdatingStatus={statusUpdatingId === ticket.ticket_id}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right Column (Desktop): Sticky Mini Map */}
+        <div className="hidden lg:block sticky top-4">
+          <TicketMiniMap
+            objects={objects}
+            tickets={filteredTickets}
+            selectedObjectId={selectedTicket?.object_id}
+            onPickObject={(objId) => {
+              const matched = filteredTickets.find((t) => t.object_id === objId);
+              if (matched) setExpandedTicketId(matched.ticket_id);
+            }}
+            className="h-[520px]"
+          />
+        </div>
       </div>
 
-      {/* Decision Ledger Table (SHA-256) rendered below tickets */}
+      {/* Decision Ledger (Visible SHA-256 chain) */}
       <DecisionLedger onRefresh={fetchTickets} />
     </div>
   );

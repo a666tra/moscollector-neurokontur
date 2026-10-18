@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { ObjectItem } from '../types';
 
-export interface MapPin { objectId: string; pct?: number | null; risk: string; done?: boolean }
+export interface MapPin { objectId: string; pct?: number | null; risk: string; done?: boolean; color?: string; }
 
 interface Props {
   objects: ObjectItem[];
@@ -210,7 +210,7 @@ export const RiskMap: React.FC<Props> = ({
         const isCritical = p.risk === 'CRITICAL';
         const isWarning = p.risk === 'WARNING';
 
-        const colorVar = p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)';
+        const colorVar = p.color || (p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)');
 
         const pctText = p.pct != null ? `риск ${p.pct} %` : 'без оценки';
         const ariaLabel = p.done

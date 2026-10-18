@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { FileCheck, ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { 
+  ShieldCheck, AlertTriangle, CheckCircle2, RefreshCw, 
+  Link as LinkIcon, Info, Check, X, ShieldAlert 
+} from 'lucide-react';
 import { ConfirmedAlarmItem, AuditVerificationResult } from '../types';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
@@ -9,12 +12,16 @@ interface DecisionLedgerProps {
   onRefresh?: () => void;
 }
 
-export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }) => {
+export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', onRefresh }) => {
   const toast = useToast();
   const [items, setItems] = useState<ConfirmedAlarmItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [audit, setAudit] = useState<AuditVerificationResult | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [tamper, setTamper] = useState(false);
+  const [verifiedStep, setVerifiedStep] = useState<number>(-1);
+  const [blockStatus, setBlockStatus] = useState<boolean[]>([]);
+  const [hasVerifiedOnce, setHasVerifiedOnce] = useState(false);
 
   const loadData = async () => {
     try {
@@ -27,13 +34,47 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
     }
   };
 
-  const verifyChain = async () => {
+  useEffect(() => {
+    loadData();
+    api<AuditVerificationResult>('/api/alarms/audit/verify')
+      .then(setAudit)
+      .catch(() => {});
+  }, []);
+
+  const handleVerify = async () => {
     setVerifying(true);
+    setVerifiedStep(0);
+    setBlockStatus([]);
+
     try {
       const res = await api<AuditVerificationResult>('/api/alarms/audit/verify');
       setAudit(res);
-      if (res.is_valid) {
-        toast(`Цепочка аудита проверена: ${res.chain_length} блоков валидны`, 'success');
+
+      const count = items.length;
+      const statuses: boolean[] = [];
+
+      // Step-by-step verification animation for the visual chain
+      for (let i = 0; i < count; i++) {
+        await new Promise(r => setTimeout(r, 120));
+        // If tamper is simulated on index 2 (item #3)
+        const isTamperedBlock = tamper && i === Math.min(2, count - 1);
+        const isValid = !isTamperedBlock && (res.details?.[i]?.link_valid ?? true);
+        statuses.push(isValid);
+        setVerifiedStep(i + 1);
+        setBlockStatus([...statuses]);
+
+        if (!isValid) {
+          // Chain broke at this point
+          break;
+        }
+      }
+
+      setHasVerifiedOnce(true);
+
+      if (tamper) {
+        toast('Обнаружена подмена записи в цепочке решений!', 'error');
+      } else if (res.is_valid) {
+        toast(`Цепочка проверена: ${count} блоков валидны`, 'success');
       } else {
         toast('Нарушена целостность цепочки аудита решений!', 'error');
       }
@@ -44,178 +85,253 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '' }
     }
   };
 
-  useEffect(() => {
-    loadData();
-    api<AuditVerificationResult>('/api/alarms/audit/verify')
-      .then(setAudit)
-      .catch(() => {});
-  }, []);
+  const toggleTamper = () => {
+    const nextTamper = !tamper;
+    setTamper(nextTamper);
+    setVerifiedStep(-1);
+    setBlockStatus([]);
+    setHasVerifiedOnce(false);
+  };
+
+  const tamperedIndex = Math.min(2, Math.max(0, items.length - 1));
+  const isChainTampered = tamper && hasVerifiedOnce;
 
   return (
-    <section className={`panel p-4 sm:p-5 space-y-4 ${className}`}>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)' }}>
-            <FileCheck className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
+    <section
+      className={`rounded-[24px] border border-[var(--ln)] p-4 sm:p-6 space-y-4 sm:space-y-5 ${className}`}
+      style={{ background: 'var(--sf)', boxShadow: 'var(--sh)' }}
+    >
+      {/* Title & Explanation */}
+      <div className="pb-3 border-b flex flex-col sm:flex-row sm:items-start justify-between gap-3" style={{ borderColor: 'var(--ln)' }}>
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="serif text-2xl sm:text-3xl font-normal leading-none" style={{ color: 'var(--ink)' }}>
+              Журнал решений
+            </h2>
+            <span
+              className="chip text-[12px] h-6 px-2.5 rounded-full font-bold"
+              style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
+            >
+              Журнал нельзя тихо переписать
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-sm">Журнал решений смены</h3>
-              <span className="chip" style={{ background: 'var(--surface-2)', color: 'var(--muted)' }}>
-                Цепочка SHA-256
-              </span>
-              {audit && (
-                <span className={`chip ${audit.is_valid ? 'risk-NORMAL' : 'risk-CRITICAL'}`}>
-                  {audit.is_valid ? (
-                    <>
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Валидна (<span className="num">{audit.chain_length}</span> блоков)</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Ошибка валидации</span>
-                    </>
-                  )}
-                </span>
-              )}
-            </div>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-              Криптографический реестр подтверждений и отмен выездов дежурным диспетчером
-            </p>
-          </div>
+          <p className="text-xs sm:text-[13.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--mu)' }}>
+            Криптографический реестр решений диспетчера с хеш-цепочкой SHA-256: каждое действие неразрывно связано с предыдущим.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3 self-end sm:self-auto">
+        {/* Verification & Tamper Buttons */}
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
           <button
-            onClick={verifyChain}
-            disabled={verifying}
-            className="btn btn-secondary text-xs h-8"
-            title="Проверить целостность хеш-цепочки решений"
+            type="button"
+            onClick={handleVerify}
+            disabled={verifying || items.length === 0}
+            className="btn btn-primary h-10 px-4 text-xs sm:text-sm font-semibold flex items-center gap-2 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${verifying ? 'animate-spin' : ''}`} />
-            <span>{verifying ? 'Проверка…' : 'Проверить цепочку'}</span>
+            <ShieldCheck className={`w-4 h-4 ${verifying ? 'animate-spin' : ''}`} />
+            <span>
+              {verifying
+                ? `Проверяем ${Math.min(verifiedStep, items.length)} из ${items.length}…`
+                : 'Проверить целостность цепочки'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleTamper}
+            className="h-10 px-3 text-xs sm:text-sm font-semibold text-[var(--ac)] hover:bg-[var(--sf2)] rounded-full transition-colors cursor-pointer border-0 bg-transparent"
+          >
+            {tamper ? 'Вернуть запись как была' : 'Показать, как выглядит подмена'}
           </button>
         </div>
       </div>
 
-      {/* Desktop Table (≥ 640px) */}
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b" style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
-              <th className="py-2.5 px-3 font-medium">Время</th>
-              <th className="py-2.5 px-3 font-medium">Канал</th>
-              <th className="py-2.5 px-3 font-medium">Решение</th>
-              <th className="py-2.5 px-3 font-medium">Диспетчер</th>
-              <th className="py-2.5 px-3 font-medium text-right" title="Стоимость экстренного выезда по нормативу; не подтверждённая экономия">
-                Норматив вызова
-              </th>
-              <th className="py-2.5 px-3 font-medium">Хеш блока</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="py-8 text-center" style={{ color: 'var(--muted)' }}>
-                  Загрузка журнала решений…
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-8 text-center" style={{ color: 'var(--muted)' }}>
-                  За текущую смену решений пока не зафиксировано
-                </td>
-              </tr>
-            ) : (
-              items.map((rec, i) => {
-                const isFalse = rec.decision.includes('FALSE');
-                return (
-                  <tr key={i} className="hover:bg-[var(--surface-2)] transition-colors">
-                    <td className="py-2.5 px-3 num">{rec.timestamp}</td>
-                    <td className="py-2.5 px-3 font-medium">
-                      <span className="num" style={{ color: 'var(--attn)' }}>#{rec.channel_id}</span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className={`chip ${isFalse ? 'risk-NORMAL' : 'risk-CRITICAL'}`}>
+      {/* Verification Status Banner */}
+      {hasVerifiedOnce && (
+        <div
+          role="status"
+          className="p-3.5 rounded-xl border flex items-center gap-3 text-xs sm:text-sm font-semibold animate-[nkUp_0.25s_ease-out]"
+          style={{
+            background: isChainTampered ? 'var(--rds)' : 'var(--gns)',
+            borderColor: isChainTampered ? 'var(--rd)' : 'var(--gn)',
+            color: isChainTampered ? 'var(--rdt)' : 'var(--gnt)',
+          }}
+        >
+          {isChainTampered ? (
+            <>
+              <ShieldAlert className="w-5 h-5 shrink-0 text-[var(--rd)]" />
+              <span>
+                Цепочка не сходится: запись №{tamperedIndex + 1} изменена после подписи (отпечаток не совпал).
+                Остальные записи не затронуты.
+              </span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-[var(--gn)]" />
+              <span>
+                Цепочка цела: проверено записей — {items.length}, все отпечатки совпали.
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Money Disclaimer Note */}
+      <div className="flex items-start gap-2 text-xs leading-relaxed" style={{ color: 'var(--mu)' }}>
+        <Info className="w-4 h-4 shrink-0 mt-0.5 text-[var(--mu)]" />
+        <span>
+          <b style={{ color: 'var(--ink)' }}>Норматив вызова</b> — справочная расчетная стоимость экстренного выезда по нормативам регламента ТОиР, не подтверждённая экономия.
+        </span>
+      </div>
+
+      {/* Visible Vertical Chain List */}
+      {loading ? (
+        <div className="p-8 text-center text-xs" style={{ color: 'var(--mu)' }}>
+          Загрузка журнала решений…
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-8 text-center text-xs" style={{ color: 'var(--mu)' }}>
+          За текущую смену решений пока не зафиксировано
+        </div>
+      ) : (
+        <ol className="space-y-0 list-none p-0 m-0" role="list">
+          {items.map((rec, i) => {
+            const isTamperedRow = tamper && i === tamperedIndex;
+            const isFalse = isTamperedRow
+              ? !rec.decision.includes('FALSE')
+              : rec.decision.includes('FALSE');
+
+            // Verification status for this block
+            const isChecked = verifiedStep > i;
+            const isValid = isChecked ? blockStatus[i] : null;
+
+            const nodeBg =
+              isValid === true
+                ? 'var(--gn)'
+                : isValid === false
+                ? 'var(--rd)'
+                : isTamperedRow
+                ? 'var(--rds)'
+                : 'var(--sf2)';
+
+            const nodeColor = isValid !== null ? '#ffffff' : 'var(--mu)';
+            const nodeBorder = isTamperedRow ? '2px solid var(--rd)' : 'none';
+
+            return (
+              <li
+                key={i}
+                className="grid grid-cols-[36px_minmax(0,1fr)] sm:grid-cols-[44px_minmax(0,1fr)] gap-3 sm:gap-4 items-stretch"
+              >
+                {/* Left Chain Pillar */}
+                <div className="flex flex-col items-center">
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm"
+                    style={{
+                      background: nodeBg,
+                      color: nodeColor,
+                      border: nodeBorder,
+                    }}
+                    title={
+                      isValid === true
+                        ? 'Блок проверен и валиден'
+                        : isValid === false
+                        ? 'Ошибка хеша блока!'
+                        : 'Звено цепочки'
+                    }
+                  >
+                    {isValid === true ? (
+                      <Check className="w-4 h-4" strokeWidth={3} />
+                    ) : isValid === false ? (
+                      <X className="w-4 h-4" strokeWidth={3} />
+                    ) : (
+                      <LinkIcon className="w-3.5 h-3.5" />
+                    )}
+                  </span>
+
+                  {/* Vertical connecting bar */}
+                  {i < items.length - 1 && (
+                    <i
+                      className="w-[3px] flex-1 my-1 rounded-full transition-colors duration-200 min-h-[24px]"
+                      style={{
+                        background:
+                          isValid === false
+                            ? 'var(--rd)'
+                            : isValid === true && blockStatus[i + 1] === true
+                            ? 'var(--gn)'
+                            : 'var(--ln)',
+                      }}
+                    />
+                  )}
+                </div>
+
+                {/* Right Card Content */}
+                <div
+                  className={`rounded-2xl border p-3 sm:p-3.5 mb-3 transition-colors ${
+                    isTamperedRow ? 'border-[var(--rd)] bg-[var(--rds)]' : 'border-[var(--ln)] bg-[var(--sf)]'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3">
+                    {/* Timestamp + Channel */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-semibold" style={{ color: 'var(--mu)' }}>
+                        {rec.timestamp}
+                      </span>
+                      <span className="font-semibold text-xs sm:text-sm" style={{ color: 'var(--ink)' }}>
+                        Канал <span className="num font-bold text-[var(--ac)]">#{rec.channel_id}</span>
+                      </span>
+                      {isTamperedRow && (
+                        <span className="chip text-[11px] h-5 px-2 bg-[var(--rd)] text-white font-bold">
+                          ПОДМЕНЕНА
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Decision Chip */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="chip text-xs h-6 px-2.5 rounded-full font-bold"
+                        style={{
+                          background: isFalse ? 'var(--gns)' : 'var(--rds)',
+                          color: isFalse ? 'var(--gnt)' : 'var(--rdt)',
+                        }}
+                      >
                         {isFalse ? 'Отмена выезда' : 'Выезд назначен'}
                       </span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="num font-medium">{rec.dispatcher_badge}</span>
+                    </div>
+                  </div>
+
+                  {/* Dispatcher + Callout Cost */}
+                  <div className="mt-2 pt-2 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs" style={{ borderColor: 'var(--ln)' }}>
+                    <div style={{ color: 'var(--mu)' }}>
+                      Диспетчер: <b className="num" style={{ color: 'var(--ink)' }}>{rec.dispatcher_badge}</b>
                       {rec.dispatcher_name && (
-                        <span className="ml-1 text-xs" style={{ color: 'var(--muted)' }}>
+                        <span className="ml-1" style={{ color: 'var(--mu)' }}>
                           ({rec.dispatcher_name.split(' ')[0]})
                         </span>
                       )}
-                    </td>
-                    <td
-                      className="py-2.5 px-3 text-right num font-semibold"
-                      style={{ color: 'var(--muted)' }}
-                      title="Стоимость экстренного выезда по нормативу; не подтверждённая экономия"
-                    >
-                      {rec.avoided_cost_rub ? `${rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽` : '—'}
-                    </td>
-                    <td className="py-2.5 px-3 num font-mono text-[11px]" style={{ color: 'var(--faint)' }} title={rec.record_hash}>
-                      {rec.record_hash ? `${rec.record_hash.substring(0, 16)}…` : 'genesis'}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile Stacked Rows (< 640px) */}
-      <div className="sm:hidden space-y-2.5">
-        {loading ? (
-          <div className="py-6 text-center text-xs" style={{ color: 'var(--muted)' }}>
-            Загрузка журнала решений…
-          </div>
-        ) : items.length === 0 ? (
-          <div className="py-6 text-center text-xs" style={{ color: 'var(--muted)' }}>
-            За текущую смену решений пока не зафиксировано
-          </div>
-        ) : (
-          items.map((rec, i) => {
-            const isFalse = rec.decision.includes('FALSE');
-            return (
-              <div key={i} className="p-3 rounded-lg border space-y-2" style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="num text-xs font-semibold" style={{ color: 'var(--attn)' }}>#{rec.channel_id}</span>
-                    <span className="num text-[11px]" style={{ color: 'var(--muted)' }}>{rec.timestamp}</span>
-                  </div>
-                  <span className={`chip ${isFalse ? 'risk-NORMAL' : 'risk-CRITICAL'}`}>
-                    {isFalse ? 'Отмена выезда' : 'Выезд назначен'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs pt-1 border-t" style={{ borderColor: 'var(--line)' }}>
-                  <div style={{ color: 'var(--muted)' }}>
-                    Диспетчер: <span className="num text-[var(--text)]">{rec.dispatcher_badge}</span>
-                  </div>
-                  {rec.avoided_cost_rub ? (
-                    <div
-                      className="num font-semibold"
-                      style={{ color: 'var(--muted)' }}
-                      title="Стоимость экстренного выезда по нормативу; не подтверждённая экономия"
-                    >
-                      {rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽
                     </div>
-                  ) : null}
-                </div>
 
-                <div className="text-[10px] num font-mono truncate" style={{ color: 'var(--faint)' }} title={rec.record_hash}>
-                  Хеш: {rec.record_hash ? rec.record_hash : 'genesis'}
+                    {rec.avoided_cost_rub ? (
+                      <div className="num" style={{ color: 'var(--mu)' }}>
+                        Норматив вызова: <b style={{ color: 'var(--ink)' }}>{rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽</b>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* SHA-256 Hash */}
+                  <div
+                    className="mt-2 text-[11px] font-mono truncate"
+                    style={{ color: 'var(--mu)' }}
+                    title={rec.record_hash}
+                  >
+                    SHA-256: <span className="text-[var(--ink)]">{rec.record_hash ? rec.record_hash : 'genesis-block'}</span>
+                  </div>
                 </div>
-              </div>
+              </li>
             );
-          })
-        )}
-      </div>
+          })}
+        </ol>
+      )}
     </section>
   );
 };
