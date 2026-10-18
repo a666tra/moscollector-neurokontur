@@ -17,7 +17,7 @@ interface TicketRowProps {
   isUpdatingStatus?: boolean;
 }
 
-const BRIGADES = ['Бригада 1', 'Бригада 2', 'Бригада 3', 'Бригада 4', 'Бригада 5'];
+const BRIGADES = ['Условная бригада 1', 'Условная бригада 2', 'Условная бригада 3', 'Условная бригада 4', 'Условная бригада 5'];
 
 export const TicketRow: React.FC<TicketRowProps> = ({
   ticket,
@@ -135,18 +135,18 @@ export const TicketRow: React.FC<TicketRowProps> = ({
       }}
     >
       {/* Main Row */}
-      <div className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3.5">
+      <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3.5">
         {/* Toggle & Details Clickable Area */}
         <button
           type="button"
           onClick={onToggleExpand}
           aria-expanded={isExpanded}
           aria-label={`Заявка ${ticket.ticket_id}: ${ticket.object_name}`}
-          className="flex-1 min-w-0 flex items-center gap-2.5 sm:gap-3.5 text-left bg-transparent border-0 p-0 cursor-pointer min-h-[52px]"
+          className="flex-1 min-w-0 flex items-start sm:items-center gap-2 sm:gap-3.5 text-left bg-transparent border-0 p-0 cursor-pointer min-h-[52px] overflow-hidden"
         >
           {/* Priority Icon */}
           <span
-            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm mt-0.5 sm:mt-0 ${
               isUrgent && isDraft ? 'animate-[nkRing_1.6s_infinite]' : ''
             }`}
             style={{ background: iconBg }}
@@ -155,17 +155,17 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           </span>
 
           {/* Texts & Chips */}
-          <div className="min-w-0 flex-1 flex flex-col gap-1">
+          <div className="min-w-0 flex-1 flex flex-col gap-1 overflow-hidden">
             {/* Title Line */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm sm:text-base leading-snug truncate" style={{ color: 'var(--ink)' }}>
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+              <span className="font-semibold text-xs sm:text-base leading-snug break-words" style={{ color: 'var(--ink)' }}>
                 {ticket.object_name}
               </span>
-              <span className="text-xs num font-normal" style={{ color: 'var(--mu)' }}>
+              <span className="text-[11px] sm:text-xs num font-normal shrink-0" style={{ color: 'var(--mu)' }}>
                 · {formatPk(ticket.picket)}
               </span>
               <span
-                className="chip text-[11px] h-5 px-2 rounded-full font-bold ml-auto sm:ml-0"
+                className="chip text-[10.5px] sm:text-[11px] h-5 px-1.5 sm:px-2 rounded-full font-bold shrink-0"
                 style={{ background: priorityBadgeBg, color: priorityBadgeColor }}
               >
                 {priorityLabel}
@@ -173,17 +173,17 @@ export const TicketRow: React.FC<TicketRowProps> = ({
             </div>
 
             {/* Subtitle Line: Brigade + Risk Bar + Cost */}
-            <div className="flex items-center gap-2 sm:gap-3.5 flex-wrap text-xs">
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap text-xs min-w-0">
               {/* Brigade Chip */}
               <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] sm:text-[12px] font-medium max-w-full shrink-0"
                 style={{
                   background: isDraft && !ticket.assigned_team ? (isUrgent ? 'var(--rds)' : 'var(--ams)') : 'var(--sf2)',
                   color: isDraft && !ticket.assigned_team ? (isUrgent ? 'var(--rdt)' : 'var(--amt)') : 'var(--ink)',
                 }}
               >
                 <User className="w-3 h-3 shrink-0" />
-                <span className="truncate max-w-[140px] sm:max-w-none">
+                <span className="truncate max-w-[100px] sm:max-w-none">
                   {ticket.assigned_team && ticket.assigned_team !== 'Линейная бригада ОДС'
                     ? ticket.assigned_team
                     : isDraft
@@ -194,11 +194,11 @@ export const TicketRow: React.FC<TicketRowProps> = ({
 
               {/* Mini Risk Bar */}
               <div
-                className="inline-flex items-center gap-1.5"
+                className="inline-flex items-center gap-1 shrink-0"
                 aria-label={`Оценка по журналу СМВУ: ${riskPercent}%`}
                 title="Оценка по журналу СМВУ (вероятность отклонения телеметрии)"
               >
-                <div className="w-10 sm:w-11 h-1.5 rounded-full bg-[var(--ln)] overflow-hidden shrink-0">
+                <div className="w-8 sm:w-11 h-1.5 rounded-full bg-[var(--ln)] overflow-hidden shrink-0">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -208,7 +208,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
                   />
                 </div>
                 <span
-                  className="font-bold text-[12px] num"
+                  className="font-bold text-[11px] sm:text-[12px] num"
                   style={{
                     color: riskPercent >= 70 ? 'var(--rdt)' : riskPercent >= 40 ? 'var(--amt)' : 'var(--ok)',
                   }}
@@ -218,14 +218,14 @@ export const TicketRow: React.FC<TicketRowProps> = ({
               </div>
 
               {/* Cost: ТО: плановая стоимость */}
-              <span className="hidden min-[480px]:inline text-[11.5px] num" style={{ color: 'var(--mu)' }}>
+              <span className="text-[11px] sm:text-[11.5px] num shrink-0" style={{ color: 'var(--mu)' }}>
                 ТО: <b style={{ color: 'var(--ink)' }}>{ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽</b>
               </span>
             </div>
           </div>
         </button>
 
-        {/* Action Button (>= 48px height) */}
+        {/* Action Button (>= 48px height, min-width ~108px, visible word on mobile) */}
         {action && (
           <div className="shrink-0 ml-1">
             <button
@@ -237,10 +237,10 @@ export const TicketRow: React.FC<TicketRowProps> = ({
               disabled={isUpdatingStatus}
               title={action.title}
               aria-label={`${action.label} заявку ${ticket.ticket_id}`}
-              className={`min-h-[48px] px-3.5 sm:px-5 rounded-full font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 disabled:opacity-50 border-0 ${action.className}`}
+              className={`min-h-[48px] min-w-[108px] px-3 sm:px-4 rounded-full font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-150 disabled:opacity-50 border-0 ${action.className}`}
             >
               <action.icon className="w-4 h-4 shrink-0" strokeWidth={2.5} />
-              <span className="hidden sm:inline">{action.label}</span>
+              <span className="whitespace-nowrap">{action.label}</span>
             </button>
           </div>
         )}
@@ -331,6 +331,9 @@ export const TicketRow: React.FC<TicketRowProps> = ({
                     </button>
                   );
                 })}
+              </div>
+              <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: 'var(--mu)' }}>
+                Демо: выбор бригады запоминается только в этом окне и попадёт в скачанный бланк. Сервер его не получает.
               </div>
             </div>
 

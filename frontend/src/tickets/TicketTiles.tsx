@@ -30,7 +30,7 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
     >
       {/* 1. Срочно */}
       <div
-        className={`relative rounded-[22px] transition-all duration-200 flex items-center p-2.5 sm:p-3.5 border-[2.5px] ${
+        className={`relative rounded-[22px] transition-all duration-200 flex flex-col md:flex-row items-center p-2.5 sm:p-3.5 border-[2.5px] ${
           activeTile === 'crit'
             ? 'border-[var(--rd)] shadow-sm'
             : 'border-transparent hover:border-[var(--rd)]/40'
@@ -45,7 +45,7 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
           onClick={() => onSelectTile(activeTile === 'crit' ? 'all' : 'crit')}
           aria-pressed={activeTile === 'crit'}
           aria-label={`Срочно: ${urgentCount} заявок`}
-          className="flex-1 min-w-0 flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-left bg-transparent border-0 p-0 cursor-pointer min-h-[44px]"
+          className="w-full flex-1 min-w-0 flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-left bg-transparent border-0 p-0 cursor-pointer min-h-[44px]"
         >
           <span
             className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-white ${
@@ -72,7 +72,7 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
         </button>
 
         {urgentCount > 0 && onAssignAllUrgent && (
-          <div className="shrink-0 ml-1.5 sm:ml-2">
+          <div className="w-full md:w-auto mt-2 md:mt-0 md:ml-2 shrink-0 flex justify-center">
             <button
               type="button"
               onClick={(e) => {
@@ -82,27 +82,11 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
               disabled={isAssigningUrgent}
               aria-label="Назначить бригады на все срочные заявки"
               title="Назначить все срочные заявки"
-              className="hidden md:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 border-0 cursor-pointer"
+              className="w-full md:w-auto min-h-[32px] md:h-9 px-2 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50 border-0 cursor-pointer whitespace-nowrap shadow-sm"
               style={{ background: 'var(--rd)' }}
             >
-              <Truck className="w-4 h-4 shrink-0" />
+              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>{isAssigningUrgent ? 'Назначаем…' : 'Назначить все'}</span>
-            </button>
-
-            {/* Mobile compact button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAssignAllUrgent();
-              }}
-              disabled={isAssigningUrgent}
-              aria-label="Назначить все срочные"
-              title="Назначить все срочные"
-              className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-white border-2 border-[var(--bg)] shadow-sm hover:opacity-90 disabled:opacity-50 cursor-pointer"
-              style={{ background: 'var(--rd)' }}
-            >
-              <Truck className="w-4 h-4" />
             </button>
           </div>
         )}

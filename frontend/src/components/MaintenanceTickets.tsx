@@ -118,7 +118,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
         t.ticket_id === ticketId ? { ...t, assigned_team: brigadeName } : t
       )
     );
-    toast(`Наряд ${ticketId}: назначена ${brigadeName}`, 'success');
+    toast('Бригада выбрана в этом окне (демо), на сервер не отправлено.', 'info');
   };
 
   // Candidates for model suggestions: critical predictions that don't yet have tickets

@@ -72,7 +72,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
       setHasVerifiedOnce(true);
 
       if (tamper) {
-        toast('Обнаружена подмена записи в цепочке решений!', 'error');
+        toast('Демо: подмена показана только на экране, в журнале ничего не менялось.', 'info');
       } else if (res.is_valid) {
         toast(`Цепочка проверена: ${count} блоков валидны`, 'success');
       } else {
@@ -141,7 +141,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
             onClick={toggleTamper}
             className="h-10 px-3 text-xs sm:text-sm font-semibold text-[var(--ac)] hover:bg-[var(--sf2)] rounded-full transition-colors cursor-pointer border-0 bg-transparent"
           >
-            {tamper ? 'Вернуть запись как была' : 'Показать, как выглядит подмена'}
+            {tamper ? 'Вернуть как было' : 'Показать, как выглядит подмена (демо)'}
           </button>
         </div>
       </div>
@@ -161,8 +161,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
             <>
               <ShieldAlert className="w-5 h-5 shrink-0 text-[var(--rd)]" />
               <span>
-                Цепочка не сходится: запись №{tamperedIndex + 1} изменена после подписи (отпечаток не совпал).
-                Остальные записи не затронуты.
+                ДЕМО: так цепочка покажет подмену. Мы изменили запись №{tamperedIndex + 1} только на этом экране — настоящие данные не тронуты.
               </span>
             </>
           ) : (
@@ -281,7 +280,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
                       </span>
                       {isTamperedRow && (
                         <span className="chip text-[11px] h-5 px-2 bg-[var(--rd)] text-white font-bold">
-                          ПОДМЕНЕНА
+                          ДЕМО: подмена
                         </span>
                       )}
                     </div>
