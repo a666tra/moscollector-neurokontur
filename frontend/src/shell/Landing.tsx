@@ -267,7 +267,7 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
         </div>
 
         {/* KPI Row (mobile: 2 columns, desktop: 4 columns) */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--ln)] pt-3 mt-1 lg:grid-cols-4 lg:gap-4 lg:max-w-[620px] lg:pointer-events-auto">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--ln)] pt-3 mt-1 lg:grid-cols-4 lg:gap-3 xl:gap-4 lg:max-w-[660px] xl:max-w-[720px] lg:pointer-events-auto">
           {kpis.map((k, i) => (
             <Kpi key={i} {...k} />
           ))}
@@ -294,13 +294,15 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
 };
 
 const Kpi: React.FC<{ v: React.ReactNode; u: string; t: string; sub?: string; accent?: boolean }> = ({ v, u, t, sub, accent }) => (
-  <div className="border-t border-[var(--ln)] pt-2">
-    <div className="serif font-semibold text-[24px] lg:text-[28px] xl:text-[32px] leading-[0.95]" style={accent ? { color: 'var(--ac)' } : { color: 'var(--ink)' }}>
-      {v}<span className="text-[13px] lg:text-[15px]" style={{ fontWeight: 400 }}>{u}</span>
+  <div className="border-t border-[var(--ln)] pt-2 flex flex-col justify-start">
+    <div className="serif font-semibold text-[22px] lg:text-[26px] xl:text-[30px] leading-[0.95]" style={accent ? { color: 'var(--ac)' } : { color: 'var(--ink)' }}>
+      {v}<span className="text-[13px] lg:text-[14px]" style={{ fontWeight: 400 }}>{u}</span>
     </div>
-    <div className="text-[10.5px] lg:text-[11px] xl:text-[12px] mt-1 leading-snug line-clamp-2" style={{ color: 'var(--mu)' }}>{t}</div>
+    <div className="text-[10px] lg:text-[10.5px] xl:text-[11.5px] mt-1 leading-[1.3] text-[var(--mu)] break-words">
+      {t}
+    </div>
     {sub && (
-      <div className="text-[9.5px] lg:text-[10px] xl:text-[11px] mt-0.5 font-medium" style={{ color: 'var(--mu)' }}>
+      <div className="text-[9.5px] lg:text-[10px] xl:text-[10.5px] mt-1 font-medium leading-[1.25] text-[var(--mu)] break-words">
         {sub}
       </div>
     )}

@@ -184,12 +184,12 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
     <div className="h-full flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* Desktop Header */}
       <header
-        className="hidden lg:flex shrink-0 h-16 items-center gap-4 px-5 border-b relative z-[900]"
+        className="hidden lg:flex shrink-0 h-16 items-center gap-2.5 xl:gap-3.5 px-3.5 xl:px-5 border-b relative z-[900]"
         style={{ background: 'var(--bg)', borderColor: 'var(--ln)' }}
       >
         <button
           onClick={onExit}
-          className="serif italic font-medium text-[27px] leading-none mr-2 text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer hover:opacity-80 transition-opacity"
+          className="serif italic font-medium text-[24px] xl:text-[27px] leading-none mr-1 xl:mr-2 text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
           title="На главную"
         >
           НейроКонтур
@@ -197,7 +197,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
 
         {isTech && (
           <span
-            className="font-mono text-[11px] font-semibold tracking-[0.08em] px-3 py-1.5 rounded-full"
+            className="font-mono text-[11px] font-semibold tracking-[0.08em] px-2.5 py-1 rounded-full shrink-0"
             style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
           >
             РЕЖИМ ТЕХНИКА
@@ -219,7 +219,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
                   setView(v.id);
                 }}
                 aria-current={active ? 'page' : undefined}
-                className="h-9 px-3.5 xl:px-4 rounded-full flex items-center gap-2 text-sm whitespace-nowrap transition-all duration-150 cursor-pointer border-0"
+                className="h-9 px-3 xl:px-3.5 rounded-full flex items-center gap-1.5 xl:gap-2 text-[13px] xl:text-sm whitespace-nowrap transition-all duration-150 cursor-pointer border-0"
                 style={
                   active
                     ? {
@@ -245,15 +245,15 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
           })}
         </nav>
 
-        {/* Status dot + date */}
+        {/* Status dot + date: below 1500px show only green dot + short date, at >=1500px full text */}
         <span
-          className="ml-auto hidden min-[1100px]:flex items-center gap-2 text-[13px] whitespace-nowrap cursor-help shrink-0"
+          className="ml-auto flex items-center gap-2 text-[13px] whitespace-nowrap cursor-help shrink-0"
           style={{ color: 'var(--mu)' }}
           title={clockTooltip}
         >
           <i className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--gn)' }} />
-          <span className="hidden xl:inline">{clockText}</span>
-          <span className="xl:hidden">{fullDateText}</span>
+          <span className="hidden min-[1500px]:inline">{clockText}</span>
+          <span className="min-[1500px]:hidden">{shortDateText}</span>
         </span>
 
         {/* Settings button */}
@@ -262,25 +262,25 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
             onClick={() => setSettingsOpen(true)}
             aria-label="Параметры и пороги"
             title="Параметры и пороги"
-            className="w-10 h-10 rounded-full border flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--sf2)] cursor-pointer"
+            className="w-9 h-9 xl:w-10 xl:h-10 rounded-full border flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--sf2)] cursor-pointer"
             style={{ borderColor: 'var(--ln)', background: 'var(--sf)', color: 'var(--ink)' }}
           >
-            <SlidersHorizontal className="w-[18px] h-[18px]" />
+            <SlidersHorizontal className="w-[17px] h-[17px] xl:w-[18px] xl:h-[18px]" />
           </button>
         )}
 
         {/* Theme toggle */}
-        <ThemeButton className="w-10 h-10 rounded-full border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] flex items-center justify-center hover:bg-[var(--sf2)] shrink-0 cursor-pointer" />
+        <ThemeButton className="w-9 h-9 xl:w-10 xl:h-10 rounded-full border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] flex items-center justify-center hover:bg-[var(--sf2)] shrink-0 cursor-pointer" />
 
         {/* Change role button */}
         <button
           onClick={onExit}
           aria-label="Сменить роль"
-          className="h-10 px-3.5 rounded-full border flex items-center gap-2 text-sm font-medium whitespace-nowrap transition-colors hover:bg-[var(--sf2)] shrink-0 cursor-pointer"
+          className="h-9 xl:h-10 px-3 xl:px-3.5 rounded-full border flex items-center gap-1.5 xl:gap-2 text-[13px] xl:text-sm font-medium whitespace-nowrap transition-colors hover:bg-[var(--sf2)] shrink-0 cursor-pointer"
           style={{ borderColor: 'var(--ln)', background: 'var(--sf)', color: 'var(--ink)' }}
         >
           <ArrowLeftRight className="w-4 h-4 shrink-0" />
-          <span className="hidden sm:inline">Сменить роль</span>
+          <span>Сменить роль</span>
         </button>
       </header>
 

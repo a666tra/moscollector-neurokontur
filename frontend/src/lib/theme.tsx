@@ -6,6 +6,8 @@ const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({ theme: 'l
 
 const initial = (): Theme => {
   try {
+    const urlTheme = new URLSearchParams(window.location.search).get('theme');
+    if (urlTheme === 'light' || urlTheme === 'dark') return urlTheme;
     const saved = localStorage.getItem('nk-theme');
     if (saved === 'light' || saved === 'dark') return saved;
   } catch { /* storage unavailable */ }
