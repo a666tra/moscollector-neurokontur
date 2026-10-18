@@ -80,7 +80,7 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
   const prev = s?.prevalence?.median;
   const depRoc = s?.deployed?.roc_auc?.median;
   const depP100 = s?.deployed?.precision_at_100?.median;
-  const depText = `в стенде: ${fmtNum(depRoc ?? 0.65, 2)} · ${typeof depP100 === 'number' ? Math.round(depP100 * 100) : 22} %`;
+  const depText = `стенд, медиана 21 недели: ${fmtNum(depRoc ?? 0.65, 2)} · ${typeof depP100 === 'number' ? Math.round(depP100 * 100) : 22} %`;
 
   const kpis = [
     { v: bt?.test_weeks ?? '—', u: ' нед.', t: 'проверки на реальном журнале' },

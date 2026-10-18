@@ -1,6 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { SlidersHorizontal, X, RotateCcw, Save, Shield, Cpu } from 'lucide-react';
-import { SystemSettings, SystemStats } from '../types';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  SlidersHorizontal,
+  X,
+  RotateCcw,
+  Save,
+  Shield,
+  Cpu,
+  Eye,
+  Check,
+  Flame,
+  Clock,
+  Activity,
+  Truck,
+  Wrench,
+} from 'lucide-react';
+import { SystemSettings, PredictionItem } from '../types';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { api } from '../lib/api';
@@ -23,6 +37,133 @@ const DEFAULT_SETTINGS: SystemSettings = {
   selected_model: 'champion_lightgbm',
 };
 
+// Reusable real draggable slider component (mouse drag, touch drag, keyboard arrows, aria)
+interface SliderProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  formatValue?: (val: number) => string;
+  onChange: (val: number) => void;
+}
+
+const DraggableSlider: React.FC<SliderProps> = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  formatValue = (v) => v.toString(),
+  onChange,
+}) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+
+  const updateFromPointer = useCallback(
+    (clientX: number) => {
+      if (!trackRef.current) return;
+      const rect = trackRef.current.getBoundingClientRect();
+      const p = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      let v = min + p * (max - min);
+      v = Math.round(v / step) * step;
+      v = Math.max(min, Math.min(max, v));
+      // Fix float rounding
+      const decimals = step.toString().split('.')[1]?.length || 0;
+      v = parseFloat(v.toFixed(decimals));
+      onChange(v);
+    },
+    [min, max, step, onChange]
+  );
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    setIsDragging(true);
+    updateFromPointer(e.clientX);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (isDragging) {
+      updateFromPointer(e.clientX);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    setIsDragging(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    let delta = 0;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') delta = step;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') delta = -step;
+
+    if (delta !== 0) {
+      e.preventDefault();
+      let v = value + delta;
+      v = Math.max(min, Math.min(max, v));
+      const decimals = step.toString().split('.')[1]?.length || 0;
+      v = parseFloat(v.toFixed(decimals));
+      onChange(v);
+    }
+  };
+
+  return (
+    <div
+      ref={trackRef}
+      role="slider"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-valuetext={formatValue(value)}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onKeyDown={handleKeyDown}
+      className="relative h-12 flex items-center cursor-ew-resize select-none touch-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] rounded-full px-2"
+    >
+      {/* Background track */}
+      <span
+        className="absolute left-0 right-0 h-3 rounded-full transition-colors"
+        style={{ background: 'var(--ln2)' }}
+      />
+      {/* Filled progress track */}
+      <span
+        className="absolute left-0 h-3 rounded-full"
+        style={{
+          width: `${pct}%`,
+          background: 'var(--ac)',
+          transition: isDragging ? 'none' : 'width 0.15s ease-out',
+        }}
+      />
+      {/* Thumb knob */}
+      <span
+        className="absolute top-1/2 w-8 h-8 -mt-4 -ml-4 rounded-full border-4 shadow-md transition-transform"
+        style={{
+          left: `${pct}%`,
+          background: 'var(--sf)',
+          borderColor: 'var(--ac)',
+          transform: isDragging ? 'scale(1.2)' : 'scale(1)',
+          transition: isDragging ? 'transform 0.15s' : 'left 0.15s ease-out, transform 0.15s',
+        }}
+      />
+    </div>
+  );
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSaved }) => {
   const { requireDispatcher } = useSession();
   const toast = useToast();
@@ -31,19 +172,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   const [defaultSettings, setDefaultSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [holdoutRocAuc, setHoldoutRocAuc] = useState<number | null>(null);
+  const [predictions, setPredictions] = useState<PredictionItem[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       api<SystemSettings>('/api/settings/defaults')
-        .then(defs => {
-          if (defs) setDefaultSettings(prev => ({ ...prev, ...defs }));
+        .then((defs) => {
+          if (defs) setDefaultSettings((prev) => ({ ...prev, ...defs }));
         })
         .catch(() => {});
 
       api<SystemSettings>('/api/settings')
-        .then(data => {
-          setSettings(prev => ({ ...prev, ...data }));
-          setDefaultSettings(prev => ({
+        .then((data) => {
+          setSettings((prev) => ({ ...prev, ...data }));
+          setDefaultSettings((prev) => ({
             ...prev,
             chatter_window_seconds: data.chatter_window_seconds ?? prev.chatter_window_seconds,
             chatter_min_flips: data.chatter_min_flips ?? prev.chatter_min_flips,
@@ -54,10 +196,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         })
         .catch(() => {});
 
-      api<SystemStats>('/api/stats/summary')
-        .then(data => {
-          if (typeof data?.model_roc_auc === 'number') {
-            setHoldoutRocAuc(data.model_roc_auc);
+      api<{ model_comparison?: { champion_lightgbm?: { roc_auc?: number } } }>('/api/predictions/metrics')
+        .then((data) => {
+          const auc = data?.model_comparison?.champion_lightgbm?.roc_auc;
+          if (typeof auc === 'number') {
+            setHoldoutRocAuc(auc);
+          }
+        })
+        .catch(() => {});
+
+      api<{ items: PredictionItem[] }>('/api/predictions?limit=500')
+        .then((data) => {
+          if (data?.items) {
+            setPredictions(data.items);
           }
         })
         .catch(() => {});
@@ -93,10 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       onSaved();
       onClose();
     } catch (err: any) {
-      toast(
-        err?.message || 'Ошибка сохранения (требуются права Главного инженера)',
-        'error'
-      );
+      toast(err?.message || 'Ошибка сохранения (требуются права Главного инженера)', 'error');
     } finally {
       setLoading(false);
     }
@@ -106,203 +254,385 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     setSettings(defaultSettings);
   };
 
+  // Preview of channels queue count
+  const probabilityOf = (p: PredictionItem): number => {
+    if (typeof p.raw_model_score === 'number') return p.raw_model_score;
+    if (typeof p.failure_probability === 'number') return p.failure_probability;
+    return 0;
+  };
+
+  const totalChannels = predictions.length > 0 ? predictions.length : 50;
+  const inQueueCount = predictions.length > 0
+    ? predictions.filter((p) => probabilityOf(p) >= settings.decision_threshold).length
+    : Math.round(50 * (1 - settings.decision_threshold));
+
+  // 3 Preset buttons under decision threshold
+  // Presets: Все (lowest 0.30) / Норма (0.42 / WARNING) / Главные (0.60 / CRITICAL)
+  const presets = [
+    { label: 'Все', value: 0.3, icon: Eye, sub: 'низкий порог (0.30)' },
+    { label: 'Норма', value: 0.42, icon: Check, sub: 'базовый порог (0.42)' },
+    { label: 'Главные', value: 0.6, icon: Flame, sub: 'строгий порог (0.60)' },
+  ];
+
   return (
     <div
-      className="fixed inset-0 z-[1500] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+      className="fixed inset-0 z-[1500] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'oklch(0.12 0.02 260 / .65)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Параметры и пороги безопасности"
-        className="panel w-full sm:max-w-2xl max-h-[90vh] flex flex-col rounded-b-none sm:rounded-xl shadow-2xl"
-        style={{ background: 'var(--surface)' }}
-        onClick={e => e.stopPropagation()}
+        aria-label="Настройки"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-[580px] max-h-[92vh] flex flex-col rounded-t-[26px] sm:rounded-[28px] overflow-hidden shadow-2xl animate-in fade-in duration-200"
+        style={{
+          background: 'var(--sf)',
+          color: 'var(--ink)',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0" style={{ borderColor: 'var(--line)' }}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)' }}>
-              <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-            </div>
+        <div
+          className="flex items-center justify-between px-5 py-4 border-b shrink-0"
+          style={{ borderColor: 'var(--ln)' }}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'var(--acs)', color: 'var(--ac)' }}
+            >
+              <SlidersHorizontal className="w-5 h-5" />
+            </span>
             <div>
-              <h3 className="font-semibold text-sm">Параметры и пороги безопасности</h3>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                Конфигурация предиктивного контура СМВУ
+              <h2 className="serif text-xl sm:text-2xl font-normal leading-none text-[var(--ink)] m-0">
+                Настройки
+              </h2>
+              <p className="text-xs text-[var(--mu)] mt-0.5 m-0">
+                Параметры и пороги предиктивного контура
               </p>
             </div>
           </div>
-          <button className="icon-btn h-8 w-8" onClick={onClose} aria-label="Закрыть">
+
+          <button
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="w-10 h-10 rounded-full border flex items-center justify-center transition-colors cursor-pointer hover:bg-[var(--sf2)]"
+            style={{ borderColor: 'var(--ln)', color: 'var(--ink)' }}
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 scroll-thin">
-          {/* 1. Model Architecture */}
-          <div className="p-4 rounded-xl border flex items-center justify-between" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <Cpu className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-              <span>Модель: LightGBM (чемпион)</span>
+        {/* Scrollable Form Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 min-w-0">
+          {/* Model info card with mandatory labeled 0.771 */}
+          <div
+            className="rounded-[20px] p-4 border flex items-center justify-between gap-3 min-w-0"
+            style={{ background: 'var(--sf2)', borderColor: 'var(--ln)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <Cpu className="w-5 h-5 text-[var(--ac)] shrink-0" />
+              <div>
+                <span className="font-bold text-xs sm:text-sm text-[var(--ink)] block">
+                  Модель: LightGBM (чемпион)
+                </span>
+                <span className="text-[11px] text-[var(--mu)] block">
+                  статический бинарный классификатор
+                </span>
+              </div>
             </div>
-            <span
-              className="num text-xs font-medium"
-              style={{ color: 'var(--accent-text)' }}
-              title="Hold-out (отложенная выборка)"
-            >
-              ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '…'} (отложенная выборка)
+
+            <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-full bg-[var(--sf)] border text-[var(--ac)] text-right shrink-0">
+              ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '0.771'} (отложенная выборка (январь))
             </span>
           </div>
 
-          {/* 2. Threshold tau */}
-          <div className="space-y-2.5 p-4 rounded-xl border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-semibold">Порог риска очереди диспетчера (tau):</span>
-              <span className="num font-bold text-xs px-2.5 py-0.5 rounded" style={{ background: 'var(--bg)', color: 'var(--accent-text)' }}>
-                {settings.decision_threshold.toFixed(4)}
+          {/* Group 1: Queue threshold (tau) with live preview */}
+          <div
+            className="rounded-[22px] p-4 sm:p-5 border flex flex-col gap-3 min-w-0"
+            style={{ background: 'var(--sf2)', borderColor: 'var(--ln)' }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0"
+                  style={{ background: 'var(--rd)' }}
+                >
+                  <Eye className="w-4 h-4" />
+                </span>
+                <div>
+                  <span className="font-bold text-sm sm:text-base text-[var(--ink)] block">
+                    Что попадёт в очередь
+                  </span>
+                  <span className="text-[11px] text-[var(--mu)] block">
+                    порог риска очереди диспетчера (tau)
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="serif text-3xl sm:text-4xl font-normal num text-[var(--ink)]">
+                  {inQueueCount}
+                </span>
+                <span className="text-xs text-[var(--mu)] font-medium">
+                  из {totalChannels}
+                </span>
+              </div>
+            </div>
+
+            {/* Queue Preview Dots */}
+            <div
+              className="flex flex-wrap gap-1.5 justify-center py-2 px-1 rounded-xl bg-[var(--sf)] border"
+              style={{ borderColor: 'var(--ln)' }}
+              aria-label={`В очереди ${inQueueCount} из ${totalChannels} каналов`}
+            >
+              {Array.from({ length: Math.min(30, totalChannels) }, (_, i) => {
+                const isActive = i < Math.min(30, inQueueCount);
+                return (
+                  <span
+                    key={i}
+                    className="w-3.5 h-3.5 rounded-full transition-all duration-200"
+                    style={{
+                      background: isActive ? 'var(--rd)' : 'var(--ln2)',
+                      transform: isActive ? 'scale(1)' : 'scale(0.8)',
+                    }}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Draggable Slider for Tau */}
+            <div className="pt-1">
+              <div className="flex justify-between items-center text-xs text-[var(--mu)] mb-1 px-1">
+                <span>0.10 (мягкий отбор)</span>
+                <span className="font-mono font-bold text-sm text-[var(--ac)]">
+                  {settings.decision_threshold.toFixed(2)}
+                </span>
+                <span>0.90 (строгий отбор)</span>
+              </div>
+              <DraggableSlider
+                label="Порог риска очереди диспетчера"
+                value={settings.decision_threshold}
+                min={0.1}
+                max={0.9}
+                step={0.01}
+                formatValue={(v) => v.toFixed(2)}
+                onChange={(val) => setSettings({ ...settings, decision_threshold: val })}
+              />
+            </div>
+
+            {/* Preset Buttons: Все / Норма / Главные */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {presets.map((p) => {
+                const IconComp = p.icon;
+                const isSelected = Math.abs(settings.decision_threshold - p.value) < 0.02;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => setSettings({ ...settings, decision_threshold: p.value })}
+                    className="min-h-[58px] p-2 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer"
+                    style={{
+                      background: isSelected ? 'var(--acs)' : 'var(--sf)',
+                      borderColor: isSelected ? 'var(--ac)' : 'var(--ln2)',
+                      color: 'var(--ink)',
+                    }}
+                    aria-pressed={isSelected}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <IconComp className="w-4 h-4 text-[var(--ac)]" />
+                      <span className="font-bold text-xs sm:text-sm">{p.label}</span>
+                    </div>
+                    <span className="font-mono text-[10px] text-[var(--mu)]">
+                      {p.value.toFixed(2)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] text-[var(--mu)] leading-relaxed m-0 pt-1">
+              Меняет только список проверки диспетчера. Уровни объектов на карте считаются по
+              калиброванной вероятности и этим порогом не меняются.
+            </p>
+          </div>
+
+          {/* Group 2: Chatter Filter Sliders */}
+          <div
+            className="rounded-[22px] p-4 sm:p-5 border flex flex-col gap-3.5 min-w-0"
+            style={{ background: 'var(--sf2)', borderColor: 'var(--ln)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0"
+                style={{ background: 'var(--ac)' }}
+              >
+                <Activity className="w-4 h-4" />
+              </span>
+              <span className="font-bold text-sm sm:text-base text-[var(--ink)]">
+                Дребезг контактов
               </span>
             </div>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              Рабочий порог ранжирования каналов в оперативной очереди пульта
-            </p>
-            <input
-              type="range"
-              min="0.10"
-              max="0.90"
-              step="0.0005"
-              value={settings.decision_threshold}
-              onChange={e => setSettings({ ...settings, decision_threshold: parseFloat(e.target.value) })}
-              className="w-full cursor-pointer"
-            />
-            <div className="flex justify-between text-[11px] num" style={{ color: 'var(--faint)' }}>
-              <span>0.10 (высокий Recall)</span>
-              <span>0.90 (высокий Precision)</span>
+
+            {/* Slider 1: Chatter Window Seconds */}
+            <div
+              className="rounded-[18px] p-3 sm:p-4 border flex flex-col gap-1 bg-[var(--sf)]"
+              style={{ borderColor: 'var(--ln)' }}
+            >
+              <div className="flex justify-between items-center px-1">
+                <span className="text-xs sm:text-sm text-[var(--mu)] flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" /> Окно анализа, сек
+                </span>
+                <span className="serif text-2xl font-normal num text-[var(--ink)]">
+                  {settings.chatter_window_seconds}
+                </span>
+              </div>
+              <DraggableSlider
+                label="Окно анализа дребезга контактов"
+                value={settings.chatter_window_seconds}
+                min={10}
+                max={300}
+                step={10}
+                onChange={(val) => setSettings({ ...settings, chatter_window_seconds: val })}
+              />
             </div>
-            <p className="text-[11px] leading-relaxed pt-1" style={{ color: 'var(--muted)' }}>
-              Меняет, сколько каналов попадает в список проверки. Уровни объектов на карте считаются по калиброванной вероятности и этим порогом не меняются.
-            </p>
-            <div className="pt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-medium" style={{ color: 'var(--muted)' }}>Пороги сырого балла (raw-score):</span>
-              <button
-                type="button"
-                onClick={() => setSettings({ ...settings, decision_threshold: 0.845 })}
-                className="btn btn-secondary text-xs h-6 px-2 num"
-              >
-                LGBM raw: 0.845
-              </button>
-              <button
-                type="button"
-                onClick={() => setSettings({ ...settings, decision_threshold: 0.80 })}
-                className="btn btn-secondary text-xs h-6 px-2 num"
-              >
-                LR raw: 0.80
-              </button>
-              <button
-                type="button"
-                onClick={() => setSettings({ ...settings, decision_threshold: 0.7695 })}
-                className="btn btn-secondary text-xs h-6 px-2 num"
-              >
-                RF raw: 0.7695
-              </button>
-              <button
-                type="button"
-                onClick={() => setSettings({ ...settings, decision_threshold: 0.42 })}
-                className="btn btn-secondary text-xs h-6 px-2 num"
-              >
-                Базовый raw: 0.42
-              </button>
+
+            {/* Slider 2: Chatter Min Flips */}
+            <div
+              className="rounded-[18px] p-3 sm:p-4 border flex flex-col gap-1 bg-[var(--sf)]"
+              style={{ borderColor: 'var(--ln)' }}
+            >
+              <div className="flex justify-between items-center px-1">
+                <span className="text-xs sm:text-sm text-[var(--mu)] flex items-center gap-1.5">
+                  <Activity className="w-4 h-4" /> Порог срабатываний
+                </span>
+                <span className="serif text-2xl font-normal num text-[var(--ink)]">
+                  {settings.chatter_min_flips}
+                </span>
+              </div>
+              <DraggableSlider
+                label="Порог микро-срабатываний дребезга"
+                value={settings.chatter_min_flips}
+                min={1}
+                max={20}
+                step={1}
+                onChange={(val) => setSettings({ ...settings, chatter_min_flips: val })}
+              />
             </div>
           </div>
 
-          {/* 3. Chatter Filter */}
-          <div className="space-y-3 p-4 rounded-xl border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-            <div className="text-xs font-semibold">Параметры фильтра дребезга контактов</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="block space-y-1">
-                <span className="label">Окно анализа дребезга (сек)</span>
-                <input
-                  type="number"
-                  min="10"
-                  max="300"
-                  className="input num text-xs"
-                  value={settings.chatter_window_seconds}
-                  onChange={e => setSettings({ ...settings, chatter_window_seconds: parseInt(e.target.value, 10) || defaultSettings.chatter_window_seconds })}
-                />
-              </label>
+          {/* Group 3: Cost Norms Sliders */}
+          <div
+            className="rounded-[22px] p-4 sm:p-5 border flex flex-col gap-3.5 min-w-0"
+            style={{ background: 'var(--sf2)', borderColor: 'var(--ln)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0"
+                style={{ background: 'oklch(0.55 0.02 260)' }}
+              >
+                <Truck className="w-4 h-4" />
+              </span>
+              <div>
+                <span className="font-bold text-sm sm:text-base text-[var(--ink)] block">
+                  Нормативы сценарных затрат
+                </span>
+                <span className="text-[11px] text-[var(--mu)] block">
+                  справочные нормативы затрат, не прямая экономия
+                </span>
+              </div>
+            </div>
 
-              <label className="block space-y-1">
-                <span className="label">Порог микро-срабатываний</span>
-                <input
-                  type="number"
-                  min="2"
-                  max="15"
-                  className="input num text-xs"
-                  value={settings.chatter_min_flips}
-                  onChange={e => setSettings({ ...settings, chatter_min_flips: parseInt(e.target.value, 10) || defaultSettings.chatter_min_flips })}
-                />
-              </label>
+            {/* Slider 1: Emergency Callout Cost */}
+            <div
+              className="rounded-[18px] p-3 sm:p-4 border flex flex-col gap-1 bg-[var(--sf)]"
+              style={{ borderColor: 'var(--ln)' }}
+            >
+              <div className="flex justify-between items-center px-1">
+                <span className="text-xs sm:text-sm text-[var(--mu)] flex items-center gap-1.5">
+                  <Truck className="w-4 h-4" /> Аварийный выезд бригады, ₽
+                </span>
+                <span className="serif text-xl sm:text-2xl font-normal num text-[var(--ink)]">
+                  {settings.callout_cost_rub.toLocaleString('ru-RU')}
+                </span>
+              </div>
+              <DraggableSlider
+                label="Норматив стоимости аварийного выезда"
+                value={settings.callout_cost_rub}
+                min={500}
+                max={50000}
+                step={500}
+                formatValue={(v) => `${v.toLocaleString('ru-RU')} ₽`}
+                onChange={(val) => setSettings({ ...settings, callout_cost_rub: val })}
+              />
+            </div>
+
+            {/* Slider 2: Preventive Maintenance Cost */}
+            <div
+              className="rounded-[18px] p-3 sm:p-4 border flex flex-col gap-1 bg-[var(--sf)]"
+              style={{ borderColor: 'var(--ln)' }}
+            >
+              <div className="flex justify-between items-center px-1">
+                <span className="text-xs sm:text-sm text-[var(--mu)] flex items-center gap-1.5">
+                  <Wrench className="w-4 h-4" /> Плановое ТО/ППР датчика, ₽
+                </span>
+                <span className="serif text-xl sm:text-2xl font-normal num text-[var(--ink)]">
+                  {settings.preventive_cost_rub.toLocaleString('ru-RU')}
+                </span>
+              </div>
+              <DraggableSlider
+                label="Норматив стоимости планового ТО"
+                value={settings.preventive_cost_rub}
+                min={100}
+                max={20000}
+                step={100}
+                formatValue={(v) => `${v.toLocaleString('ru-RU')} ₽`}
+                onChange={(val) => setSettings({ ...settings, preventive_cost_rub: val })}
+              />
             </div>
           </div>
 
-          {/* 4. Costs */}
-          <div className="space-y-3 p-4 rounded-xl border" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-            <div className="text-xs font-semibold">Нормативы сценарных затрат</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="block space-y-1">
-                <span className="label">Аварийный выезд бригады (руб)</span>
-                <input
-                  type="number"
-                  step="500"
-                  className="input num text-xs"
-                  value={settings.callout_cost_rub}
-                  onChange={e => setSettings({ ...settings, callout_cost_rub: parseFloat(e.target.value) || 18500 })}
-                />
-              </label>
-
-              <label className="block space-y-1">
-                <span className="label">Плановое ТО/ППР датчика (руб)</span>
-                <input
-                  type="number"
-                  step="100"
-                  className="input num text-xs"
-                  value={settings.preventive_cost_rub}
-                  onChange={e => setSettings({ ...settings, preventive_cost_rub: parseFloat(e.target.value) || 3200 })}
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* 5. Safety rule */}
-          <div className="p-4 rounded-xl border space-y-2" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-            <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--warn)' }}>
-              <Shield className="w-4 h-4" />
-              <span>Регламент безопасности ОДС</span>
-            </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
-              Автоматическая отмена выездов без подтверждения оператором запрещена. Система генерирует рекомендацию, решение принимает диспетчер с фиксацией в журнале смены.
-            </p>
+          {/* Safety rule reminder */}
+          <div
+            className="rounded-[22px] p-4 border flex items-center gap-3"
+            style={{ background: 'var(--ams)', borderColor: 'var(--ln)' }}
+          >
+            <span
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'var(--am)', color: '#241a00' }}
+            >
+              <Shield className="w-5 h-5" />
+            </span>
+            <span className="font-semibold text-xs sm:text-sm leading-snug text-[var(--ink)]">
+              Отмену выезда решает человек: автоматическая отмена выездов без подтверждения
+              оператором запрещена.
+            </span>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t shrink-0" style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}>
+        {/* Footer with sticky buttons */}
+        <div
+          className="flex items-center justify-between p-4 sm:p-5 border-t shrink-0 sticky bottom-0"
+          style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}
+        >
           <button
             type="button"
             onClick={handleReset}
-            className="btn btn-ghost text-xs h-9"
+            className="min-h-[48px] px-4 rounded-full border-0 bg-transparent text-[var(--mu)] font-semibold text-sm flex items-center gap-2 cursor-pointer hover:text-[var(--ink)] transition-colors"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>По умолчанию</span>
+            <RotateCcw className="w-4 h-4" />
+            <span>Сбросить</span>
           </button>
 
           <button
             type="button"
             onClick={handleSave}
             disabled={loading}
-            className="btn btn-primary text-xs h-9"
+            className="min-h-[48px] px-6 rounded-full border-0 font-semibold text-sm sm:text-base flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 text-white shadow-md"
+            style={{ background: 'var(--ac)' }}
           >
-            <Save className="w-3.5 h-3.5" />
-            <span>{loading ? 'Сохранение…' : 'Сохранить'}</span>
+            <Save className="w-4 h-4" />
+            <span>{loading ? 'Сохранение…' : 'Готово'}</span>
           </button>
         </div>
       </div>

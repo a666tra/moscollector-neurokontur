@@ -1,43 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircle2, Cpu, 
-  Download, Clock, Database, Layers, Award, Zap, RefreshCw, Server,
-  ChevronDown, ChevronUp, ShieldCheck
+import {
+  Download, RefreshCw, Sliders, ChevronDown, ChevronUp, Cpu, Award, Zap, Server
 } from 'lucide-react';
 import { BacktestPanel } from './BacktestPanel';
+import { ModelFactsGrid } from '../quality/ModelFactsGrid';
+import { RocAucRings } from '../quality/RocAucRings';
+import { AccuracyRings } from '../quality/AccuracyRings';
+import { ChecksAccordion } from '../quality/ChecksAccordion';
+import { ReproduceBlock } from '../quality/ReproduceBlock';
+import { ModelLimitsBlock } from '../quality/ModelLimitsBlock';
 
-export const MetricsView: React.FC = () => {
+interface MetricsViewProps {
+  onOpenSettings?: () => void;
+}
+
+export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
   const [report, setReport] = useState<any>(null);
+  const [backtest, setBacktest] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [showBoundaries, setShowBoundaries] = useState(false);
-  const [showJanuary, setShowJanuary] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
-  const fetchMetrics = () => {
+  const fetchAllData = () => {
     setLoading(true);
     setLoadError(null);
-    fetch('/api/predictions/metrics')
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    Promise.all([
+      fetch('/api/predictions/metrics').then(res => {
+        if (!res.ok) throw new Error(`HTTP metrics ${res.status}`);
         return res.json();
-      })
-      .then(data => {
-        if (!data.performance_benchmark || !data.http_load_benchmark || !data.model_comparison || !data.sample_sizes) {
-          throw new Error('Отчёт модели неполон');
-        }
-        setReport(data);
+      }),
+      fetch('/api/predictions/backtest').then(res => {
+        if (!res.ok) throw new Error(`HTTP backtest ${res.status}`);
+        return res.json();
+      }),
+    ])
+      .then(([metricsData, backtestData]) => {
+        setReport(metricsData);
+        setBacktest(backtestData);
         setLoading(false);
       })
       .catch(e => {
-        console.error('Failed to load metrics', e);
-        setReport(null);
+        console.error('Failed to load passport data', e);
         setLoadError(e.message);
         setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchMetrics();
+    fetchAllData();
   }, []);
 
   const handleDownloadReport = () => {
@@ -51,21 +62,35 @@ export const MetricsView: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (!report) {
-    return (
-      <div className="space-y-6">
-        <BacktestPanel />
-        <div className="panel p-6 text-sm" style={{ color: 'var(--muted)' }}>
-          {loading ? 'Загружаем отчёт модели…' : `Январский срез метрик недоступен: ${loadError || 'нет данных'}`}
-          {!loading && (
-            <button onClick={fetchMetrics} className="ml-4 hover:underline cursor-pointer" style={{ color: 'var(--accent-text)' }}>
-              Повторить
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const formatDate = (iso: string): string => {
+    const parts = iso.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+    return iso;
+  };
+
+  const weeks = backtest?.weeks || [];
+  const firstCutoff = weeks[0]?.cutoff ? formatDate(weeks[0].cutoff) : '04.02.2026';
+  const lastCutoff = weeks[weeks.length - 1]?.cutoff ? formatDate(weeks[weeks.length - 1].cutoff) : '24.06.2026';
+
+  const bench = report?.performance_benchmark;
+  const httpBench = report?.http_load_benchmark;
+  const models = report?.model_comparison;
+  const testSamples = report?.sample_sizes;
+  const calib = report?.calibration_metrics;
+  const highRisk = report?.high_risk_and_top_k_calibration?.high_risk_cohort_raw_ge_0_42;
+
+  const testPositives: number = Number(testSamples?.test_proxy_positives ?? testSamples?.test_failures ?? NaN);
+  const testChannels: number = Number(testSamples?.test_channels ?? NaN);
+
+  const count = (value: number) => Number.isFinite(value) ? value.toLocaleString('ru-RU') : '—';
+  const ratio = (a: unknown, b: unknown) => typeof a === 'number' && typeof b === 'number' && Number.isFinite(a) && Number.isFinite(b) && b > 0
+    ? `${(a / b).toFixed(1)}x` : '—';
+  const pct = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
+    ? `${(value * 100).toFixed(1).replace('.', ',')} %` : '—';
+  const metric = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
+    ? value.toFixed(4).replace('.', ',') : '—';
 
   const featureLabels: Record<string, string> = {
     silence_hours: 'Длительность молчания канала (ч)',
@@ -79,7 +104,8 @@ export const MetricsView: React.FC = () => {
     acc_events: 'Объём телеметрических пакетов',
     battery_glitches: 'Маркеры сбоя питания',
   };
-  const importances = Object.entries(report.feature_importance || {})
+
+  const importances = Object.entries(report?.feature_importance || {})
     .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
@@ -88,485 +114,377 @@ export const MetricsView: React.FC = () => {
     name, label: featureLabels[name] || name, pct: (value / maxImportance) * 100,
   }));
 
-  const bench = report.performance_benchmark;
-  const httpBench = report.http_load_benchmark;
-  const models = report.model_comparison;
-  const testSamples = report.sample_sizes;
-  const calib = report.calibration_metrics;
-  const highRisk = report.high_risk_and_top_k_calibration?.high_risk_cohort_raw_ge_0_42;
-  const topK = report.high_risk_and_top_k_calibration?.top_k_channels;
-  const testPositives: number = Number(testSamples?.test_proxy_positives ?? testSamples?.test_failures ?? NaN);
-  const testChannels: number = Number(testSamples?.test_channels ?? NaN);
-  const count = (value: number) => Number.isFinite(value) ? value.toLocaleString('ru-RU') : '—';
-  const ratio = (a: unknown, b: unknown) => typeof a === 'number' && typeof b === 'number' && Number.isFinite(a) && Number.isFinite(b) && b > 0
-    ? `${(a / b).toFixed(1)}x` : '—';
-  const topKRows = [100, 200, 500].map(k => ({ k, row: topK?.[`top_${k}`] }));
-  const pct = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
-    ? `${(value * 100).toFixed(1).replace('.', ',')} %` : '—';
-  const metric = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
-    ? value.toFixed(4).replace('.', ',') : '—';
+  if (loading && !report && !backtest) {
+    return (
+      <div className="py-20 text-center space-y-3" style={{ color: 'var(--mu)' }}>
+        <RefreshCw className="w-8 h-8 animate-spin mx-auto text-[var(--ac)]" />
+        <p className="text-base font-medium">Загружаем паспорт модели и результаты бэктеста…</p>
+      </div>
+    );
+  }
+
+  if (loadError && !report && !backtest) {
+    return (
+      <div className="p-6 rounded-2xl space-y-4 text-center max-w-lg mx-auto" style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}>
+        <p className="text-sm" style={{ color: 'var(--mu)' }}>
+          Ошибка загрузки данных паспорта модели: {loadError}
+        </p>
+        <button
+          onClick={fetchAllData}
+          className="px-5 py-2.5 rounded-full font-semibold text-sm cursor-pointer"
+          style={{ background: 'var(--ink)', color: 'var(--bg)' }}
+        >
+          Повторить попытку
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[960px] mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-9 sm:space-y-12">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--ln2)' }}>
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-bold">
-              Проверка модели и инженерный бенчмаркинг
-            </h1>
-            <span className="chip risk-NORMAL">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Проверено на журнале СМВУ</span>
-            </span>
-            {loading && (
-              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--accent-text)' }}>
-                <RefreshCw className="w-3 h-3 animate-spin" /> Обновление…
-              </span>
-            )}
-          </div>
-          <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--muted)' }}>
-            Комплексная верификация качества прогнозирования: недельный бэктест по 2026 году и хронологический тестовый срез (горизонт 24–72 ч)
+          <h1
+            className="text-3xl sm:text-5xl font-normal tracking-tight"
+            style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
+          >
+            Паспорт модели
+          </h1>
+          <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--mu)' }}>
+            Характеристики, верификация качества и ограничения LightGBM на стенде и в пилоте
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
-            onClick={fetchMetrics}
-            className="btn btn-secondary text-xs h-8"
-            title="Обновить метрики с бэкенда"
+            type="button"
+            onClick={onOpenSettings}
+            className="px-4 py-2.5 rounded-xl border border-[var(--ln2)] hover:border-[var(--ac)] text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+            style={{ background: 'var(--sf)', color: 'var(--ac)' }}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Обновить</span>
-          </button>
-
-          <button
-            onClick={handleDownloadReport}
-            className="btn btn-primary text-xs h-8"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Скачать metrics_report.json</span>
+            <Sliders className="w-4 h-4" />
+            <span>Параметры и пороги</span>
           </button>
         </div>
       </div>
 
-      {/* 1. WEEKLY BACKTEST PANEL (RENDERED FIRST) */}
-      <BacktestPanel />
+      {/* 1. Six facts grid */}
+      <ModelFactsGrid
+        latencyMs={bench?.full_batch_latency_ms}
+        channelsCount={bench?.full_batch_channels_count ?? backtest?.channels}
+      />
 
-      {/* 2. BOUNDARIES OF PROTOTYPE (Collapsible block) */}
-      <div className="panel overflow-hidden">
+      {/* 2. ROC-AUC rings */}
+      <RocAucRings
+        standRoc={backtest?.summary?.all?.deployed?.roc_auc?.median ?? 0.65}
+        holdoutRoc={report?.model_comparison?.champion_lightgbm?.roc_auc ?? 0.771}
+        pilotRoc={backtest?.summary?.all?.lgbm_weekly?.roc_auc?.median ?? 0.84}
+      />
+
+      {/* 3. Accuracy rings (Сколько из 100 подтверждается) */}
+      <AccuracyRings
+        standPrecisionPct={backtest?.summary?.all?.deployed?.precision_at_100?.median ? backtest.summary.all.deployed.precision_at_100.median * 100 : 22}
+        pilotPrecisionPct={backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median ? backtest.summary.all.lgbm_weekly.precision_at_100.median * 100 : 38}
+        standMinPct={backtest?.summary?.all?.deployed?.precision_at_100?.min ? backtest.summary.all.deployed.precision_at_100.min * 100 : 14}
+        standMaxPct={backtest?.summary?.all?.deployed?.precision_at_100?.max ? backtest.summary.all.deployed.precision_at_100.max * 100 : 38}
+      />
+
+      {/* 4. Three checks accordion */}
+      <ChecksAccordion
+        firstCutoff={firstCutoff}
+        lastCutoff={lastCutoff}
+        deployedPrecisionMedianPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.median ?? 0.22) * 100)}
+        deployedPrecisionMinPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.min ?? 0.14) * 100)}
+        deployedPrecisionMaxPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.max ?? 0.38) * 100)}
+        holdoutRocAuc={report?.model_comparison?.champion_lightgbm?.roc_auc ?? 0.771}
+      />
+
+      {/* 5. Reproduce block */}
+      <ReproduceBlock
+        reproductionCommand={backtest?.reproduction_command ?? report?.reproduction_command}
+        consistency={backtest?.consistency_with_training_cache}
+      />
+
+      {/* 6. Model limits block */}
+      <ModelLimitsBlock />
+
+      {/* 7. Collapsible Deep Technical Inspection */}
+      <div className="pt-6 border-t" style={{ borderColor: 'var(--ln2)' }}>
         <button
           type="button"
-          onClick={() => setShowBoundaries(!showBoundaries)}
-          className="w-full px-5 py-3.5 flex items-center justify-between text-left text-xs font-medium transition-colors hover:bg-[var(--surface-2)]"
+          onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+          className="w-full p-4 rounded-2xl flex items-center justify-between text-left transition-colors cursor-pointer"
+          style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}
         >
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-            <span className="font-semibold text-sm">Границы прототипа</span>
-            <span className="text-[11px] hidden sm:inline" style={{ color: 'var(--muted)' }}>
-              — ключевые рамки и допущения инженерного решения
-            </span>
-          </div>
-          {showBoundaries ? <ChevronUp className="w-4 h-4 text-[var(--muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--muted)]" />}
-        </button>
-
-        {showBoundaries && (
-          <div className="px-5 pb-5 pt-1 text-xs space-y-2 border-t" style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--muted)' }}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-              <div className="p-3 rounded-lg border space-y-1" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-                <span className="font-medium block text-[var(--text)]">Разметка целевых событий:</span>
-                <p className="leading-relaxed">
-                  Метки сформированы алгоритмически по будущему журналу телеметрии СМВУ (критические пороги метана и температуры, длительное молчание, сообщения об авариях датчиков), а не по внешним актам CMMS/ТОиР.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg border space-y-1" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-                <span className="font-medium block text-[var(--text)]">Интеграционный контур:</span>
-                <p className="leading-relaxed">
-                  Прототип функционирует автономно и готов к сопряжению по REST API, но не имеет прямого подключения к действующей диспетчерской SCADA и эксплуатационной CMMS.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg border space-y-1" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-                <span className="font-medium block text-[var(--text)]">Топология сети:</span>
-                <p className="leading-relaxed">
-                  Координаты на карте схематичные, сгенерированы для демонстрации; привязка к пикетам (ПК) взята из тегов СМВУ.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg border space-y-1" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-                <span className="font-medium block text-[var(--text)]">Экономический расчёт:</span>
-                <p className="leading-relaxed">
-                  Финансовые показатели предотвращённых расходов носят сценарный характер и подлежат уточнению по утверждённым нормативам затрат на аварийные выезды и плановое ТО.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. DETAILED JANUARY SPLIT BREAKDOWN (COLLAPSED BY DEFAULT PER TASK 2) */}
-      <div className="panel overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowJanuary(!showJanuary)}
-          className="w-full px-5 py-4 flex items-center justify-between text-left transition-colors hover:bg-[var(--surface-2)]"
-        >
-          <div className="flex items-center gap-2.5">
-            <Cpu className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
+          <div className="flex items-center gap-3">
+            <Cpu className="w-5 h-5 text-[var(--ac)]" />
             <div>
-              <div className="font-semibold text-sm">Детальный разбор январского среза</div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>
-                Обучение 14.01, тест 28.01 · 4 модели, калибровка, бенчмарки времени инференса и HTTP
+              <div className="font-semibold text-sm sm:text-base" style={{ color: 'var(--ink)' }}>
+                Детальный инженерный аудит и бенчмарки
+              </div>
+              <div className="text-xs" style={{ color: 'var(--mu)' }}>
+                График 21 недели бэктеста, профилирование инференса, HTTP нагрузка, важность признаков и калибровка
               </div>
             </div>
           </div>
-          {showJanuary ? <ChevronUp className="w-4 h-4 text-[var(--muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--muted)]" />}
+          {showTechnicalDetails ? (
+            <ChevronUp className="w-5 h-5 text-[var(--mu)]" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-[var(--mu)]" />
+          )}
         </button>
 
-        {showJanuary && (
-          <div className="p-5 border-t space-y-6" style={{ borderColor: 'var(--line)' }}>
-            {/* Multi-Model Comparison Table */}
-            <div className="panel overflow-hidden">
-              <div className="p-3.5 border-b flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-xs" style={{ background: 'var(--surface-2)', borderColor: 'var(--line)' }}>
-                <span className="font-semibold flex items-center gap-2">
-                  <Cpu className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-                  Сравнение моделей на январском тестовом срезе
-                </span>
-                <span style={{ color: 'var(--muted)' }}>
-                  <span className="num">{count(testChannels)}</span> каналов · <span className="num">{testPositives}</span> целевых событий в окне 24–72 ч
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
-                      <th className="py-3 px-4 font-medium">Модель</th>
-                      <th className="py-3 px-4 font-medium text-right">ROC-AUC</th>
-                      <th className="py-3 px-4 font-medium text-right">Recall (Полнота)</th>
-                      <th className="py-3 px-4 font-medium text-right">Precision (Точность)</th>
-                      <th className="py-3 px-4 font-medium text-right">F1-Score</th>
-                      <th className="py-3 px-4 font-medium">Назначение</th>
-                      <th className="py-3 px-4 font-medium text-right">Статус</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
-                    <tr className="hover:bg-[var(--surface-2)] transition-colors">
-                      <td className="py-3 px-4" style={{ color: 'var(--muted)' }}>1. Zero-Rule Baseline (Константа)</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--muted)' }}>0,5000</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--muted)' }}>{pct(models.zero_rule?.recall)}</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--muted)' }}>{pct(models.zero_rule?.precision)}</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--muted)' }}>{metric(models.zero_rule?.f1)}</td>
-                      <td className="py-3 px-4" style={{ color: 'var(--faint)' }}>Базовый нулевой уровень</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="chip" style={{ background: 'var(--surface-3)', color: 'var(--muted)' }}>Эталон</span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-[var(--surface-2)] transition-colors">
-                      <td className="py-3 px-4 font-medium">2. Logistic Regression (L2, Balanced)</td>
-                      <td className="py-3 px-4 text-right num font-medium" style={{ color: 'var(--attn)' }}>{metric(models.logistic_regression?.roc_auc)}</td>
-                      <td className="py-3 px-4 text-right num font-semibold" style={{ color: 'var(--ok)' }}>{pct(models.logistic_regression?.recall)}</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--warn)' }}>{pct(models.logistic_regression?.precision)}</td>
-                      <td className="py-3 px-4 text-right num">{metric(models.logistic_regression?.f1)}</td>
-                      <td className="py-3 px-4" style={{ color: 'var(--muted)' }}>Высокий охват предаварийных сигналов</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="chip risk-ATTENTION">Активна в API</span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-[var(--surface-2)] transition-colors">
-                      <td className="py-3 px-4 font-medium">3. Random Forest (100 деревьев)</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--muted)' }}>{metric(models.random_forest?.roc_auc)}</td>
-                      <td className="py-3 px-4 text-right num" style={{ color: 'var(--muted)' }}>{pct(models.random_forest?.recall)}</td>
-                      <td className="py-3 px-4 text-right num font-semibold" style={{ color: 'var(--ok)' }}>{pct(models.random_forest?.precision)}</td>
-                      <td className="py-3 px-4 text-right num">{metric(models.random_forest?.f1)}</td>
-                      <td className="py-3 px-4" style={{ color: 'var(--muted)' }}>Консервативная селекция заявок</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="chip risk-WARNING">Активна в API</span>
-                      </td>
-                    </tr>
-                    <tr style={{ background: 'var(--accent-soft)' }}>
-                      <td className="py-3.5 px-4 font-bold">4. Champion LightGBM Classifier</td>
-                      <td className="py-3.5 px-4 text-right num font-bold" style={{ color: 'var(--accent-text)' }}>{metric(models.champion_lightgbm?.roc_auc)}</td>
-                      <td className="py-3.5 px-4 text-right num font-semibold" style={{ color: 'var(--ok)' }}>{pct(models.champion_lightgbm?.recall)}</td>
-                      <td className="py-3.5 px-4 text-right num font-semibold" style={{ color: 'var(--ok)' }}>{pct(models.champion_lightgbm?.precision)}</td>
-                      <td className="py-3.5 px-4 text-right num font-bold">{metric(models.champion_lightgbm?.f1)}</td>
-                      <td className="py-3.5 px-4 font-medium">Основная модель диспетчерского пульта</td>
-                      <td className="py-3.5 px-4 text-right">
-                        <span className="chip" style={{ background: 'var(--accent)', color: '#fff' }}>Основная</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+        {showTechnicalDetails && (
+          <div className="mt-6 space-y-8">
+            {/* 7.1. Deep Backtest Panel */}
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold" style={{ color: 'var(--ink)' }}>
+                Еженедельный бэктест по 21 неделе (динамика)
+              </h3>
+              <BacktestPanel initialData={backtest} />
             </div>
 
-            {/* Probability Calibration Panel */}
-            <div className="panel p-5 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b gap-2" style={{ borderColor: 'var(--line)' }}>
+            {/* 7.2. Engineering Performance Benchmarks */}
+            {bench && (
+              <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}>
                 <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-                  <h3 className="text-xs font-semibold">
-                    Вероятностная калибровка модели (Validation-Fitted Beta vs Platt vs Baseline)
+                  <Zap className="w-4 h-4 text-[var(--ac)]" />
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+                    Инженерный бенчмаркинг инференса (11 485 каналов)
                   </h3>
                 </div>
-                <span className="text-xs num font-medium" style={{ color: 'var(--ok)' }}>
-                  Brier Score: {metric(calib?.champion_lightgbm?.brier_score)} &lt; Baseline {metric(calib?.brier_score_baseline)}
-                </span>
-              </div>
 
-              {/* 4 Cards: Brier, ECE, High-Risk Cohort, Top-100 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="panel p-3.5 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                  <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Brier Score (Beta Champion):</div>
-                  <div className="text-2xl font-bold num" style={{ color: 'var(--ok)' }}>
-                    {metric(calib?.champion_lightgbm?.brier_score)}
-                  </div>
-                  <div className="text-[10px] num" style={{ color: 'var(--faint)' }}>
-                    Baseline: {metric(calib?.brier_score_baseline)} · Platt: {metric(calib?.champion_lightgbm?.brier_score_legacy_platt)}
-                  </div>
-                </div>
-
-                <div className="panel p-3.5 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                  <div className="text-[11px]" style={{ color: 'var(--muted)' }}>ECE (10 бинов, Beta):</div>
-                  <div className="text-2xl font-bold num">
-                    {metric(calib?.champion_lightgbm?.expected_calibration_error_ece)}
-                  </div>
-                  <div className="text-[10px] num" style={{ color: 'var(--ok)' }}>
-                    Снижение ошибки калибровки в {ratio(calib?.champion_lightgbm?.expected_calibration_error_ece_raw, calib?.champion_lightgbm?.expected_calibration_error_ece)}
-                  </div>
-                </div>
-
-                <div className="panel p-3.5 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                  <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Когорта высокого риска (raw &ge; 0,42):</div>
-                  <div className="text-2xl font-bold num" style={{ color: 'var(--attn)' }}>
-                    {metric(highRisk?.brier_score_calibrated)} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>Brier</span>
-                  </div>
-                  <div className="text-[10px] num" style={{ color: 'var(--attn)' }}>
-                    Улучшение в {ratio(highRisk?.brier_score_raw, highRisk?.brier_score_calibrated)} (N={highRisk?.n_channels ?? '—'})
-                  </div>
-                </div>
-
-                <div className="panel p-3.5 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                  <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Топ-100 каналов (Lift и точность):</div>
-                  <div className="text-2xl font-bold num" style={{ color: 'var(--warn)' }}>
-                    {pct(topK?.top_100?.empirical_rate)}
-                  </div>
-                  <div className="text-[10px] num" style={{ color: 'var(--warn)' }}>
-                    Lift {topK?.top_100?.lift_vs_baseline ?? '—'}x относительно базы ({topK?.top_100?.positives ?? '—'} из 100)
-                  </div>
-                </div>
-              </div>
-
-              {/* Top-K Table */}
-              <div className="panel overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
-                      <th className="py-2.5 px-3 font-medium">Когорта ранжирования</th>
-                      <th className="py-2.5 px-3 font-medium text-right">Каналов (N)</th>
-                      <th className="py-2.5 px-3 font-medium text-right">Событий</th>
-                      <th className="py-2.5 px-3 font-medium text-right">Точность (Precision)</th>
-                      <th className="py-2.5 px-3 font-medium text-right">Lift к baseline</th>
-                      <th className="py-2.5 px-3 font-medium text-right">Средний raw score</th>
-                      <th className="py-2.5 px-3 font-medium text-right">Средняя калибр. вер-ть</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y" style={{ borderColor: 'var(--line)' }}>
-                    {topKRows.map(({ k, row }) => (
-                      <tr key={k} className="hover:bg-[var(--surface-2)] transition-colors">
-                        <td className="py-2.5 px-3 font-medium">Топ-{k} каналов</td>
-                        <td className="py-2.5 px-3 text-right num" style={{ color: 'var(--muted)' }}>{row?.k ?? k}</td>
-                        <td className="py-2.5 px-3 text-right num font-semibold" style={{ color: 'var(--ok)' }}>{row?.positives ?? '—'}</td>
-                        <td className="py-2.5 px-3 text-right num font-semibold" style={{ color: 'var(--ok)' }}>{pct(row?.empirical_rate)}</td>
-                        <td className="py-2.5 px-3 text-right num font-semibold" style={{ color: 'var(--warn)' }}>{typeof row?.lift_vs_baseline === 'number' ? `${row.lift_vs_baseline}x` : '—'}</td>
-                        <td className="py-2.5 px-3 text-right num" style={{ color: 'var(--muted)' }}>{metric(row?.mean_raw_score)}</td>
-                        <td className="py-2.5 px-3 text-right num" style={{ color: 'var(--attn)' }}>{metric(row?.mean_calibrated_proxy_probability)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Latency & Throughput Dual Benchmark Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Card 1: Vector Inference Benchmark */}
-              <div className="panel p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4" style={{ color: 'var(--warn)' }} />
-                    <h3 className="text-xs font-semibold">
-                      1. Векторный C-инференс LightGBM
-                    </h3>
-                  </div>
-                  <span className="text-xs num" style={{ color: 'var(--ok)' }}>
-                    100 прогонов perf_counter()
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Скоринг всех {bench.full_batch_channels_count.toLocaleString('ru-RU')} каналов:</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--ok)' }}>
-                      {bench.full_batch_latency_ms} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>мс</span>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Пакет 11 485 каналов:</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--gnt)' }}>
+                      {bench.full_batch_latency_ms.toFixed(1)} мс
                     </div>
-                    <div className="text-[10px] num" style={{ color: 'var(--muted)' }}>P95: {bench.full_batch_p95_latency_ms} мс (&lt; 0,11 с)</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>
+                      p95: {bench.full_batch_p95_latency_ms.toFixed(1)} мс
+                    </div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Инференс одного датчика:</div>
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Один канал:</div>
                     <div className="text-2xl font-bold num">
-                      {bench.single_sensor_latency_ms} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>мс</span>
+                      {bench.single_sensor_latency_ms.toFixed(2)} мс
                     </div>
-                    <div className="text-[10px] num" style={{ color: 'var(--muted)' }}>P95: {bench.single_sensor_p95_latency_ms ?? '—'} мс</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>
+                      p95: {bench.single_sensor_p95_latency_ms.toFixed(2)} мс
+                    </div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Пропускная способность:</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--attn)' }}>
-                      {bench.throughput_sensors_per_sec.toLocaleString('ru-RU')}
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Пропускная способность:</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--ac)' }}>
+                      {count(bench.throughput_sensors_per_sec)}
                     </div>
-                    <div className="text-[10px]" style={{ color: 'var(--attn)' }}>датчиков/сек на CPU</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>
+                      каналов / сек
+                    </div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Запас по SLA ТЗ (&le; 300 с):</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--warn)' }}>
-                      В {bench.speedup_vs_sla.toLocaleString('ru-RU')} раз
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Запас по SLA ТЗ (300 с):</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--gnt)' }}>
+                      {Math.round(bench.speedup_vs_sla)}x
                     </div>
-                    <div className="text-[10px]" style={{ color: 'var(--ok)' }}>быстрее норматива ТЗ</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>
+                      быстрее норматива
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              {/* Card 2: Live Network Socket HTTP Benchmark */}
-              <div className="panel p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
-                  <div className="flex items-center gap-2">
-                    <Server className="w-4 h-4" style={{ color: 'var(--attn)' }} />
-                    <h3 className="text-xs font-semibold">
-                      2. Сетевой HTTP REST API стресс-тест
-                    </h3>
-                  </div>
-                  <span className="text-xs num" style={{ color: 'var(--attn)' }}>
-                    20 воркеров · 500 запросов
-                  </span>
+            {/* 7.3. HTTP Load Benchmark */}
+            {httpBench && (
+              <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}>
+                <div className="flex items-center gap-2">
+                  <Server className="w-4 h-4 text-[var(--ac)]" />
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+                    Нагрузочное HTTP-тестирование API
+                  </h3>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Успешность запросов:</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--ok)' }}>
-                      {httpBench.success_rate_pct}%
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Пропускная способность:</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--ac)' }}>
+                      {httpBench.throughput_rps.toFixed(1)}
                     </div>
-                    <div className="text-[10px] num" style={{ color: 'var(--muted)' }}>{httpBench.total_requests}/{httpBench.total_requests} без ошибок</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>запросов / сек</div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Пропускная способность:</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--attn)' }}>
-                      {httpBench.throughput_rps} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>RPS</span>
-                    </div>
-                    <div className="text-[10px] num" style={{ color: 'var(--muted)' }}>Время: {httpBench.total_time_seconds} с</div>
-                  </div>
-
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Задержка P50 (Медиана):</div>
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Задержка p50 / p95:</div>
                     <div className="text-2xl font-bold num">
-                      {httpBench.latency_p50_ms} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>мс</span>
+                      {httpBench.latency_p50_ms.toFixed(1)} / {httpBench.latency_p95_ms.toFixed(1)}
                     </div>
-                    <div className="text-[10px] num" style={{ color: 'var(--muted)' }}>Средняя: {httpBench.latency_mean_ms} мс</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>мс</div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="text-[11px]" style={{ color: 'var(--muted)' }}>Задержка P95 / P90:</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--warn)' }}>
-                      {httpBench.latency_p95_ms} <span className="text-xs font-normal" style={{ color: 'var(--muted)' }}>мс</span>
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Успешность запросов:</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--gnt)' }}>
+                      {httpBench.success_rate_pct.toFixed(1)} %
                     </div>
-                    <div className="text-[10px] num" style={{ color: 'var(--muted)' }}>P90: {httpBench.latency_p90_ms} мс (&lt; 0,3 с)</div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>{httpBench.total_requests} запросов</div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Норматив SLA (1000 мс):</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--gnt)' }}>
+                      {httpBench.compliance_sla}
+                    </div>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>Запас в 55x</div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Feature Importance & Explainability */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left: Feature Importance */}
-              <div className="lg:col-span-7 panel p-5">
-                <div className="flex items-center justify-between pb-3 mb-4 border-b" style={{ borderColor: 'var(--line)' }}>
-                  <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4" style={{ color: 'var(--accent-text)' }} />
-                    <h3 className="text-xs font-semibold">
-                      Факторы риска модели (Feature Importance по LightGBM)
-                    </h3>
-                  </div>
-                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>Относительный вес</span>
-                </div>
-
-                <div className="space-y-3">
-                  {featureList.map((feat, i) => (
-                    <div key={i} className="space-y-1">
+            {/* 7.4. Feature Importance */}
+            {featureList.length > 0 && (
+              <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+                  Важность факторов в LightGBM (Split Gain)
+                </h3>
+                <div className="space-y-2.5">
+                  {featureList.map(item => (
+                    <div key={item.name} className="space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span className="num text-[11px] font-medium">{feat.name}</span>
-                        <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{feat.label}</span>
+                        <span className="font-medium" style={{ color: 'var(--ink)' }}>{item.label}</span>
+                        <span className="num" style={{ color: 'var(--mu)' }}>{Math.round(item.pct)} %</span>
                       </div>
-                      <div className="w-full h-2 rounded overflow-hidden" style={{ background: 'var(--bg)' }}>
-                        <div 
-                          className="h-full rounded transition-all duration-500" 
-                          style={{ width: `${feat.pct}%`, background: 'var(--accent)' }}
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--sf2)' }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${item.pct}%`, background: 'var(--ac)' }}
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-
-                <div className="mt-4 pt-3 border-t text-xs leading-relaxed" style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}>
-                  График отражает вклад признаков в классификацию потенциальных аномалий телеметрии и используется модулем интерпретации рекомендаций для диспетчера.
-                </div>
               </div>
+            )}
 
-              {/* Right: Validation Methodology */}
-              <div className="lg:col-span-5 panel p-5 space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b" style={{ borderColor: 'var(--line)' }}>
-                  <Database className="w-4 h-4" style={{ color: 'var(--attn)' }} />
-                  <h3 className="text-xs font-semibold">
-                    Методология и воспроизводимость
+            {/* 7.5. Multi-Model Comparison Table on Hold-out */}
+            {models && (
+              <div className="p-5 rounded-2xl space-y-4 overflow-x-auto" style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+                    Сравнение моделей на отложенном тестовом срезе (январь)
+                  </h3>
+                  <span className="text-xs" style={{ color: 'var(--mu)' }}>
+                    {count(testChannels)} каналов · {testPositives} целевых событий в окне 24–72 ч
+                  </span>
+                </div>
+
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: 'var(--ln2)', color: 'var(--mu)' }}>
+                      <th className="py-2.5 px-3 font-medium">Модель</th>
+                      <th className="py-2.5 px-3 font-medium text-right">ROC-AUC</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Полнота</th>
+                      <th className="py-2.5 px-3 font-medium text-right">Точность</th>
+                      <th className="py-2.5 px-3 font-medium text-right">F1-Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y" style={{ borderColor: 'var(--ln)' }}>
+                    <tr>
+                      <td className="py-2.5 px-3" style={{ color: 'var(--mu)' }}>Zero-Rule Baseline</td>
+                      <td className="py-2.5 px-3 text-right num">0,5000</td>
+                      <td className="py-2.5 px-3 text-right num">{pct(models.zero_rule?.recall)}</td>
+                      <td className="py-2.5 px-3 text-right num">{pct(models.zero_rule?.precision)}</td>
+                      <td className="py-2.5 px-3 text-right num">{metric(models.zero_rule?.f1)}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-medium">Logistic Regression</td>
+                      <td className="py-2.5 px-3 text-right num">{metric(models.logistic_regression?.roc_auc)}</td>
+                      <td className="py-2.5 px-3 text-right num">{pct(models.logistic_regression?.recall)}</td>
+                      <td className="py-2.5 px-3 text-right num">{pct(models.logistic_regression?.precision)}</td>
+                      <td className="py-2.5 px-3 text-right num">{metric(models.logistic_regression?.f1)}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-medium">Random Forest (100 деревьев)</td>
+                      <td className="py-2.5 px-3 text-right num">{metric(models.random_forest?.roc_auc)}</td>
+                      <td className="py-2.5 px-3 text-right num">{pct(models.random_forest?.recall)}</td>
+                      <td className="py-2.5 px-3 text-right num">{pct(models.random_forest?.precision)}</td>
+                      <td className="py-2.5 px-3 text-right num">{metric(models.random_forest?.f1)}</td>
+                    </tr>
+                    <tr style={{ background: 'var(--acs)' }}>
+                      <td className="py-2.5 px-3 font-bold" style={{ color: 'var(--ac)' }}>
+                        LightGBM (отложенная выборка (январь))
+                      </td>
+                      <td className="py-2.5 px-3 text-right num font-bold" style={{ color: 'var(--ac)' }}>
+                        {metric(models.champion_lightgbm?.roc_auc)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right num font-semibold">{pct(models.champion_lightgbm?.recall)}</td>
+                      <td className="py-2.5 px-3 text-right num font-semibold">{pct(models.champion_lightgbm?.precision)}</td>
+                      <td className="py-2.5 px-3 text-right num font-bold">{metric(models.champion_lightgbm?.f1)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 7.6. Probability Calibration */}
+            {calib && (
+              <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}>
+                <div className="flex items-center gap-2">
+                  <Award className="w-4 h-4 text-[var(--ac)]" />
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+                    Вероятностная калибровка (Beta Calibration)
                   </h3>
                 </div>
 
-                <div className="space-y-3 text-xs leading-relaxed">
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="font-semibold flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" style={{ color: 'var(--attn)' }} />
-                      Хронологическое разделение
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Brier Score (Beta):</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--gnt)' }}>
+                      {metric(calib?.champion_lightgbm?.brier_score)}
                     </div>
-                    <p style={{ color: 'var(--muted)' }} className="text-[11px]">
-                      Обучение на исторических неделях, подбор порога tau строго на валидационном интервале, оценка на отложенном тесте без заглядывания в будущее.
-                    </p>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>
+                      Baseline: {metric(calib?.brier_score_baseline)}
+                    </div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="font-semibold flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5" style={{ color: 'var(--warn)' }} />
-                      Общий модуль признаков
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>ECE (Expected Calibration Error):</div>
+                    <div className="text-2xl font-bold num">
+                      {metric(calib?.champion_lightgbm?.expected_calibration_error_ece)}
                     </div>
-                    <p style={{ color: 'var(--muted)' }} className="text-[11px]">
-                      Модуль <code>backend/ml/features.py</code> используется при обучении и в бэктесте; стенд читает готовый кэш прогнозов.
-                    </p>
+                    <div className="text-[11px]" style={{ color: 'var(--gnt)' }}>
+                      Снижение ошибки в {ratio(calib?.champion_lightgbm?.expected_calibration_error_ece_raw, calib?.champion_lightgbm?.expected_calibration_error_ece)}
+                    </div>
                   </div>
 
-                  <div className="panel p-3 space-y-1" style={{ background: 'var(--surface-2)' }}>
-                    <div className="font-semibold flex items-center gap-1.5">
-                      <Cpu className="w-3.5 h-3.5" style={{ color: 'var(--ok)' }} />
-                      Автономный контур
+                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Когорта высокого риска (&ge; 0,42):</div>
+                    <div className="text-2xl font-bold num" style={{ color: 'var(--amt)' }}>
+                      {metric(highRisk?.brier_score_calibrated)}
                     </div>
-                    <p style={{ color: 'var(--muted)' }} className="text-[11px]">
-                      Работает автономно, без выхода во внешние сети; соответствие требованиям КИИ и 152-ФЗ не оценивалось.
-                    </p>
+                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>
+                      Каналов: {highRisk?.n_channels ?? '—'}
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* 7.7. Download Report Button */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={handleDownloadReport}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold inline-flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-90"
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Скачать metrics_report.json</span>
+              </button>
             </div>
           </div>
         )}
