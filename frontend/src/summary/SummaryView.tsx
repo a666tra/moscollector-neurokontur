@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   BacktestResponse,
-  PredictionMetricsResponse,
   ScenarioRunResponse,
   MaintenanceTicket,
 } from '../types';
@@ -13,11 +12,10 @@ import { ReferenceWeekCards } from './ReferenceWeekCards';
 import { InteractiveChart } from './InteractiveChart';
 import { AlertLoadBlock } from './AlertLoadBlock';
 import { LimitationCards } from './LimitationCards';
-import { BlockBPerformance } from './BlockBPerformance';
 
 interface Props {
   onOpenScenarios: () => void;
-  onOpenTickets?: (filterKey?: string) => void;
+  onOpenTickets: () => void;
 }
 
 export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets }) => {
@@ -27,10 +25,6 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
 
   const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
-
-  const [metrics, setMetrics] = useState<PredictionMetricsResponse | null>(null);
-  const [loadingMetrics, setLoadingMetrics] = useState(true);
-  const [errorMetrics, setErrorMetrics] = useState<string | null>(null);
 
   const [scenarioData, setScenarioData] = useState<ScenarioRunResponse | null>(null);
   const [loadingScenario, setLoadingScenario] = useState(true);
@@ -80,22 +74,6 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
     }
   }, []);
 
-  // Fetch metrics (performance & http load)
-  const fetchMetrics = useCallback(async () => {
-    setLoadingMetrics(true);
-    setErrorMetrics(null);
-    try {
-      const res = await fetch('/api/predictions/metrics');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setMetrics(json);
-    } catch (e: any) {
-      setErrorMetrics(e.message || 'Ошибка загрузки метрик');
-    } finally {
-      setLoadingMetrics(false);
-    }
-  }, []);
-
   // Run day scenario (seed 42)
   const runScenario = useCallback(async () => {
     setLoadingScenario(true);
@@ -119,42 +97,18 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
   useEffect(() => {
     fetchBacktest();
     fetchTickets();
-    fetchMetrics();
     runScenario();
-  }, [fetchBacktest, fetchTickets, fetchMetrics, runScenario]);
+  }, [fetchBacktest, fetchTickets, runScenario]);
 
   // Handle refresh
   const handleRefreshAll = async () => {
     setRefreshing(true);
-    await Promise.all([fetchBacktest(), fetchTickets(), fetchMetrics(), runScenario()]);
+    await Promise.all([fetchBacktest(), fetchTickets(), runScenario()]);
     setRefreshing(false);
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
     const mm = String(now.getMinutes()).padStart(2, '0');
     setLastUpdated(`${hh}:${mm}`);
-  };
-
-  // Navigate to tickets screen with filter
-  const handleNavigateTickets = (filterKey?: string) => {
-    if (onOpenTickets) {
-      onOpenTickets(filterKey);
-      return;
-    }
-    // Try to click the "Заявки" tab button in header/nav
-    const buttons = Array.from(document.querySelectorAll('button'));
-    const ticketsBtn = buttons.find((b) => b.textContent?.trim().includes('Заявки'));
-    if (ticketsBtn) {
-      ticketsBtn.click();
-      return;
-    }
-    // Fallback: update query param
-    try {
-      const u = new URL(window.location.href);
-      u.searchParams.set('view', 'tickets');
-      window.location.href = u.toString();
-    } catch {
-      // ignore
-    }
   };
 
   // Play through weeks
@@ -196,31 +150,43 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
     setSelectedWeekIdx(idx);
   };
 
-  // Real numbers for VerdictHeader
-  const standMed = Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.median ?? 0.22) * 100);
-  const ruleMed = Math.round((backtest?.summary?.all?.persistence?.precision_at_100?.median ?? 0.38) * 100);
-  const pilotMed = Math.round((backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median ?? 0.38) * 100);
+  // Strictly extract real numbers with ZERO hard-coded fallbacks
+  const allDeployed = backtest?.summary?.all?.deployed?.precision_at_100?.median;
+  const allRule = backtest?.summary?.all?.persistence?.precision_at_100?.median;
+  const allPilot = backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median;
 
-  const standQuiet = Math.round((backtest?.summary?.new_incidents?.deployed?.precision_at_100?.median ?? 0.05) * 100);
-  const pilotQuiet = Math.round((backtest?.summary?.new_incidents?.lgbm_weekly?.precision_at_100?.median ?? 0.06) * 100);
-  const ruleQuiet = Math.round((backtest?.summary?.new_incidents?.persistence?.precision_at_100?.median ?? 0) * 100);
+  const calmDeployed = backtest?.summary?.new_incidents?.deployed?.precision_at_100?.median;
+  const calmPilot = backtest?.summary?.new_incidents?.lgbm_weekly?.precision_at_100?.median;
+  const calmRule = backtest?.summary?.new_incidents?.persistence?.precision_at_100?.median;
 
-  const naiveAlerts = scenarioData?.comparison?.naive?.alerts_total ?? 1436;
-  const fastAlerts = scenarioData?.comparison?.fast?.alerts_total ?? 146;
-  const fastIncidents = scenarioData?.comparison?.fast?.incidents ?? 67;
+  const naiveAlerts = scenarioData?.comparison?.naive?.alerts_total;
+  const fastAlerts = scenarioData?.comparison?.fast?.alerts_total;
+  const fastIncidents = scenarioData?.comparison?.fast?.incidents;
+
+  const deployedVal = typeof allDeployed === 'number' ? Math.round(allDeployed * 100) : null;
+  const ruleVal = typeof allRule === 'number' ? Math.round(allRule * 100) : null;
+  const lgbmVal = typeof allPilot === 'number' ? Math.round(allPilot * 100) : null;
+
+  const lgbmCalmVal = typeof calmPilot === 'number' ? Math.round(calmPilot * 100) : null;
+  const ruleCalmVal = typeof calmRule === 'number' ? Math.round(calmRule * 100) : null;
+
+  const naiveVal = typeof naiveAlerts === 'number' ? naiveAlerts : null;
+  const fastVal = typeof fastAlerts === 'number' ? fastAlerts : null;
+  const fastIncidentsVal = typeof fastIncidents === 'number' ? fastIncidents : null;
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8 max-w-[1240px] mx-auto pb-12 min-w-0 w-full overflow-x-hidden">
-      {/* 1. Header & Verdict Sentence (from real numbers) */}
+      {/* 1. Header & Verdict Sentence (from real numbers, no fallbacks) */}
       <VerdictHeader
-        standMed={standMed}
-        ruleMed={ruleMed}
-        pilotMed={pilotMed}
-        pilotQuiet={pilotQuiet}
-        ruleQuiet={ruleQuiet}
-        naiveAlerts={naiveAlerts}
-        fastAlerts={fastAlerts}
-        fastIncidents={fastIncidents}
+        deployed={deployedVal}
+        rule={ruleVal}
+        lgbm={lgbmVal}
+        lgbmCalm={lgbmCalmVal}
+        ruleCalm={ruleCalmVal}
+        naive={naiveVal}
+        fast={fastVal}
+        fastIncidents={fastIncidentsVal}
+        loading={loadingBacktest || loadingScenario}
         lastUpdated={lastUpdated}
         refreshing={refreshing}
         onRefresh={handleRefreshAll}
@@ -230,7 +196,7 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
       <ActionTiles
         tickets={tickets}
         loading={loadingTickets}
-        onNavigateTickets={handleNavigateTickets}
+        onOpenTickets={onOpenTickets}
       />
 
       {/* 3. «Кто чаще угадывает?»: Dot Grids (из 100) */}
@@ -287,15 +253,7 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
         onOpenScenarios={onOpenScenarios}
       />
 
-      {/* 8. Scale & Latency Benchmarks */}
-      <BlockBPerformance
-        performance={metrics?.performance_benchmark ?? null}
-        httpBenchmark={metrics?.http_load_benchmark ?? null}
-        loading={loadingMetrics}
-        error={errorMetrics}
-      />
-
-      {/* 9. Limitations: 3 Cards with Icons instead of a footnote */}
+      {/* 8. Limitations: 3 Cards with Icons instead of a footnote */}
       <LimitationCards />
     </div>
   );

@@ -5,10 +5,10 @@ import { Flame, FileText, Truck, ArrowRight } from 'lucide-react';
 interface Props {
   tickets: MaintenanceTicket[];
   loading: boolean;
-  onNavigateTickets: (filterKey?: string) => void;
+  onOpenTickets: () => void;
 }
 
-export const ActionTiles: React.FC<Props> = ({ tickets, loading, onNavigateTickets }) => {
+export const ActionTiles: React.FC<Props> = ({ tickets, loading, onOpenTickets }) => {
   const urgentCount = useMemo(() => {
     return tickets.filter(
       (t) => t.status === 'ЧЕРНОВИК' && (t.priority === 'ВЫСОКИЙ' || t.failure_risk_percent >= 70)
@@ -76,7 +76,6 @@ export const ActionTiles: React.FC<Props> = ({ tickets, loading, onNavigateTicke
       bg: 'var(--rds)',
       segments: urgentSegments,
       pulse: urgentCount > 0,
-      filterKey: 'urgent',
     },
     {
       id: 'draft',
@@ -89,7 +88,6 @@ export const ActionTiles: React.FC<Props> = ({ tickets, loading, onNavigateTicke
       bg: 'var(--ams)',
       segments: draftSegments,
       pulse: false,
-      filterKey: 'draft',
     },
     {
       id: 'work',
@@ -102,7 +100,6 @@ export const ActionTiles: React.FC<Props> = ({ tickets, loading, onNavigateTicke
       bg: 'var(--acs)',
       segments: brigadeSegments,
       pulse: false,
-      filterKey: 'work',
     },
   ];
 
@@ -114,7 +111,7 @@ export const ActionTiles: React.FC<Props> = ({ tickets, loading, onNavigateTicke
           <button
             key={t.id}
             type="button"
-            onClick={() => onNavigateTickets(t.filterKey)}
+            onClick={onOpenTickets}
             className="text-left border-2 rounded-[24px] sm:rounded-[28px] p-4 sm:p-5 flex flex-col justify-between gap-4 cursor-pointer hover:-translate-y-1 transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] min-w-0"
             style={{
               background: t.bg,

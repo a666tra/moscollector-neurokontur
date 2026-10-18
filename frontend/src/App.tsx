@@ -353,7 +353,17 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
                 </div>
               </div>
             )}
-            {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 py-4 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
+            {view === 'summary' && (
+              <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 py-4 pb-20 lg:p-6">
+                <SummaryView
+                  onOpenScenarios={() => setView('scenarios')}
+                  onOpenTickets={() => {
+                    setTicketFilterObjectId(null);
+                    setView('tickets');
+                  }}
+                />
+              </div>
+            )}
             {view === 'quality' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}
             {view === 'scenarios' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><ScenarioLab /></div></div>}
             {view === 'field' && (

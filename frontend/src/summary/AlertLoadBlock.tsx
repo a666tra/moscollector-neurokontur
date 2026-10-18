@@ -23,34 +23,32 @@ export const AlertLoadBlock: React.FC<Props> = ({
         className="rounded-[24px] p-6 border animate-pulse min-w-0 w-full"
         style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}
       >
-        <div className="h-6 w-80 rounded bg-neutral-200 dark:bg-neutral-800 mb-4" />
+        <div className="h-6 w-72 rounded bg-neutral-200 dark:bg-neutral-800 mb-4" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-32 rounded bg-neutral-100 dark:bg-neutral-900" />
-          <div className="h-32 rounded bg-neutral-100 dark:bg-neutral-900" />
-          <div className="h-32 rounded bg-neutral-100 dark:bg-neutral-900" />
+          <div className="h-28 rounded bg-neutral-100 dark:bg-neutral-900" />
+          <div className="h-28 rounded bg-neutral-100 dark:bg-neutral-900" />
+          <div className="h-28 rounded bg-neutral-100 dark:bg-neutral-900" />
         </div>
       </div>
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !data.comparison) {
     return (
       <div
-        className="rounded-[24px] p-6 border flex flex-col gap-3 min-w-0 w-full"
+        className="rounded-[24px] p-6 border flex flex-col sm:flex-row items-center justify-between gap-4 min-w-0 w-full"
         style={{ background: 'var(--sf)', borderColor: 'var(--ln)' }}
       >
-        <h3 className="serif font-normal text-xl sm:text-2xl text-[var(--ink)]">
-          Нагрузка на диспетчера (синтетика)
-        </h3>
-        <div className="p-4 rounded-xl border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-sm flex items-center justify-between">
-          <span>Не удалось запустить суточный сценарий: {error || 'ошибка сети'}</span>
-          <button
-            onClick={onRetry}
-            className="btn btn-secondary text-xs flex items-center gap-1.5 shrink-0"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Повторить
-          </button>
-        </div>
+        <p className="text-sm sm:text-base text-[var(--mu)] m-0">
+          Нет данных полигона — откройте «Сценарии» и запустите расчёт
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="btn btn-secondary text-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Повторить
+        </button>
       </div>
     );
   }
@@ -67,14 +65,14 @@ export const AlertLoadBlock: React.FC<Props> = ({
     return val.toFixed(1).replace('.', ',');
   };
 
-  const naiveAlerts = naive?.alerts_total ?? 1436;
-  const naiveIncidents = naive?.incidents ?? 1436;
+  const naiveAlerts = naive?.alerts_total;
+  const naiveIncidents = naive?.incidents;
 
-  const staticAlerts = staticDedup?.alerts_total ?? 547;
-  const staticIncidents = staticDedup?.incidents ?? 514;
+  const staticAlerts = staticDedup?.alerts_total;
+  const staticIncidents = staticDedup?.incidents;
 
-  const fastAlerts = fast?.alerts_total ?? 146;
-  const fastIncidents = fast?.incidents ?? 67;
+  const fastAlerts = fast?.alerts_total;
+  const fastIncidents = fast?.incidents;
 
   return (
     <div
@@ -143,8 +141,8 @@ export const AlertLoadBlock: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="text-xs text-[var(--mu)] sm:text-right max-w-[280px]">
-          В среднем по 20 прогонам: 1 414 → 535 → 146 сигналов в сутки, 67 инцидентов.
+        <div className="text-xs text-[var(--mu)] sm:text-right max-w-[320px]">
+          среднее по 20 прогонам, seed 42 отдельно: 1 414 → 535 → 146 оповещений в сутки (67 инцидентов)
         </div>
       </div>
 
@@ -169,13 +167,13 @@ export const AlertLoadBlock: React.FC<Props> = ({
               <div>
                 <span className="text-[11px] text-[var(--mu)] block">Тревог в сутки (seed 42):</span>
                 <div className="num font-bold text-2xl text-[var(--ink)]">
-                  {naiveAlerts.toLocaleString('ru-RU')}
+                  {typeof naiveAlerts === 'number' ? naiveAlerts.toLocaleString('ru-RU') : '—'}
                 </div>
               </div>
               <div>
                 <span className="text-[11px] text-[var(--mu)] block">Инцидентов в сутки:</span>
                 <div className="num font-bold text-2xl text-red-500">
-                  {naiveIncidents.toLocaleString('ru-RU')}
+                  {typeof naiveIncidents === 'number' ? naiveIncidents.toLocaleString('ru-RU') : '—'}
                 </div>
               </div>
             </div>
@@ -207,18 +205,15 @@ export const AlertLoadBlock: React.FC<Props> = ({
 
             <div className="space-y-2">
               <div>
-                <span className="text-[11px] text-[var(--mu)] block">Тревог в сутки (seed 42 / ср. 20):</span>
-                <div className="flex items-baseline gap-1.5">
-                  <div className="num font-bold text-2xl text-[var(--ink)]">
-                    {staticAlerts.toLocaleString('ru-RU')}
-                  </div>
-                  <span className="text-xs text-[var(--mu)]">/ 535</span>
+                <span className="text-[11px] text-[var(--mu)] block">Тревог в сутки (seed 42):</span>
+                <div className="num font-bold text-2xl text-[var(--ink)]">
+                  {typeof staticAlerts === 'number' ? staticAlerts.toLocaleString('ru-RU') : '—'}
                 </div>
               </div>
               <div>
                 <span className="text-[11px] text-[var(--mu)] block">Инцидентов в сутки:</span>
                 <div className="num font-bold text-2xl text-amber-600 dark:text-amber-400">
-                  {staticIncidents.toLocaleString('ru-RU')}
+                  {typeof staticIncidents === 'number' ? staticIncidents.toLocaleString('ru-RU') : '—'}
                 </div>
               </div>
             </div>
@@ -255,13 +250,13 @@ export const AlertLoadBlock: React.FC<Props> = ({
               <div>
                 <span className="text-[11px] text-[var(--mu)] block">Сигналов в сутки (всего):</span>
                 <div className="num font-bold text-2xl text-[var(--ink)]">
-                  {fastAlerts.toLocaleString('ru-RU')}
+                  {typeof fastAlerts === 'number' ? fastAlerts.toLocaleString('ru-RU') : '—'}
                 </div>
               </div>
               <div>
                 <span className="text-[11px] text-[var(--mu)] block">Инцидентов диспетчеру:</span>
                 <div className="num font-bold text-2xl text-emerald-600 dark:text-emerald-400">
-                  {fastIncidents.toLocaleString('ru-RU')}
+                  {typeof fastIncidents === 'number' ? fastIncidents.toLocaleString('ru-RU') : '—'}
                 </div>
               </div>
             </div>
