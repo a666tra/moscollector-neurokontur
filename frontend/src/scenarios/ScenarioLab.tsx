@@ -150,7 +150,7 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
 
     const isMonth = mode === 'month';
     const m = currentMinute;
-    const pinMap = new Map<string, { warn: boolean; hit: boolean; done: boolean; pct: number }>();
+    const pinMap = new Map<string, { warn: boolean; hit: boolean; done: boolean }>();
 
     for (const inc of result.incident_list) {
       if (selectedScenarioId !== 'all') {
@@ -183,13 +183,11 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
           warn: isWarn,
           hit: isHit,
           done: isRes,
-          pct: isHit ? 95 : isWarn ? 65 : 20,
         });
       } else {
         if (isHit) existing.hit = true;
         if (isWarn) existing.warn = true;
         if (isRes) existing.done = true;
-        existing.pct = existing.hit ? 95 : existing.warn ? 65 : 20;
       }
     }
 
@@ -199,12 +197,14 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
       const isWarn = !isHit && val.warn;
       const isDone = !isHit && !isWarn && val.done;
 
+      const label = isHit ? 'идёт' : isWarn ? 'заранее' : 'решено';
+
       outPins.push({
         objectId,
         risk: isHit ? 'CRITICAL' : isWarn ? 'WARNING' : 'NORMAL',
         done: isDone,
         color: isDone ? 'var(--gn)' : isHit ? 'var(--rd)' : 'var(--ac)',
-        pct: val.pct,
+        label,
       });
     });
 
@@ -217,17 +217,17 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
     let hit = 0;
     let done = 0;
     for (const p of pins) {
-      if (p.done) done++;
-      else if (p.color === 'var(--rd)') hit++;
-      else if (p.color === 'var(--ac)') warn++;
+      if (p.label === 'решено' || p.done) done++;
+      else if (p.label === 'идёт' || p.color === 'var(--rd)') hit++;
+      else if (p.label === 'заранее' || p.color === 'var(--ac)') warn++;
     }
     return { nWarn: warn, nHit: hit, nDone: done };
   }, [pins]);
 
   // Live alert counters for the 3 approaches
-  const totalFast = result?.comparison?.fast?.alerts_total ?? (result?.summary?.alerts_total || 146);
-  const totalStatic = result?.comparison?.static_dedup?.alerts_total ?? 535;
-  const totalNaive = result?.comparison?.naive?.alerts_total ?? 1436;
+  const totalFast = result?.comparison?.fast?.alerts_total ?? result?.summary?.alerts_total ?? 0;
+  const totalStatic = result?.comparison?.static_dedup?.alerts_total ?? 0;
+  const totalNaive = result?.comparison?.naive?.alerts_total ?? 0;
 
   const maxMinutes = mode === 'month' ? 30 : 1440;
   const isAtEnd = currentMinute >= maxMinutes - 0.001;

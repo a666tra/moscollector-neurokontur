@@ -2,7 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { ObjectItem } from '../types';
 
-export interface MapPin { objectId: string; pct?: number | null; risk: string; done?: boolean; color?: string; }
+export interface MapPin {
+  objectId: string;
+  pct?: number | null;
+  risk: string;
+  done?: boolean;
+  color?: string;
+  label?: string;
+  textLabel?: string;
+}
 
 interface Props {
   objects: ObjectItem[];
@@ -20,6 +28,7 @@ interface Props {
   routeTo?: [number, number] | null;
   focusOffsetY?: number;
   zoomOnSelect?: boolean;
+  textLabel?: (pin: MapPin) => string;
 }
 
 export const MOSCOW: [number, number] = [55.756, 37.632];
@@ -60,6 +69,7 @@ export const RiskMap: React.FC<Props> = ({
   routeTo = null,
   focusOffsetY = 0,
   zoomOnSelect = false,
+  textLabel,
 }) => {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -146,8 +156,15 @@ export const RiskMap: React.FC<Props> = ({
         .addTo(mk);
     });
 
+    const pinWeight = (p: MapPin) => {
+      if (p.pct != null) return p.pct;
+      if (p.risk === 'CRITICAL') return 90;
+      if (p.risk === 'WARNING') return 60;
+      return 10;
+    };
+
     // 2. Identify top 100 pins by risk (for capping animated pulsing rings to ~100 elements)
-    const sortedByRisk = [...pins].sort((a, b) => b.pct - a.pct);
+    const sortedByRisk = [...pins].sort((a, b) => pinWeight(b) - pinWeight(a));
     const top100RiskSet = new Set(sortedByRisk.slice(0, 100).map(p => p.objectId));
 
     // 3. Collision detection for labels (avoid overlapping labels)
@@ -155,7 +172,7 @@ export const RiskMap: React.FC<Props> = ({
     const priorityPins = [...pins].sort((a, b) => {
       if (a.objectId === selectedObjectId) return -1;
       if (b.objectId === selectedObjectId) return 1;
-      return b.pct - a.pct;
+      return pinWeight(b) - pinWeight(a);
     });
 
     const showPillSet = new Set<string>();
@@ -197,14 +214,15 @@ export const RiskMap: React.FC<Props> = ({
 
     // 5. Render pins sorted so selected and higher risk pins are on top
     [...pins]
-      .sort((a, b) => (a.objectId === selectedObjectId ? 1 : 0) - (b.objectId === selectedObjectId ? 1 : 0) || (a.pct ?? -1) - (b.pct ?? -1))
+      .sort((a, b) => (a.objectId === selectedObjectId ? 1 : 0) - (b.objectId === selectedObjectId ? 1 : 0) || pinWeight(a) - pinWeight(b))
       .forEach(p => {
         const o = objBy[p.objectId];
         if (!o) return;
 
         const sel = p.objectId === selectedObjectId;
         const isHov = p.objectId === hoveredObjectId;
-        const showPill = (showPillSet.has(p.objectId) || isHov) && (p.done || p.pct != null);
+        const pinLabel = p.label || p.textLabel || (textLabel ? textLabel(p) : undefined);
+        const showPill = (showPillSet.has(p.objectId) || isHov) && (p.done || pinLabel != null || p.pct != null);
         const inTop100 = top100RiskSet.has(p.objectId);
         const pulse = inTop100 && !p.done;
         const isCritical = p.risk === 'CRITICAL';
@@ -212,9 +230,13 @@ export const RiskMap: React.FC<Props> = ({
 
         const colorVar = p.color || (p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)');
 
-        const pctText = p.pct != null ? `риск ${p.pct} %` : 'без оценки';
+        const pctText = pinLabel
+          ? pinLabel
+          : p.pct != null
+          ? `риск ${p.pct} %`
+          : 'без оценки';
         const ariaLabel = p.done
-          ? `${o.name}, решено`
+          ? `${o.name}, ${pinLabel || 'решено'}`
           : isCritical
           ? `${o.name}, ${pctText}, срочно проверить`
           : isWarning
@@ -229,7 +251,9 @@ export const RiskMap: React.FC<Props> = ({
 
         const checkSvg = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5L4.5 9L10 3"/></svg>`;
 
-        const pillHtml = p.done
+        const pillHtml = pinLabel
+          ? `<div class="nk-pin-pill">${pinLabel}</div>`
+          : p.done
           ? `<div class="nk-pin-pill">решено</div>`
           : p.pct != null
           ? `<div class="nk-pin-pill">${p.pct}%</div>`
@@ -259,7 +283,7 @@ export const RiskMap: React.FC<Props> = ({
 
         const marker = L.marker([o.lat, o.lon], {
           icon,
-          zIndexOffset: sel ? 1000 : isHov ? 900 : p.pct,
+          zIndexOffset: sel ? 1000 : isHov ? 900 : pinWeight(p),
           keyboard: false,
           interactive: interactive,
         });

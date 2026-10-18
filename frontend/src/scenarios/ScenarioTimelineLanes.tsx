@@ -75,10 +75,10 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
 
   // Real comparison totals from API response
   const comp = runResult?.comparison;
-  const totalFast = comp?.fast?.alerts_total ?? (runResult?.summary?.alerts_total || 146);
-  const totalStatic = comp?.static_dedup?.alerts_total ?? 535;
-  const totalNaive = comp?.naive?.alerts_total ?? 1436;
-  const totalIncidents = incidents.length > 0 ? incidents.length : (runResult?.summary?.incidents || 34);
+  const totalFast = comp?.fast?.alerts_total ?? runResult?.summary?.alerts_total ?? 0;
+  const totalStatic = comp?.static_dedup?.alerts_total ?? 0;
+  const totalNaive = comp?.naive?.alerts_total ?? 0;
+  const totalIncidents = incidents.length > 0 ? incidents.length : (runResult?.summary?.incidents ?? 0);
 
   // Function to distribute alerts to incident timestamps
   const distributeToIncidents = (total: number, incList: number[]) => {

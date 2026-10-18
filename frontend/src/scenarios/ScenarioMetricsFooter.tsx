@@ -23,8 +23,8 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
   const comp = runResult.comparison;
   const summary = runResult.summary;
 
-  const detected = summary?.overall?.detected_events ?? 34;
-  const totalEvents = summary?.overall?.total_events ?? 34;
+  const detected = summary?.overall?.detected_events ?? 0;
+  const totalEvents = summary?.overall?.total_events ?? 0;
 
   const s1Lead = comp?.fast?.scenarios?.S1?.lead_time_median_min;
   const s3Lead = comp?.fast?.scenarios?.S3?.lead_time_median_min;
@@ -34,11 +34,11 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
   const naiveFalse = comp?.naive?.false_alarms?.count ?? 0;
 
   // Calls per event
-  const fastPerEv = totalEvents > 0 ? (comp?.fast?.alerts_total / totalEvents) : 2.2;
-  const staticPerEv = totalEvents > 0 ? (comp?.static_dedup?.alerts_total / totalEvents) : 8.0;
-  const naivePerEv = totalEvents > 0 ? (comp?.naive?.alerts_total / totalEvents) : 21.4;
+  const fastPerEv = totalEvents > 0 && comp?.fast?.alerts_total != null ? (comp.fast.alerts_total / totalEvents) : 0;
+  const staticPerEv = totalEvents > 0 && comp?.static_dedup?.alerts_total != null ? (comp.static_dedup.alerts_total / totalEvents) : 0;
+  const naivePerEv = totalEvents > 0 && comp?.naive?.alerts_total != null ? (comp.naive.alerts_total / totalEvents) : 0;
 
-  const maxPerEv = Math.max(30, Math.ceil(naivePerEv * 1.15));
+  const maxPerEv = Math.max(1, Math.ceil(naivePerEv * 1.15));
 
   const bars = [
     {

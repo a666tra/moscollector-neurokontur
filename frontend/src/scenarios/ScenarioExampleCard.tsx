@@ -29,21 +29,23 @@ export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
 
   // Real scenario metrics from comparison
   const scMetricsFast = comparison?.fast?.scenarios?.[selectedScenarioId];
-  const leadMin = scMetricsFast?.lead_time_median_min ?? comparison?.fast?.lead_time?.median_min ?? 15;
-  const delaySec = scMetricsFast?.delay_median_sec ?? comparison?.fast?.delay?.median_sec ?? 3.5;
+  const leadMin = scMetricsFast?.lead_time_median_min ?? comparison?.fast?.lead_time?.median_min ?? null;
+  const delaySec = scMetricsFast?.delay_median_sec ?? comparison?.fast?.delay?.median_sec ?? null;
 
-  const naiveAlertsTotal = comparison?.naive?.alerts_total ?? 1436;
-  const fastIncidentsTotal = comparison?.fast?.incidents ?? 34;
-  const staticIncidentsTotal = comparison?.static_dedup?.incidents ?? 535;
+  const naiveAlertsTotal = comparison?.naive?.alerts_total ?? 0;
+  const fastIncidentsTotal = comparison?.fast?.incidents ?? (comparison?.fast?.alerts_total != null ? 1 : 0);
+  const staticIncidentsTotal = comparison?.static_dedup?.incidents ?? 0;
 
-  const ratioNaive = Math.max(2, Math.round(naiveAlertsTotal / Math.max(1, fastIncidentsTotal)));
-  const ratioStatic = Math.max(1, Math.round(staticIncidentsTotal / Math.max(1, fastIncidentsTotal)));
+  const ratioNaive = fastIncidentsTotal > 0 ? Math.round(naiveAlertsTotal / fastIncidentsTotal) : 0;
+  const ratioStatic = fastIncidentsTotal > 0 ? Math.round(staticIncidentsTotal / fastIncidentsTotal) : 0;
 
-  const leadText = leadMin > 0
+  const leadText = leadMin !== null && leadMin > 0
     ? `на ${Math.round(leadMin)} мин раньше порога`
-    : `задержка ${delaySec.toFixed(1)} с`;
+    : delaySec !== null && delaySec > 0
+    ? `задержка ${delaySec.toFixed(1)} с`
+    : 'по факту порога';
 
-  const thresholdTime = formatTime(incident.ts + (leadMin > 0 ? leadMin * 60 : 0));
+  const thresholdTime = formatTime(incident.ts + (leadMin !== null && leadMin > 0 ? leadMin * 60 : 0));
 
   return (
     <section
