@@ -327,7 +327,19 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
           </div>
         ) : (
           <>
-            {view === 'situation' && <Situation objects={objects} predictions={predictions} confirmed={confirmed} totalPredictions={totalPredictions} onChanged={load} />}
+            {view === 'situation' && (
+              <Situation
+                objects={objects}
+                predictions={predictions}
+                confirmed={confirmed}
+                totalPredictions={totalPredictions}
+                onChanged={load}
+                onOpenTickets={(objId) => {
+                  setTicketFilterObjectId(objId || null);
+                  setView('tickets');
+                }}
+              />
+            )}
             {view === 'tickets' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><MaintenanceTickets filterObjectId={ticketFilterObjectId} onClearFilter={() => setTicketFilterObjectId(null)} onRefreshStats={load} /></div></div>}
             {view === 'summary' && <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 py-4 pb-20 lg:p-6"><SummaryView onOpenScenarios={() => setView('scenarios')} /></div>}
             {view === 'quality' && <div className="h-full overflow-y-auto px-4 py-4 lg:p-6"><div className="max-w-[1320px] mx-auto"><MetricsView /></div></div>}

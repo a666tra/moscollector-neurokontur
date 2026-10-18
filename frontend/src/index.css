@@ -242,6 +242,10 @@
 .nk-pin-wrap.sel .nk-pin-core {
   border-width: 3.5px;
 }
+.nk-pin-wrap.hov .nk-pin-core {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 3px var(--ac);
+}
 .nk-pin-core.done {
   background: var(--gn);
 }
@@ -491,4 +495,11 @@
   0%, 100% { box-shadow: 0 0 0 0 oklch(0.7 0.18 55 / 0.4); }
   50% { box-shadow: 0 0 0 8px oklch(0.7 0.18 55 / 0); }
 }
+
+/* Stacking context isolation for map so Leaflet panes never leak over UI panels */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 1 !important;
+}
+
 

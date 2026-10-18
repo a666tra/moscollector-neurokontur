@@ -6,6 +6,7 @@ interface Props {
   snap: SnapHeight;
   onSnapChange: (snap: SnapHeight) => void;
   children: React.ReactNode;
+  className?: string;
 }
 
 const SNAP_STYLES: Record<SnapHeight, string> = {
@@ -14,7 +15,7 @@ const SNAP_STYLES: Record<SnapHeight, string> = {
   full: '90%',
 };
 
-export const FieldBottomSheet: React.FC<Props> = ({ snap, onSnapChange, children }) => {
+export const FieldBottomSheet: React.FC<Props> = ({ snap, onSnapChange, children, className }) => {
   const startY = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -62,11 +63,12 @@ export const FieldBottomSheet: React.FC<Props> = ({ snap, onSnapChange, children
 
   return (
     <div
-      className="lg:hidden absolute left-0 right-0 bottom-0 z-30 flex flex-col rounded-t-[28px] overflow-hidden shadow-2xl transition-[height] duration-350 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+      className={`lg:hidden absolute left-0 right-0 bottom-0 z-30 flex flex-col rounded-t-[28px] overflow-hidden shadow-2xl transition-[height] duration-350 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${className || ''}`}
       style={{
         height: SNAP_STYLES[snap],
         background: 'var(--sf)',
         boxShadow: '0 -8px 32px -8px rgba(0, 0, 0, 0.32)',
+        zIndex: 500,
       }}
     >
       {/* Draggable Handle */}

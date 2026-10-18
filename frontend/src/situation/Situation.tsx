@@ -1,10 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
-import { ChevronRight, X, Plus, Minus, Maximize2, ArrowRight, ListOrdered, Search } from 'lucide-react';
+import {
+  ChevronRight,
+  Plus,
+  Minus,
+  Maximize2,
+  Check,
+  CheckCircle2,
+} from 'lucide-react';
 import { ObjectItem, PredictionItem, ConfirmedAlarmItem } from '../types';
 import { RiskMap, MOSCOW, MapPin } from './RiskMap';
 import { ChannelCard } from './ChannelCard';
-import { LEVEL_SOFT, LEVEL_VAR, probabilityOf, shortName, formatPk } from '../lib/plain';
+import { cleanName, probabilityOf, formatPk } from '../lib/plain';
+import { FieldBottomSheet, SnapHeight } from '../field/FieldBottomSheet';
+import { useSession } from '../lib/session';
 
 interface Props {
   objects: ObjectItem[];
@@ -12,235 +21,614 @@ interface Props {
   confirmed: ConfirmedAlarmItem[];
   totalPredictions?: number;
   onChanged: () => void;
+  onOpenTickets?: (objectId?: string) => void;
 }
 
 const TODAY_SIZE = 12;
-type Scope = 'today' | 'all';
-type Level = 'ALL' | 'CRITICAL' | 'WARNING';
+type FilterType = 'all' | 'urgent' | 'soon';
 
-/** «Обстановка»: risk map + today's queue + channel card (dispatcher scenario, ТЗ §12). */
-export const Situation: React.FC<Props> = ({ objects, predictions, confirmed, totalPredictions, onChanged }) => {
-  const [scope, setScope] = useState<Scope>('today');
-  const [level, setLevel] = useState<Level>('ALL');
-  const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+/**
+ * «Обстановка» (dispatcher situation screen, ТЗ §12, Task R4):
+ * - Queue on the left (desktop), shared living RiskMap in the middle, decision card on the right.
+ * - Pins/halos with real-time selection and bidirectional hover highlighting.
+ * - Resolved channels stop pulsing and display green checkmark.
+ * - Mobile layout with FieldBottomSheet (peek/half/full), queue sheet, centered pin.
+ * - Keyboard navigation (← →) and accessible button targets >= 44px.
+ */
+export const Situation: React.FC<Props> = ({
+  objects,
+  predictions,
+  confirmed,
+  totalPredictions,
+  onChanged,
+  onOpenTickets,
+}) => {
+  const { openShift } = useSession();
 
-  // Derive decided from confirmed decisions returned by the API so it survives reload
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('ch') || null;
+  });
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null);
+
+  // Mobile sheet states from URL params or defaults
+  const [mobileSnap, setMobileSnap] = useState<SnapHeight>(() => {
+    const s = new URLSearchParams(window.location.search).get('snap') as SnapHeight;
+    return s === 'peek' || s === 'half' || s === 'full' ? s : 'peek';
+  });
+  const [mobileTab, setMobileTab] = useState<'card' | 'queue'>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return t === 'queue' ? 'queue' : 'card';
+  });
+
+  const mapRef = useRef<L.Map | null>(null);
+
+  // Open shift / PIN dialog if requested in query param (e.g. ?pin=1)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('pin')) {
+      openShift();
+    }
+  }, [openShift]);
+
+  // Derive decided from confirmed alarms returned by API so it survives reload
   const initialDecided = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const c of (confirmed || [])) {
+    for (const c of confirmed || []) {
       if (c.channel_id) {
-        map[c.channel_id] = c.decision === 'CONFIRM_FALSE_ALARM'
-          ? `Отбой · ${c.notes || 'ложная тревога'}`
-          : `Бригада направлена · ${c.notes || 'выезд'}`;
+        map[c.channel_id] =
+          c.decision === 'CONFIRM_FALSE_ALARM'
+            ? `Отбой · ${c.notes || 'ложная тревога'}`
+            : `Бригада направлена · ${c.notes || 'выезд'}`;
       }
     }
     return map;
   }, [confirmed]);
 
-  const [localDecided, setLocalDecided] = useState<Record<string, string>>({});
-  const decided = useMemo(() => ({ ...initialDecided, ...localDecided }), [initialDecided, localDecided]);
+  const [localDecided, setLocalDecided] = useState<Record<string, string>>(() => {
+    // If URL has ?resolved=1, prefill a demo resolved decision for screenshots/testing
+    if (new URLSearchParams(window.location.search).get('resolved') === '1') {
+      return { '120117': 'Ремонт запланирован · З-ППР-202610-1026' };
+    }
+    return {};
+  });
 
-  const [hint, setHint] = useState(true);
-  const [listOpen, setListOpen] = useState(false);
-  const mapRef = useRef<L.Map | null>(null);
-
-  useEffect(() => {
-    if (!listOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setListOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [listOpen]);
-
-  const objectsById = useMemo(() => Object.fromEntries(objects.map(o => [o.object_id, o])), [objects]);
-  const ranked = useMemo(
-    () => predictions.filter(p => p.risk_level === 'CRITICAL' || p.risk_level === 'WARNING' || p.risk_level === 'ATTENTION')
-      .sort((a, b) => probabilityOf(b) - probabilityOf(a)),
-    [predictions],
+  const decided = useMemo(
+    () => ({ ...initialDecided, ...localDecided }),
+    [initialDecided, localDecided]
   );
-  // «Сегодня»: the most likely channel per object — one decision per place on the map.
+
+  const objectsById = useMemo(
+    () => Object.fromEntries(objects.map(o => [o.object_id, o])),
+    [objects]
+  );
+
+  // Ranked predictions by failure probability
+  const ranked = useMemo(
+    () =>
+      predictions
+        .filter(
+          p =>
+            p.risk_level === 'CRITICAL' ||
+            p.risk_level === 'WARNING' ||
+            p.risk_level === 'ATTENTION'
+        )
+        .sort((a, b) => probabilityOf(b) - probabilityOf(a)),
+    [predictions]
+  );
+
+  // «Сегодня»: top channels per unique object
   const today = useMemo(() => {
     const seen = new Set<string>();
-    return ranked.filter(p => (p.risk_level !== 'ATTENTION') && !seen.has(p.object_id) && seen.add(p.object_id)).slice(0, TODAY_SIZE);
+    return ranked
+      .filter(
+        p =>
+          p.risk_level !== 'ATTENTION' &&
+          !seen.has(p.object_id) &&
+          seen.add(p.object_id)
+      )
+      .slice(0, TODAY_SIZE);
   }, [ranked]);
 
+  // Filtered queue list based on filter chips
   const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (scope === 'today' ? today : ranked).filter(p =>
-      (level === 'ALL' || p.risk_level === level)
-      && (!q || `${p.channel_id} ${p.sensor_name} ${p.object_name}`.toLowerCase().includes(q)));
-  }, [scope, today, ranked, level, query]);
+    return today.filter(p => {
+      if (filter === 'urgent') return p.risk_level === 'CRITICAL';
+      if (filter === 'soon')
+        return p.risk_level === 'WARNING' || p.risk_level === 'ATTENTION';
+      return true;
+    });
+  }, [today, filter]);
 
-  const selected = list.find(p => p.channel_id === selectedId) ?? ranked.find(p => p.channel_id === selectedId) ?? list[0] ?? null;
-  const index = selected ? Math.max(0, list.findIndex(p => p.channel_id === selected.channel_id)) : 0;
-  const step = (d: number) => { if (list.length) setSelectedId(list[(index + d + list.length) % list.length].channel_id); };
+  // Currently selected channel
+  const selected =
+    list.find(p => p.channel_id === selectedId) ??
+    today.find(p => p.channel_id === selectedId) ??
+    ranked.find(p => p.channel_id === selectedId) ??
+    list[0] ??
+    today[0] ??
+    null;
 
-  const pins: MapPin[] = useMemo(() => today.map(p => ({
-    objectId: p.object_id, pct: Math.round(probabilityOf(p) * 100), risk: p.risk_level, done: !!decided[p.channel_id],
-  })), [today, decided]);
+  const index = selected
+    ? Math.max(0, list.findIndex(p => p.channel_id === selected.channel_id))
+    : 0;
+
+  // Step next/prev channel
+  const step = useCallback(
+    (delta: number) => {
+      if (!list.length) return;
+      const curIdx = selected
+        ? list.findIndex(p => p.channel_id === selected.channel_id)
+        : 0;
+      const nextIdx = (curIdx + delta + list.length) % list.length;
+      setSelectedId(list[nextIdx].channel_id);
+    },
+    [list, selected]
+  );
+
+  // Keyboard navigation: Left/Right arrows switch channels when not inside inputs
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName?.toUpperCase() || '';
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        step(1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        step(-1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [step]);
+
+  // Pins for RiskMap
+  const pins: MapPin[] = useMemo(
+    () =>
+      today.map(p => ({
+        objectId: p.object_id,
+        pct: Math.round(probabilityOf(p) * 100),
+        risk: p.risk_level,
+        done: !!decided[p.channel_id],
+      })),
+    [today, decided]
+  );
+
   const doneToday = today.filter(p => decided[p.channel_id]).length;
+  const countAll = today.length;
+  const countUrgent = today.filter(p => p.risk_level === 'CRITICAL').length;
+  const countSoon = today.filter(
+    p => p.risk_level === 'WARNING' || p.risk_level === 'ATTENTION'
+  ).length;
 
-  const pickObject = (objectId: string) => {
-    const best = ranked.find(p => p.object_id === objectId);
+  const handlePickChannel = (channelId: string) => {
+    setSelectedId(channelId);
+    setMobileTab('card');
+  };
+
+  const handlePickObject = (objectId: string) => {
+    const best =
+      today.find(p => p.object_id === objectId) ??
+      ranked.find(p => p.object_id === objectId);
     if (!best) return;
-    if (!today.some(p => p.channel_id === best.channel_id)) setScope('all');
-    setLevel('ALL'); setQuery('');
     setSelectedId(best.channel_id);
-    setHint(false);
+    setMobileTab('card');
+  };
+
+  const handleMapHover = (objectId: string | null) => {
+    setHoveredObjectId(objectId);
+    if (objectId) {
+      const ch = today.find(p => p.object_id === objectId);
+      setHoveredId(ch ? ch.channel_id : null);
+    } else {
+      setHoveredId(null);
+    }
   };
 
   const onDecided = (cid: string, text: string) => {
     setLocalDecided(d => ({ ...d, [cid]: text }));
     onChanged();
-    const next = list.find((p, i) => i > index && !decided[p.channel_id] && p.channel_id !== cid);
-    if (next) setTimeout(() => setSelectedId(next.channel_id), 900);
+    const next = list.find(
+      (p, i) => i > index && !decided[p.channel_id] && p.channel_id !== cid
+    );
+    if (next) setTimeout(() => setSelectedId(next.channel_id), 800);
   };
 
-  const renderCard = (compact: boolean) => selected && (
-    <ChannelCard
-      compact={compact}
-      item={selected}
-      object={objectsById[selected.object_id]}
-      position={index + 1}
-      total={list.length}
-      done={decided[selected.channel_id]}
-      onPrev={() => step(-1)}
-      onNext={() => step(1)}
-      onDecided={onDecided}
-    />
+  // Queue rows for left panel and mobile sheet
+  const renderQueueRows = () => (
+    <div className="flex flex-col gap-1" role="list">
+      {list.map(p => {
+        const isSel = selected?.channel_id === p.channel_id;
+        const isHov = hoveredId === p.channel_id || hoveredObjectId === p.object_id;
+        const o = objectsById[p.object_id];
+        const isDone = !!decided[p.channel_id];
+        const pct = Math.round(probabilityOf(p) * 100);
+        const isCrit = p.risk_level === 'CRITICAL';
+
+        const badgeBg = isDone ? 'var(--gn)' : isCrit ? 'var(--rds)' : 'var(--ams)';
+        const badgeFg = isDone ? '#ffffff' : isCrit ? 'var(--rdt)' : 'var(--amt)';
+        const rowBg = isSel ? 'var(--acs)' : isHov ? 'var(--sf2)' : 'transparent';
+
+        return (
+          <button
+            key={p.channel_id}
+            role="listitem"
+            onClick={() => handlePickChannel(p.channel_id)}
+            onPointerEnter={() => {
+              setHoveredId(p.channel_id);
+              setHoveredObjectId(p.object_id);
+            }}
+            onPointerLeave={() => {
+              setHoveredId(null);
+              setHoveredObjectId(null);
+            }}
+            className="w-full min-h-[60px] p-2.5 px-3 rounded-[14px] flex items-center gap-3 text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--ac)]"
+            style={{ background: rowBg, color: 'var(--ink)' }}
+          >
+            <span
+              className="w-[50px] h-[36px] rounded-[11px] flex items-center justify-center font-bold text-[14px] shrink-0 font-variant-numeric:tabular-nums"
+              style={{ background: badgeBg, color: badgeFg }}
+            >
+              {isDone ? <Check className="w-5 h-5 stroke-[2.6]" /> : `${pct}%`}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-semibold text-[15px] truncate leading-tight">
+                {cleanName(p.sensor_name)}
+              </span>
+              <span className="block text-[13px] text-[var(--mu)] truncate mt-0.5">
+                {o ? `${o.corridor} · ${formatPk(o.picket)}` : p.object_name}
+              </span>
+            </span>
+            <ChevronRight className="w-[18px] h-[18px] text-[var(--mu)] shrink-0" />
+          </button>
+        );
+      })}
+      {list.length === 0 && (
+        <div className="py-8 text-center text-[13.5px] text-[var(--mu)]">
+          Нет каналов под этот фильтр
+        </div>
+      )}
+    </div>
   );
 
-  const queuePanel = (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="p-[18px] pb-3 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="flex p-1 rounded-full overflow-hidden" style={{ background: 'var(--sf2)' }}>
-            {(['today', 'all'] as Scope[]).map(s => {
-              let label = s === 'today' ? 'Сегодня' : `Все каналы · ${ranked.length}`;
-              if (s === 'all') {
-                const totalCount = totalPredictions || 11485;
-                label = `показаны первые 500 из ${totalCount.toLocaleString('ru-RU')}`;
-              }
+  const focusOffsetY =
+    typeof window !== 'undefined' && window.innerWidth < 1024
+      ? mobileSnap === 'peek'
+        ? 0.015
+        : mobileSnap === 'half'
+        ? 0.032
+        : 0.048
+      : 0;
+
+  return (
+    <div className="relative h-full w-full min-h-0 overflow-hidden flex flex-col lg:block select-none">
+      {/* 1. Map Canvas */}
+      <div
+        className="absolute inset-0 overflow-hidden"
+        style={{ isolation: 'isolate', zIndex: 1 }}
+      >
+        <RiskMap
+          objects={objects}
+          pins={pins}
+          selectedObjectId={selected?.object_id}
+          hoveredObjectId={hoveredObjectId}
+          onPick={handlePickObject}
+          onHover={handleMapHover}
+          focusOffsetY={focusOffsetY}
+          zoom={typeof window !== 'undefined' && window.innerWidth < 1024 ? 11 : 12}
+          onReady={m => {
+            mapRef.current = m;
+          }}
+        />
+      </div>
+
+      {/* 2. Desktop Floating Legend (bottom center) */}
+      <div
+        className="hidden lg:flex absolute left-1/2 -translate-x-1/2 bottom-[18px] z-[500] items-center gap-4 py-2 px-5 rounded-full border shadow-md text-[13.5px] whitespace-nowrap"
+        style={{
+          background: 'var(--sf)',
+          borderColor: 'var(--ln)',
+          boxShadow: 'var(--sh)',
+          color: 'var(--ink)',
+          zIndex: 500,
+        }}
+      >
+        <span className="flex items-center gap-2">
+          <i className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'var(--rd)' }} />
+          <span>срочно проверить</span>
+        </span>
+        <span className="flex items-center gap-2">
+          <i className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'var(--am)' }} />
+          <span>проверить скоро</span>
+        </span>
+        <span className="flex items-center gap-2">
+          <i className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'var(--gn)' }} />
+          <span>решено</span>
+        </span>
+        <span className="flex items-center gap-2">
+          <i className="w-4.5 h-[3px] rounded shrink-0" style={{ background: 'var(--ac)' }} />
+          <span>коллектор</span>
+        </span>
+        <span className="font-mono text-[11px] text-[var(--mu)] pl-1">
+          карта схематична
+        </span>
+      </div>
+
+      {/* 3. Desktop Map Zoom Controls */}
+      <div
+        className="hidden lg:flex flex-col rounded-full overflow-hidden absolute right-[404px] bottom-[68px] z-[500] shadow-md border"
+        style={{
+          background: 'var(--sf)',
+          borderColor: 'var(--ln)',
+          boxShadow: 'var(--sh)',
+          color: 'var(--ink)',
+          zIndex: 500,
+        }}
+      >
+        <button
+          className="w-11 h-11 flex items-center justify-center hover:bg-[var(--sf2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ac)]"
+          aria-label="Приблизить"
+          onClick={() => mapRef.current?.zoomIn()}
+        >
+          <Plus className="w-[18px] h-[18px]" />
+        </button>
+        <button
+          className="w-11 h-11 flex items-center justify-center border-t hover:bg-[var(--sf2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ac)]"
+          style={{ borderColor: 'var(--ln)' }}
+          aria-label="Отдалить"
+          onClick={() => mapRef.current?.zoomOut()}
+        >
+          <Minus className="w-[18px] h-[18px]" />
+        </button>
+        <button
+          className="w-11 h-11 flex items-center justify-center border-t hover:bg-[var(--sf2)] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ac)]"
+          style={{ borderColor: 'var(--ln)' }}
+          aria-label="Вся Москва"
+          onClick={() => mapRef.current?.flyTo(MOSCOW, 11.4, { duration: 0.6 })}
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* 4. Desktop Left Panel: «Очередь на сегодня» */}
+      <aside
+        className="hidden lg:flex absolute left-4 top-4 bottom-4 w-[356px] z-[500] rounded-[24px] border shadow-md flex-col overflow-hidden"
+        style={{
+          background: 'var(--sf)',
+          borderColor: 'var(--ln)',
+          boxShadow: 'var(--sh)',
+          zIndex: 500,
+        }}
+      >
+        <div className="p-5 pb-3 shrink-0 space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="serif text-[28px] font-normal leading-[1.1] text-[var(--ink)]">
+              Очередь на сегодня
+            </h2>
+          </div>
+          <div className="text-[13px] text-[var(--mu)] leading-snug">
+            {today.length} каналов с самой высокой оценкой · всего в базе{' '}
+            {(totalPredictions || predictions.length).toLocaleString('ru-RU')}
+          </div>
+
+          {/* Segmented progress bar */}
+          <div className="flex items-center gap-2.5 pt-1">
+            <div
+              className="flex-1 grid gap-1"
+              style={{ gridTemplateColumns: `repeat(${today.length || 1}, 1fr)` }}
+            >
+              {today.map(c => {
+                const isDone = !!decided[c.channel_id];
+                const isCrit = c.risk_level === 'CRITICAL';
+                const bg = isDone ? 'var(--gn)' : isCrit ? 'var(--rds)' : 'var(--ams)';
+                return (
+                  <i
+                    key={c.channel_id}
+                    className="h-[7px] rounded-full transition-colors duration-300"
+                    style={{ background: bg }}
+                  />
+                );
+              })}
+            </div>
+            <span className="font-semibold text-[13px] text-[var(--ink)] whitespace-nowrap">
+              решено {doneToday} из {today.length}
+            </span>
+          </div>
+
+          {/* Chips: Все / Срочно / Скоро */}
+          <div className="flex gap-2 pt-1">
+            {[
+              { id: 'all', label: 'Все', count: countAll },
+              { id: 'urgent', label: 'Срочно', count: countUrgent },
+              { id: 'soon', label: 'Скоро', count: countSoon },
+            ].map(ch => {
+              const active = filter === ch.id;
               return (
-                <button key={s} onClick={() => setScope(s)} className="h-8 px-3 rounded-full text-[13px] font-medium whitespace-nowrap"
-                        style={scope === s ? { background: 'var(--sf)', boxShadow: '0 1px 3px rgba(0,0,0,.12)' } : { color: 'var(--mut)' }}>
-                  {label}
+                <button
+                  key={ch.id}
+                  onClick={() => setFilter(ch.id as any)}
+                  className="min-h-[44px] px-4 rounded-full border text-[14px] font-semibold flex items-center gap-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ac)]"
+                  style={
+                    active
+                      ? { background: 'var(--ink)', color: 'var(--bg)', borderColor: 'var(--ink)' }
+                      : { background: 'var(--sf)', color: 'var(--ink)', borderColor: 'var(--ln2)' }
+                  }
+                >
+                  <span>{ch.label}</span>
+                  <span style={{ opacity: 0.7 }}>{ch.count}</span>
                 </button>
               );
             })}
           </div>
         </div>
-        <div className="serif font-semibold text-[28px] leading-none">{scope === 'today' ? 'Очередь на сегодня' : 'Все каналы под риском'}</div>
-        {scope === 'today' ? (
-          <div className="flex items-center gap-2.5">
-            <div className="flex-1 h-1.5 rounded overflow-hidden" style={{ background: 'var(--sf3)' }}>
-              <div className="h-full" style={{ width: `${today.length ? (100 * doneToday) / today.length : 0}%`, background: 'var(--ok)', transition: 'width .5s' }} />
-            </div>
-            <span className="text-xs" style={{ color: 'var(--mut)' }}>решено {doneToday} из {today.length}</span>
-          </div>
-        ) : (
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--mut)' }} />
-            <input className="input !h-10 pl-10 !rounded-full" placeholder="Канал или объект" value={query} onChange={e => setQuery(e.target.value)} />
-          </div>
-        )}
-        <div className="flex gap-1.5">
-          {([['ALL', 'Все'], ['CRITICAL', 'Срочно'], ['WARNING', 'Скоро']] as Array<[Level, string]>).map(([k, t]) => (
-            <button key={k} onClick={() => setLevel(k)} className="h-8 px-3 rounded-full border text-[13px]"
-                    style={level === k ? { background: 'var(--ink)', color: 'var(--bg)', borderColor: 'var(--ink)' } : { borderColor: 'var(--ln)' }}>
-              {t}
-            </button>
-          ))}
+
+        {/* Scrollable Rows */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
+          {renderQueueRows()}
         </div>
-      </div>
-      <div className="flex-1 overflow-y-auto scroll-thin px-2 pb-2">
-        {list.slice(0, 150).map(p => {
-          const active = selected?.channel_id === p.channel_id;
-          const o = objectsById[p.object_id];
-          const done = decided[p.channel_id];
+      </aside>
+
+      {/* 5. Desktop Right Card: Decision card */}
+      {selected && (
+        <aside
+          className="hidden lg:flex absolute right-4 top-4 bottom-4 w-[376px] z-[500] rounded-[24px] border shadow-md flex-col overflow-hidden"
+          style={{
+            background: 'var(--sf)',
+            borderColor: 'var(--ln)',
+            boxShadow: 'var(--sh)',
+            zIndex: 500,
+          }}
+        >
+          <ChannelCard
+            item={selected}
+            object={objectsById[selected.object_id]}
+            position={index + 1}
+            total={list.length}
+            done={decided[selected.channel_id]}
+            onPrev={() => step(-1)}
+            onNext={() => step(1)}
+            onDecided={onDecided}
+            onOpenTickets={onOpenTickets}
+          />
+        </aside>
+      )}
+
+      {/* 6. Mobile Layout: Top floating chips + Zoom controls + BottomSheet */}
+      <div
+        className="lg:hidden absolute top-2.5 left-2.5 right-2.5 z-[500] flex items-center gap-2 overflow-x-auto scrollbar-none pointer-events-auto py-1"
+        style={{ zIndex: 500 }}
+      >
+        {[
+          { id: 'all', label: 'Все', count: countAll },
+          { id: 'urgent', label: 'Срочно', count: countUrgent },
+          { id: 'soon', label: 'Скоро', count: countSoon },
+        ].map(ch => {
+          const active = filter === ch.id;
           return (
-            <button key={p.channel_id} onClick={() => { setSelectedId(p.channel_id); setListOpen(false); setHint(false); }}
-                    className="w-full grid grid-cols-[62px_minmax(0,1fr)_18px] items-center gap-2 p-2.5 rounded-2xl text-left transition-colors hover:bg-[var(--sf2)]"
-                    style={active ? { background: 'var(--sf2)' } : undefined}>
-              <span className="h-[30px] rounded-full flex items-center justify-center text-sm font-semibold"
-                    style={done ? { background: 'var(--oks)', color: 'var(--ok)' } : { background: LEVEL_SOFT[p.risk_level], color: LEVEL_VAR[p.risk_level] }}>
-                {done ? '✓' : `${Math.round(probabilityOf(p) * 100)}%`}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium truncate">{shortName(p.sensor_name)}</span>
-                <span className="block text-xs truncate" style={{ color: 'var(--mut)' }}>{o ? `${o.corridor} · ${formatPk(o.picket)}` : p.object_name}</span>
-              </span>
-              <ChevronRight className="w-4 h-4" style={{ color: 'var(--mut)' }} />
+            <button
+              key={ch.id}
+              onClick={() => setFilter(ch.id as any)}
+              className="min-h-[44px] px-4 rounded-full border text-[13.5px] font-semibold flex items-center gap-1 shrink-0 shadow-sm transition-colors"
+              style={
+                active
+                  ? { background: 'var(--ink)', color: 'var(--bg)', borderColor: 'var(--ink)' }
+                  : { background: 'var(--sf)', color: 'var(--ink)', borderColor: 'var(--ln2)' }
+              }
+            >
+              <span>{ch.label}</span>
+              <span style={{ opacity: 0.75 }}>{ch.count}</span>
             </button>
           );
         })}
-        {list.length === 0 && <div className="p-6 text-sm text-center" style={{ color: 'var(--mut)' }}>Нет каналов под этот фильтр</div>}
-      </div>
-    </div>
-  );
 
-  const zoom = (
-    <div className="glass rounded-full flex flex-col overflow-hidden">
-      <button className="w-11 h-11 flex items-center justify-center hover:bg-[var(--sf2)]" aria-label="Приблизить" onClick={() => mapRef.current?.zoomIn()}><Plus className="w-[18px] h-[18px]" /></button>
-      <button className="w-11 h-11 flex items-center justify-center border-t hover:bg-[var(--sf2)]" style={{ borderColor: 'var(--ln)' }} aria-label="Отдалить" onClick={() => mapRef.current?.zoomOut()}><Minus className="w-[18px] h-[18px]" /></button>
-      <button className="w-11 h-11 flex items-center justify-center border-t hover:bg-[var(--sf2)]" style={{ borderColor: 'var(--ln)' }} aria-label="Вся Москва" onClick={() => mapRef.current?.flyTo(MOSCOW, 11.4, { duration: 0.6 })}><Maximize2 className="w-4 h-4" /></button>
-    </div>
-  );
-
-  return (
-    <div className="relative h-full min-h-0 flex flex-col lg:block">
-      {/* map */}
-      <div className="relative h-[44vh] shrink-0 lg:absolute lg:inset-0 lg:h-auto">
-        <RiskMap objects={objects} pins={pins} selectedObjectId={selected?.object_id} onPick={pickObject} zoom={typeof window !== 'undefined' && window.innerWidth < 1024 ? 10.5 : 11.6} onReady={m => { mapRef.current = m; }} />
-        <div className="absolute right-3 bottom-3 z-[500] lg:hidden">{zoom}</div>
+        {/* Solved badge & Queue sheet trigger */}
+        <button
+          onClick={() => {
+            setMobileTab('queue');
+            setMobileSnap('half');
+          }}
+          className="min-h-[44px] px-3.5 rounded-full border flex items-center gap-1.5 text-[13px] font-semibold shrink-0 shadow-sm transition-colors hover:bg-[var(--sf2)]"
+          style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
+        >
+          <CheckCircle2 className="w-4 h-4 text-[var(--gn)] shrink-0" />
+          <span className="whitespace-nowrap">
+            решено {doneToday} из {today.length}
+          </span>
+        </button>
       </div>
 
-      {/* desktop overlays */}
-      <aside className="hidden lg:flex absolute left-4 top-4 bottom-4 w-[320px] z-[600] glass rounded-[22px] overflow-hidden">{queuePanel}</aside>
-      {hint && (
-        <div className="hidden min-[1560px]:flex absolute left-[352px] top-4 z-[600] glass rounded-full items-center gap-3.5 py-2 pl-4 pr-2 text-[13px] rise" style={{ animationDuration: '.5s' }}>
-          {['Нажмите на точку', 'Посмотрите, почему', 'Выберите, что делать'].map((t, i) => (
-            <React.Fragment key={t}>
-              {i > 0 && <ArrowRight className="w-3.5 h-3.5" style={{ color: 'var(--mut)' }} />}
-              <span className="flex items-center gap-1.5">
-                <b className="w-5 h-5 rounded-full text-[11px] flex items-center justify-center" style={{ background: 'var(--ac)', color: 'var(--act)' }}>{i + 1}</b>{t}
-              </span>
-            </React.Fragment>
-          ))}
-          <button onClick={() => setHint(false)} aria-label="Скрыть подсказку" className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'var(--sf2)', color: 'var(--mut)' }}><X className="w-3.5 h-3.5" /></button>
-        </div>
-      )}
-      <div className="hidden lg:flex absolute left-[352px] bottom-4 z-[600] glass rounded-full items-center gap-4 px-4 py-2.5 text-[13px]">
-        <Legend color="var(--cr)" text="срочно проверить" />
-        <Legend color="var(--wr)" text="проверить скоро" />
-        <Legend color="var(--ok)" text="решено" />
-        <span className="flex items-center gap-1.5" style={{ color: 'var(--mut)' }}><span className="w-3.5 h-[3px] rounded" style={{ background: 'var(--ac)' }} />коллектор</span>
+      {/* Mobile Floating Zoom Controls */}
+      <div
+        className="lg:hidden flex flex-col rounded-full overflow-hidden absolute right-3 bottom-[224px] z-[500] shadow-md border"
+        style={{
+          background: 'var(--sf)',
+          borderColor: 'var(--ln)',
+          boxShadow: 'var(--sh)',
+          color: 'var(--ink)',
+          zIndex: 500,
+        }}
+      >
+        <button
+          className="w-11 h-11 flex items-center justify-center hover:bg-[var(--sf2)] transition-colors"
+          aria-label="Приблизить"
+          onClick={() => mapRef.current?.zoomIn()}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          className="w-11 h-11 flex items-center justify-center border-t hover:bg-[var(--sf2)] transition-colors"
+          style={{ borderColor: 'var(--ln)' }}
+          aria-label="Отдалить"
+          onClick={() => mapRef.current?.zoomOut()}
+        >
+          <Minus className="w-4 h-4" />
+        </button>
       </div>
-      <div className="hidden lg:block absolute right-[476px] bottom-4 z-[600]">{zoom}</div>
-      {selected && (
-        <div className="hidden lg:flex absolute right-4 top-4 bottom-4 w-[440px] z-[600] rounded-3xl overflow-hidden" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)' }}>{renderCard(typeof window !== 'undefined' && window.innerHeight < 820)}</div>
-      )}
 
-      {/* mobile: card under the map, queue in a sheet */}
-      <div className="lg:hidden flex-1 min-h-0 -mt-5 relative z-[600] rounded-t-[28px] flex flex-col" style={{ background: 'var(--sf)', boxShadow: 'var(--shadow)' }}>
-        <div className="flex items-center justify-between px-5 pt-3">
-          <span className="w-10 h-1 rounded mx-auto absolute left-1/2 -translate-x-1/2 top-2" style={{ background: 'var(--ln2)' }} />
-          <span className="text-xs mt-2" style={{ color: 'var(--mut)' }}>решено {doneToday} из {today.length}</span>
-          <button className="btn btn-secondary !h-9 mt-2" onClick={() => setListOpen(true)}><ListOrdered className="w-4 h-4" />Очередь</button>
-        </div>
-        <div className="flex-1 min-h-0">{selected && <ChannelCardMobile>{renderCard(true)}</ChannelCardMobile>}</div>
+      {/* Mobile BottomSheet (FieldBottomSheet reused) */}
+      <div className="lg:hidden" style={{ zIndex: 500 }}>
+        <FieldBottomSheet snap={mobileSnap} onSnapChange={setMobileSnap} className="!z-[500]">
+          {mobileSnap !== 'peek' && (
+            <div className="flex gap-1 mx-4 mb-2 p-1 rounded-[14px] shrink-0" style={{ background: 'var(--sf2)' }}>
+              <button
+                onClick={() => setMobileTab('card')}
+                className="flex-1 min-h-[44px] rounded-[11px] font-semibold text-[14px] transition-all"
+                style={
+                  mobileTab === 'card'
+                    ? { background: 'var(--sf)', color: 'var(--ink)', boxShadow: 'var(--sh)' }
+                    : { background: 'transparent', color: 'var(--mu)' }
+                }
+              >
+                Канал
+              </button>
+              <button
+                onClick={() => setMobileTab('queue')}
+                className="flex-1 min-h-[44px] rounded-[11px] font-semibold text-[14px] transition-all"
+                style={
+                  mobileTab === 'queue'
+                    ? { background: 'var(--sf)', color: 'var(--ink)', boxShadow: 'var(--sh)' }
+                    : { background: 'transparent', color: 'var(--mu)' }
+                }
+              >
+                Очередь ({today.length})
+              </button>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            {mobileTab === 'queue' ? (
+              <div className="h-full flex flex-col p-4 pt-1 overflow-y-auto">
+                <div className="serif text-[22px] font-normal leading-tight text-[var(--ink)] mb-1">
+                  Очередь на сегодня
+                </div>
+                <div className="text-[12px] text-[var(--mu)] mb-3">
+                  {today.length} каналов с самой высокой оценкой · всего в базе{' '}
+                  {(totalPredictions || predictions.length).toLocaleString('ru-RU')}
+                </div>
+                <div className="flex-1 overflow-y-auto">{renderQueueRows()}</div>
+              </div>
+            ) : (
+              selected && (
+                <ChannelCard
+                  item={selected}
+                  object={objectsById[selected.object_id]}
+                  position={index + 1}
+                  total={list.length}
+                  done={decided[selected.channel_id]}
+                  compact={mobileSnap === 'peek'}
+                  onPrev={() => step(-1)}
+                  onNext={() => step(1)}
+                  onDecided={onDecided}
+                  onOpenTickets={onOpenTickets}
+                />
+              )
+            )}
+          </div>
+        </FieldBottomSheet>
       </div>
-      {listOpen && (
-        <div className="lg:hidden fixed inset-0 z-[1250] flex items-end" style={{ background: 'rgba(10,10,12,.45)' }} onClick={() => setListOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Очередь каналов" className="w-full h-[80vh] rounded-t-[28px] flex flex-col" style={{ background: 'var(--sf)' }} onClick={e => e.stopPropagation()}>{queuePanel}</div>
-        </div>
-      )}
     </div>
   );
 };
-
-const Legend: React.FC<{ color: string; text: string }> = ({ color, text }) => (
-  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />{text}</span>
-);
-
-const ChannelCardMobile: React.FC<{ children: React.ReactNode }> = ({ children }) => <div className="h-full flex">{children}</div>;

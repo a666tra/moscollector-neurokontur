@@ -8,7 +8,9 @@ interface Props {
   objects: ObjectItem[];
   pins: MapPin[];
   selectedObjectId?: string;
+  hoveredObjectId?: string | null;
   onPick?: (objectId: string) => void;
+  onHover?: (objectId: string | null) => void;
   interactive?: boolean;
   center?: [number, number];
   zoom?: number;
@@ -46,7 +48,9 @@ export const RiskMap: React.FC<Props> = ({
   objects,
   pins,
   selectedObjectId,
+  hoveredObjectId,
   onPick,
+  onHover,
   interactive = true,
   center = MOSCOW,
   zoom = 12,
@@ -62,6 +66,8 @@ export const RiskMap: React.FC<Props> = ({
   const marks = useRef<L.LayerGroup | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
+  const hover = useRef(onHover);
+  hover.current = onHover;
 
   const [currentZoom, setCurrentZoom] = useState(zoom);
 
@@ -159,7 +165,8 @@ export const RiskMap: React.FC<Props> = ({
       const o = objBy[p.objectId];
       if (!o) return;
       const isSel = p.objectId === selectedObjectId;
-      if (isSel) {
+      const isHov = p.objectId === hoveredObjectId;
+      if (isSel || isHov) {
         showPillSet.add(p.objectId);
         if (m) approvedPoints.push(m.latLngToLayerPoint([o.lat, o.lon]));
         return;
@@ -196,7 +203,8 @@ export const RiskMap: React.FC<Props> = ({
         if (!o) return;
 
         const sel = p.objectId === selectedObjectId;
-        const showPill = showPillSet.has(p.objectId) && (p.done || p.pct != null);
+        const isHov = p.objectId === hoveredObjectId;
+        const showPill = (showPillSet.has(p.objectId) || isHov) && (p.done || p.pct != null);
         const inTop100 = top100RiskSet.has(p.objectId);
         const pulse = inTop100 && !p.done;
         const isCritical = p.risk === 'CRITICAL';
@@ -228,7 +236,7 @@ export const RiskMap: React.FC<Props> = ({
           : '';
 
         const html = `
-          <div class="nk-pin-wrap ${sel ? 'sel' : ''} ${showPill ? 'show-pill' : ''}" style="--pin-color: ${colorVar}; --r: ${r}px; --halo-d: ${haloD}px;">
+          <div class="nk-pin-wrap ${sel ? 'sel' : ''} ${isHov ? 'hov' : ''} ${showPill ? 'show-pill' : ''}" style="--pin-color: ${colorVar}; --r: ${r}px; --halo-d: ${haloD}px;">
             <div class="nk-pin-hit" tabindex="${interactive ? 0 : -1}" role="${interactive ? 'button' : 'img'}" aria-label="${ariaLabel}">
               ${pulseHtml}
               <div class="nk-soft-halo"></div>
@@ -251,13 +259,17 @@ export const RiskMap: React.FC<Props> = ({
 
         const marker = L.marker([o.lat, o.lon], {
           icon,
-          zIndexOffset: sel ? 1000 : p.pct,
+          zIndexOffset: sel ? 1000 : isHov ? 900 : p.pct,
           keyboard: false,
           interactive: interactive,
         });
 
-        if (interactive && pick.current) {
-          marker.on('click', () => pick.current?.(p.objectId));
+        if (interactive) {
+          if (pick.current) {
+            marker.on('click', () => pick.current?.(p.objectId));
+          }
+          marker.on('mouseover', () => hover.current?.(p.objectId));
+          marker.on('mouseout', () => hover.current?.(null));
         }
 
         marker.addTo(mk);
@@ -310,18 +322,14 @@ export const RiskMap: React.FC<Props> = ({
         }).addTo(mk);
       }
     }
-  }, [objects, pins, selectedObjectId, currentZoom, interactive, you, youLabel, routeTo]);
+  }, [objects, pins, selectedObjectId, hoveredObjectId, currentZoom, interactive, you, youLabel, routeTo]);
 
   useEffect(() => {
     const m = map.current;
     const o = objects.find(x => x.object_id === selectedObjectId);
     if (m && o && interactive) {
       const targetLat = focusOffsetY ? o.lat - focusOffsetY : o.lat;
-      if (zoomOnSelect) {
-        m.flyTo([targetLat, o.lon], 16, { duration: 0.6 });
-      } else if (!m.getBounds().pad(-0.2).contains([o.lat, o.lon])) {
-        m.flyTo([targetLat, o.lon], Math.max(m.getZoom(), 12.5), { duration: 0.6 });
-      }
+      m.flyTo([targetLat, o.lon], zoomOnSelect ? 16 : Math.max(m.getZoom(), 12.5), { duration: 0.6 });
     }
   }, [selectedObjectId, zoomOnSelect, focusOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
 
