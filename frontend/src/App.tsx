@@ -3,6 +3,7 @@ import {
   Map as MapIcon, ClipboardList, LineChart, FlaskConical, LayoutDashboard, SlidersHorizontal, ArrowLeftRight, MoreHorizontal, X,
 } from 'lucide-react';
 import { Landing } from './shell/Landing';
+import { TopoBackground, TopoPose } from './shell/TopoBackground';
 import { Situation } from './situation/Situation';
 import { MaintenanceTickets } from './components/MaintenanceTickets';
 import { MetricsView } from './components/MetricsView';
@@ -311,6 +312,11 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
 
       {/* Main content area */}
       <main className="flex-1 min-h-0 relative overflow-x-hidden">
+        <TopoBackground
+          pose={
+            view === 'tickets' ? (isTech ? 'tech' : 'tickets') : (view === 'summary' || view === 'scenarios' || view === 'quality') ? (view as TopoPose) : null
+          }
+        />
         {loading && objects.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
             <div className="w-9 h-9 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ac)', borderTopColor: 'transparent' }} />
@@ -341,7 +347,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               />
             )}
             {view === 'tickets' && (
-              <div className="h-full overflow-y-auto px-3 sm:px-4 py-4 pb-20 lg:p-6">
+              <div className="relative z-[1] h-full overflow-y-auto px-3 sm:px-4 py-4 pb-20 lg:p-6">
                 <div className="max-w-[1400px] mx-auto">
                   <MaintenanceTickets
                     filterObjectId={ticketFilterObjectId}
@@ -354,7 +360,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               </div>
             )}
             {view === 'summary' && (
-              <div className="h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 py-4 pb-20 lg:p-6">
+              <div className="relative z-[1] h-full overflow-y-auto overflow-x-hidden w-full px-3.5 sm:px-4 py-4 pb-20 lg:p-6">
                 <SummaryView
                   onOpenScenarios={() => setView('scenarios')}
                   onOpenTickets={() => {
@@ -365,14 +371,14 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               </div>
             )}
             {view === 'quality' && (
-              <div className="h-full overflow-y-auto px-4 py-4 lg:p-6">
+              <div className="relative z-[1] h-full overflow-y-auto px-4 py-4 lg:p-6">
                 <div className="max-w-[1320px] mx-auto">
                   <MetricsView onOpenSettings={() => setSettingsOpen(true)} />
                 </div>
               </div>
             )}
             {view === 'scenarios' && (
-              <div className="h-full overflow-y-auto px-4 py-4 lg:p-6">
+              <div className="relative z-[1] h-full overflow-y-auto px-4 py-4 lg:p-6">
                 <div className="max-w-[1320px] mx-auto">
                   <ScenarioLab objects={objects} />
                 </div>

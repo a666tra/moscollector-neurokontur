@@ -502,4 +502,7 @@
   z-index: 1 !important;
 }
 
-
+/* Animated topographic background (shell/TopoBackground.tsx) */
+@keyframes nkDrift { from { transform: translate3d(-2%, -1.5%, 0); } to { transform: translate3d(2%, 1.5%, 0); } }
+@keyframes nkDrift2 { from { transform: translate3d(1.8%, 1.2%, 0) rotate(.6deg); } to { transform: translate3d(-1.8%, -1.2%, 0) rotate(-.6deg); } }
+@media (prefers-reduced-motion: reduce) { .nk-topo svg { animation: none !important; } }
