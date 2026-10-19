@@ -290,6 +290,7 @@ export interface ScenarioIncidentItem {
   is_reminder: boolean;
   is_escalation: boolean;
   matched_truth_event_id: string | null;
+  scenario_id: string | null;
 }
 
 export interface ScenarioRunResponse {
@@ -458,7 +459,6 @@ export interface HttpLoadBenchmark {
   latency_p90_ms: number;
   latency_p95_ms: number;
   tz_sla_target_ms: number;
-  compliance_sla: string;
 }
 
 export interface PredictionMetricsResponse {

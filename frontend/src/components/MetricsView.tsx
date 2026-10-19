@@ -346,12 +346,18 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
                     <div className="text-[11px]" style={{ color: 'var(--mu)' }}>{httpBench.total_requests} запросов</div>
                   </div>
 
-                  <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
-                    <div className="text-xs" style={{ color: 'var(--mu)' }}>Норматив SLA (1000 мс):</div>
-                    <div className="text-2xl font-bold num" style={{ color: 'var(--gnt)' }}>
-                      {httpBench.compliance_sla}
+                  <div className="p-3.5 rounded-xl space-y-1 min-w-0 overflow-hidden" style={{ background: 'var(--sf2)' }}>
+                    <div className="text-xs leading-tight truncate" style={{ color: 'var(--mu)' }}>
+                      Норматив ТЗ: ответ ≤ {httpBench.tz_sla_target_ms ? Math.round(httpBench.tz_sla_target_ms / 1000) : 300} с
                     </div>
-                    <div className="text-[11px]" style={{ color: 'var(--mu)' }}>Запас в 55x</div>
+                    <div className="text-lg sm:text-2xl font-bold num truncate" style={{ color: 'var(--gnt)' }}>
+                      p95 {httpBench.latency_p95_ms ? httpBench.latency_p95_ms.toFixed(0) : 0} мс
+                    </div>
+                    {Boolean(httpBench.tz_sla_target_ms && httpBench.latency_p95_ms && httpBench.latency_p95_ms > 0) && (
+                      <div className="text-[11px] leading-tight truncate" style={{ color: 'var(--mu)' }}>
+                        в {Math.round(httpBench.tz_sla_target_ms / httpBench.latency_p95_ms)}× быстрее норматива
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

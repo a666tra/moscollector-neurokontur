@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, RefreshCw, Clock, Calendar, Flame, Bell } from 'lucide-react';
 import { ScenarioRunResponse } from '../types';
+import { incidentInScenario } from './scenarioLabels';
 
 interface ScenarioTimelineLanesProps {
   runResult: ScenarioRunResponse | null;
@@ -12,6 +13,7 @@ interface ScenarioTimelineLanesProps {
   onTogglePlay: () => void;
   onNewSeed: () => void;
   selectedScenarioId: string;
+  loading?: boolean;
 }
 
 export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
@@ -24,6 +26,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
   onTogglePlay,
   onNewSeed,
   selectedScenarioId,
+  loading = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgWidth, setSvgWidth] = useState<number>(700);
@@ -53,22 +56,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
   // Extract real incident timestamps in minutes from response
   const rawIncidents = runResult?.incident_list || [];
   const incidents = rawIncidents
-    .filter((inc) => {
-      if (selectedScenarioId === 'all') return true;
-      if (inc.matched_truth_event_id && inc.matched_truth_event_id.includes(selectedScenarioId.toLowerCase())) {
-        return true;
-      }
-      // Check class prefix
-      if (selectedScenarioId === 'S1' && (inc.cls.startsWith('GAS') || inc.reason_ru.toLowerCase().includes('газ'))) return true;
-      if (selectedScenarioId === 'S2' && (inc.cls.startsWith('GAS') || inc.reason_ru.toLowerCase().includes('скачок'))) return true;
-      if (selectedScenarioId === 'S3' && inc.cls.startsWith('TEMP')) return true;
-      if (selectedScenarioId === 'S4' && inc.cls === 'FIRE') return true;
-      if (selectedScenarioId === 'S5' && inc.cls === 'FLOOD') return true;
-      if (selectedScenarioId === 'S6' && inc.cls === 'CHATTER') return true;
-      if (selectedScenarioId === 'S7' && inc.cls === 'COMM_LOSS') return true;
-      if (selectedScenarioId === 'S8' && inc.cls === 'SETPOINT_CHATTER') return true;
-      return true; // default include
-    })
+    .filter((inc) => incidentInScenario(inc, selectedScenarioId))
     .map((inc) => (isMonth ? (inc.ts / 86400) : (inc.ts / 60)));
 
   incidents.sort((a, b) => a - b);
@@ -112,8 +100,11 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
   const liveStatic = countUpTo(staticDistribution, totalStatic);
   const liveNaive = countUpTo(naiveDistribution, totalNaive);
 
+  const isAtEnd = m >= maxMinutes - 0.001;
+
   // Pointer scrubber handler
   const handlePointerScrub = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (loading) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const nextVal = isMonth ? Math.round(frac * 30 * 4) / 4 : Math.round((frac * 1440) / 5) * 5;
@@ -122,6 +113,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (loading) return;
     const step = isMonth ? 1 : 5;
     const bigStep = isMonth ? 5 : 60;
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
@@ -144,6 +136,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
       onTimeChange(maxMinutes);
     } else if (e.key === ' ') {
       e.preventDefault();
+      e.stopPropagation();
       onTogglePlay();
     }
   };
@@ -212,28 +205,54 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
           {/* Play/Pause Button */}
           <button
             type="button"
+            disabled={loading}
             onClick={onTogglePlay}
-            className="min-h-[50px] sm:min-h-[54px] px-6 rounded-full border-0 font-semibold text-sm sm:text-base cursor-pointer inline-flex items-center gap-3 shadow-md transition-transform active:scale-95"
+            className={`min-h-[50px] sm:min-h-[54px] px-6 rounded-full border-0 font-semibold text-sm sm:text-base inline-flex items-center gap-3 shadow-md transition-all ${
+              loading
+                ? 'opacity-50 cursor-not-allowed'
+                : 'cursor-pointer active:scale-95'
+            }`}
             style={{ background: 'var(--ink)', color: 'var(--bg)' }}
-            aria-label={isPlaying ? 'Пауза воспроизведения' : 'Воспроизвести смену'}
+            aria-label={
+              isPlaying
+                ? 'Пауза воспроизведения'
+                : isAtEnd
+                ? 'Повторить смену'
+                : 'Воспроизвести смену'
+            }
           >
             <span
               className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
               style={{ background: 'var(--bg)', color: 'var(--ink)' }}
             >
-              {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
+              {isPlaying ? (
+                <Pause className="w-4 h-4 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 ml-0.5 fill-current" />
+              )}
             </span>
-            <span>{isPlaying ? 'Пауза' : 'Воспроизвести смену'}</span>
+            <span>
+              {isPlaying
+                ? 'Пауза'
+                : isAtEnd
+                ? 'Повторить смену'
+                : 'Воспроизвести смену'}
+            </span>
           </button>
 
           {/* New Seed Button */}
           <button
             type="button"
+            disabled={loading}
             onClick={onNewSeed}
-            className="min-h-[48px] sm:min-h-[52px] px-4 rounded-full border border-[var(--ln2)] hover:border-[var(--ac)] bg-transparent font-semibold text-xs sm:text-sm inline-flex items-center gap-2 cursor-pointer transition-colors text-[var(--ink)]"
+            className={`min-h-[48px] sm:min-h-[52px] px-4 rounded-full border border-[var(--ln2)] hover:border-[var(--ac)] bg-transparent font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-colors text-[var(--ink)] ${
+              loading
+                ? 'opacity-50 cursor-not-allowed'
+                : 'cursor-pointer'
+            }`}
             title="Сгенерировать другой номер смены"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Другая смена</span>
           </button>
         </div>
@@ -318,7 +337,9 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
               onPointerMove={(e) => {
                 if (e.buttons === 1) handlePointerScrub(e);
               }}
-              className="block rounded-xl cursor-ew-resize select-none overflow-hidden"
+              className={`block rounded-xl select-none overflow-hidden ${
+                loading ? 'cursor-not-allowed pointer-events-none' : 'cursor-ew-resize'
+              }`}
               style={{
                 background: 'var(--sf2)',
                 touchAction: 'pan-y',

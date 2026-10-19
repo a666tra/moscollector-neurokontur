@@ -46,8 +46,10 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
     }
   };
 
+  const isGasClass = (cls: string) => cls === 'GAS_RATE' || cls === 'GAS_WARNING' || cls === 'GAS_ALARM';
+
   const getClassCategory = (cls: string): ClassFilter => {
-    if (cls.startsWith('GAS') || cls === 'SETPOINT_CHATTER') return 'GAS';
+    if (isGasClass(cls) || cls === 'SETPOINT_CHATTER') return 'GAS';
     if (cls.startsWith('TEMP')) return 'TEMP';
     if (cls === 'FIRE') return 'FIRE';
     if (cls === 'FLOOD') return 'FLOOD';
@@ -58,7 +60,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
 
 
   const getClassIcon = (cls: string) => {
-    if (cls === 'SETPOINT_CHATTER' || cls.startsWith('GAS')) return <Wind className="w-3.5 h-3.5" />;
+    if (cls === 'SETPOINT_CHATTER' || isGasClass(cls)) return <Wind className="w-3.5 h-3.5" />;
     if (cls.startsWith('TEMP')) return <Thermometer className="w-3.5 h-3.5" />;
     if (cls === 'FIRE') return <Flame className="w-3.5 h-3.5" />;
     if (cls === 'FLOOD') return <Droplets className="w-3.5 h-3.5" />;
@@ -83,7 +85,7 @@ export const ScenarioIncidentTimeline: React.FC<ScenarioIncidentTimelineProps> =
       filter === 'ALL'
         ? incidents
         : incidents.filter(i => {
-            if (filter === 'GAS') return i.cls.startsWith('GAS') || i.cls === 'SETPOINT_CHATTER';
+            if (filter === 'GAS') return isGasClass(i.cls) || i.cls === 'SETPOINT_CHATTER';
             if (filter === 'CHATTER') return i.cls === 'CHATTER' || i.cls === 'SETPOINT_CHATTER';
             return getClassCategory(i.cls) === filter;
           });

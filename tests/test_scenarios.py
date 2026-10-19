@@ -931,7 +931,8 @@ def test_scenarios_api_run_success_and_validation():
     assert "static_dedup_incidents_to_fast_incidents" in data
     assert "stream_compression" not in data["summary"]
     assert "incident_list" in data
-    assert len(data["incident_list"]) <= 200
+    assert len(data["incident_list"]) > 0
+    assert "scenario_id" in data["incident_list"][0]
     assert "elapsed_seconds" in data
 
     # 422 on invalid mode

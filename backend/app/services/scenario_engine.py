@@ -1994,10 +1994,12 @@ def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any
     incident_list: List[Dict[str, Any]] = []
     for a in alerts_fast:
         matched_gt_id: Optional[str] = None
+        matched_scenario_id: Optional[str] = None
         for g in dataset.ground_truth:
             if g.start_ts <= a.ts <= (g.end_ts + 600.0):
                 if a.channel_id == g.channel_id or a.channel_id in g.related_channel_ids or (g.cls == "FIRE" and a.object_id == g.object_id):
                     matched_gt_id = g.event_id
+                    matched_scenario_id = g.scenario_id
                     break
         incident_list.append({
             "ts": float(a.ts),
@@ -2010,10 +2012,10 @@ def run_scenario(mode: Literal["day", "month"], seed: int = 42) -> Dict[str, Any
             "is_reminder": bool(a.is_reminder),
             "is_escalation": bool(a.is_escalation),
             "matched_truth_event_id": matched_gt_id,
+            "scenario_id": matched_scenario_id,
         })
 
     incident_list.sort(key=lambda x: x["ts"])
-    incident_list = incident_list[:200]
 
     elapsed = round(float(time.time() - t0), 3)
 

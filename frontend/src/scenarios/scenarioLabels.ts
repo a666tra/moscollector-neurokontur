@@ -99,3 +99,16 @@ export const formatScenarioCounts = (events: Array<{ scenario_id: string }>): st
     .map(([id, count]) => (count > 1 ? `${id} × ${count}` : id))
     .join(', ');
 };
+
+/**
+ * Checks whether an incident belongs to the selected scenario.
+ * Returns true if selectedId is 'all', otherwise matches inc.scenario_id === selectedId.
+ */
+export const incidentInScenario = (
+  inc: { scenario_id?: string | null } | null | undefined,
+  selectedId: string
+): boolean => {
+  if (selectedId === 'all') return true;
+  return inc?.scenario_id === selectedId;
+};
+
