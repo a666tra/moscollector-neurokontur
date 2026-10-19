@@ -1,54 +1,86 @@
 import React from 'react';
 import { Activity } from 'lucide-react';
-import { ScenarioIncidentItem, ScenarioComparison } from '../types';
+import {
+  ScenarioIncidentItem,
+  ScenarioComparison,
+  ScenarioDetectorMetrics,
+} from '../types';
 import { SCENARIO_ICONS } from './ScenarioChooser';
+import { formatDelaySec } from './scenarioLabels';
 
 interface ScenarioExampleCardProps {
   incident?: ScenarioIncidentItem | null;
   comparison?: ScenarioComparison | null;
+  summary?: ScenarioDetectorMetrics | null;
+  mode?: 'day' | 'month';
   selectedScenarioId: string;
 }
 
 export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
   incident,
   comparison,
+  summary,
+  mode = 'day',
   selectedScenarioId,
 }) => {
   if (!incident) {
     return null;
   }
 
-  const formatTime = (ts: number) => {
-    const totalMinutes = Math.floor(ts / 60);
-    const h = Math.floor(totalMinutes / 60) % 24;
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  };
+  const thatScenario =
+    selectedScenarioId !== 'all' ? selectedScenarioId : incident.scenario_id;
 
-  const Icon = SCENARIO_ICONS[selectedScenarioId] || Activity;
+  const Icon =
+    (thatScenario && SCENARIO_ICONS[thatScenario]) ||
+    SCENARIO_ICONS[selectedScenarioId] ||
+    Activity;
 
-  // Real scenario metrics from comparison
-  const scMetricsFast = comparison?.fast?.scenarios?.[selectedScenarioId];
-  const leadMin = scMetricsFast?.lead_time_median_min ?? comparison?.fast?.lead_time?.median_min ?? null;
-  const delaySec = scMetricsFast?.delay_median_sec ?? comparison?.fast?.delay?.median_sec ?? null;
+  // Real scenario metrics from comparison.fast.scenarios[thatScenario] ONLY (no global fallback)
+  const scMetricsFast = thatScenario
+    ? comparison?.fast?.scenarios?.[thatScenario]
+    : undefined;
+  const leadMin = scMetricsFast?.lead_time_median_min;
+  const delaySec = scMetricsFast?.delay_median_sec;
 
-  const naiveAlertsTotal = comparison?.naive?.alerts_total ?? 0;
-  const fastIncidentsTotal = comparison?.fast?.incidents ?? (comparison?.fast?.alerts_total != null ? 1 : 0);
-  const staticIncidentsTotal = comparison?.static_dedup?.incidents ?? 0;
+  let chip1Text: string | null = null;
+  if (typeof leadMin === 'number' && Number.isFinite(leadMin)) {
+    const nStr = Math.abs(leadMin).toFixed(1).replace('.', ',');
+    if (leadMin > 0) {
+      chip1Text = `НейроКонтур: первый звонок на ${nStr} мин раньше порога (медиана по сценарию)`;
+    } else if (leadMin < 0) {
+      chip1Text = `НейроКонтур: первый звонок на ${nStr} мин позже порога (медиана по сценарию)`;
+    } else {
+      chip1Text = `НейроКонтур: первый звонок на ${nStr} мин раньше порога (медиана по сценарию)`;
+    }
+  } else if (typeof delaySec === 'number' && Number.isFinite(delaySec)) {
+    chip1Text = `НейроКонтур: звонок через ${formatDelaySec(delaySec)} после начала события (медиана по сценарию)`;
+  }
 
-  const ratioNaive = fastIncidentsTotal > 0 ? Math.round(naiveAlertsTotal / fastIncidentsTotal) : 0;
-  const ratioStatic = fastIncidentsTotal > 0 ? Math.round(staticIncidentsTotal / fastIncidentsTotal) : 0;
+  // Chip 2 and 3: whole shift averages
+  const totalEvents =
+    summary?.overall?.total_events ??
+    comparison?.fast?.overall?.total_events ??
+    0;
+  const staticAlerts = comparison?.static_dedup?.alerts_total ?? 0;
+  const naiveAlerts = comparison?.naive?.alerts_total ?? 0;
 
-  const leadText = leadMin !== null && leadMin > 0
-    ? `на ${Math.round(leadMin)} мин раньше порога`
-    : delaySec !== null && delaySec > 0
-    ? `задержка ${delaySec.toFixed(1)} с`
-    : 'по факту порога';
+  const xVal = totalEvents > 0 ? staticAlerts / totalEvents : 0;
+  const xStr = xVal.toFixed(1).replace('.', ',');
 
-  const thresholdTime = formatTime(incident.ts + (leadMin !== null && leadMin > 0 ? leadMin * 60 : 0));
+  const yVal = totalEvents > 0 ? naiveAlerts / totalEvents : 0;
+  const yStr = yVal.toFixed(1).replace('.', ',');
+
+  const hasChips = Boolean(thatScenario);
 
   return (
     <section className="flex flex-col gap-3">
+      {/* Caption above story */}
+      <div className="text-xs font-medium text-[var(--mu)]">
+        {mode === 'month'
+          ? 'Пример события из этого месяца'
+          : 'Пример события из этой смены'}
+      </div>
+
       {/* 44px round icon + serif story */}
       <div className="flex items-center gap-3">
         <span
@@ -66,31 +98,44 @@ export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
       </div>
 
       {/* Chips: rounded pills with dot + text */}
-      <div className="flex gap-2 flex-wrap">
-        <span
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
-          style={{ background: 'var(--acs)', color: 'var(--ink)' }}
-        >
-          <i className="w-[11px] h-[11px] rounded-full shrink-0" style={{ background: 'var(--ac)' }} />
-          <span>НейроКонтур: {leadText} · 1 звонок</span>
-        </span>
+      {hasChips && (
+        <div className="flex gap-2 flex-wrap">
+          {chip1Text && (
+            <span
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
+              style={{ background: 'var(--acs)', color: 'var(--ink)' }}
+            >
+              <i
+                className="w-[11px] h-[11px] rounded-full shrink-0"
+                style={{ background: 'var(--ac)' }}
+              />
+              <span>{chip1Text}</span>
+            </span>
+          )}
 
-        <span
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
-          style={{ background: 'var(--ams)', color: 'var(--ink)' }}
-        >
-          <i className="w-[11px] h-[11px] rounded-full shrink-0" style={{ background: 'oklch(0.72 0.15 72)' }} />
-          <span>Статический: в {thresholdTime} · {ratioStatic} зв.</span>
-        </span>
+          <span
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
+            style={{ background: 'var(--ams)', color: 'var(--ink)' }}
+          >
+            <i
+              className="w-[11px] h-[11px] rounded-full shrink-0"
+              style={{ background: 'oklch(0.72 0.15 72)' }}
+            />
+            <span>Статический порог: в среднем {xStr} зв. на событие (вся смена)</span>
+          </span>
 
-        <span
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
-          style={{ background: 'var(--rds)', color: 'var(--ink)' }}
-        >
-          <i className="w-[11px] h-[11px] rounded-full shrink-0" style={{ background: 'var(--rd)' }} />
-          <span>Простой: {ratioNaive} зв. подряд без дедупликации</span>
-        </span>
-      </div>
+          <span
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
+            style={{ background: 'var(--rds)', color: 'var(--ink)' }}
+          >
+            <i
+              className="w-[11px] h-[11px] rounded-full shrink-0"
+              style={{ background: 'var(--rd)' }}
+            />
+            <span>Простой порог: в среднем {yStr} зв. на событие (вся смена)</span>
+          </span>
+        </div>
+      )}
     </section>
   );
 };

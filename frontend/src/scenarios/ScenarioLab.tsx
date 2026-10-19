@@ -525,6 +525,8 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
       <ScenarioExampleCard
         incident={exampleIncident}
         comparison={result?.comparison}
+        summary={result?.summary}
+        mode={mode}
         selectedScenarioId={selectedScenarioId}
       />
 

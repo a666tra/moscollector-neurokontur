@@ -54,23 +54,68 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
 
   const isAtEnd = !isPlaying && currentMinute >= maxMinutes - 0.001;
 
-  // IntersectionObserver on panel to notify parent (ScenarioLab) whether panel is visible
-  // Show dock only when panel has scrolled out through the TOP (boundingClientRect.top < 0)
+  // Mini-dock visibility: combine IntersectionObserver with a passive scroll listener
+  // on nearest scrollable ancestor (or window) so fast jumps/flings reliably update dockVisible.
   useEffect(() => {
     const el = panelRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
+    if (!el) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const isPastTop = !entry.isIntersecting && entry.boundingClientRect.top < 0;
-        onPanelVisibleChange?.(isPastTop);
-      },
-      { threshold: 0.01 }
-    );
+    const checkVisibility = () => {
+      if (!panelRef.current) return;
+      const isPast = panelRef.current.getBoundingClientRect().bottom < 56;
+      onPanelVisibleChange?.(isPast);
+    };
 
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [onPanelVisibleChange]);
+    // 1. Compute once on mount and after loading finishes
+    checkVisibility();
+
+    // 2. Keep IntersectionObserver
+    let observer: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        () => {
+          checkVisibility();
+        },
+        { threshold: [0, 0.01, 1] }
+      );
+      observer.observe(el);
+    }
+
+    // 3. Find nearest scrollable ancestor (walk up parentElement until overflowY is auto/scroll)
+    let scrollParent: HTMLElement | Window = window;
+    let curr = el.parentElement;
+    while (curr) {
+      const style = window.getComputedStyle(curr);
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        scrollParent = curr;
+        break;
+      }
+      curr = curr.parentElement;
+    }
+
+    let rafId: number | null = null;
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        checkVisibility();
+      });
+    };
+
+    scrollParent.addEventListener('scroll', handleScroll, { passive: true });
+    if (scrollParent !== window) {
+      window.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    return () => {
+      if (observer) observer.disconnect();
+      scrollParent.removeEventListener('scroll', handleScroll);
+      if (scrollParent !== window) {
+        window.removeEventListener('scroll', handleScroll);
+      }
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [onPanelVisibleChange, loading]);
 
   // Pointer scrubbing logic
   const calcScrubVal = useCallback(

@@ -315,7 +315,7 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
                     <ArrowDown className="w-5 h-5" strokeWidth={2.4} />
                   </span>
                   <div className="flex-1 min-w-0 leading-tight">
-                    <div className="font-semibold text-[13.5px] text-[var(--ink)] truncate">
+                    <div className="font-semibold text-[13.5px] text-[var(--ink)] break-words">
                       {r.label}
                     </div>
                     <div className="text-[12.5px] font-medium text-[var(--mu)]">
