@@ -1,7 +1,7 @@
 import React from 'react';
-import { Wind, Zap, Thermometer, Flame, Droplets, Activity, WifiOff, Radio, AlertCircle } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { ScenarioIncidentItem, ScenarioComparison } from '../types';
-import { SCENARIO_ICONS, SCENARIO_SHORT_LABELS } from './ScenarioChooser';
+import { SCENARIO_ICONS } from './ScenarioChooser';
 
 interface ScenarioExampleCardProps {
   incident?: ScenarioIncidentItem | null;
@@ -48,52 +48,46 @@ export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
   const thresholdTime = formatTime(incident.ts + (leadMin !== null && leadMin > 0 ? leadMin * 60 : 0));
 
   return (
-    <section
-      className="p-4 sm:p-5 rounded-2xl space-y-3.5 border border-[var(--ln2)] bg-[var(--sf)]"
-    >
-      <div className="flex items-start gap-3">
+    <section className="flex flex-col gap-3">
+      {/* 44px round icon + serif story */}
+      <div className="flex items-center gap-3">
         <span
           className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
           style={{ background: 'var(--sf2)', color: 'var(--ac)' }}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-[22px] h-[22px]" />
         </span>
-        <div className="space-y-0.5 min-w-0">
-          <h3
-            className="text-base sm:text-xl font-normal leading-snug"
-            style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
-          >
-            Разбор примера: {incident.reason_ru || 'Событие в телеметрии'}
-          </h3>
-          <p className="text-xs text-[var(--mu)]">
-            Объект: {incident.object_id} · время фиксации: {formatTime(incident.ts)}
-          </p>
-        </div>
+        <span
+          className="text-[19px] sm:text-[24px] font-normal leading-[1.25]"
+          style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
+        >
+          {incident.reason_ru || 'Событие в телеметрии'}
+        </span>
       </div>
 
-      {/* Reaction of the 3 approaches */}
-      <div className="flex items-center gap-2.5 flex-wrap">
+      {/* Chips: rounded pills with dot + text */}
+      <div className="flex gap-2 flex-wrap">
         <span
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-xs sm:text-sm"
-          style={{ background: 'var(--acs)', color: 'var(--ac)' }}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
+          style={{ background: 'var(--acs)', color: 'var(--ink)' }}
         >
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ac)' }} />
+          <i className="w-[11px] h-[11px] rounded-full shrink-0" style={{ background: 'var(--ac)' }} />
           <span>НейроКонтур: {leadText} · 1 звонок</span>
         </span>
 
         <span
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-xs sm:text-sm"
-          style={{ background: 'var(--ams)', color: 'var(--amt)' }}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
+          style={{ background: 'var(--ams)', color: 'var(--ink)' }}
         >
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'oklch(0.72 0.15 72)' }} />
-          <span>Статический: по факту в {thresholdTime} · {ratioStatic} зв.</span>
+          <i className="w-[11px] h-[11px] rounded-full shrink-0" style={{ background: 'oklch(0.72 0.15 72)' }} />
+          <span>Статический: в {thresholdTime} · {ratioStatic} зв.</span>
         </span>
 
         <span
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-xs sm:text-sm"
-          style={{ background: 'var(--rds)', color: 'var(--rdt)' }}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold text-[13.5px]"
+          style={{ background: 'var(--rds)', color: 'var(--ink)' }}
         >
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--rd)' }} />
+          <i className="w-[11px] h-[11px] rounded-full shrink-0" style={{ background: 'var(--rd)' }} />
           <span>Простой: {ratioNaive} зв. подряд без дедупликации</span>
         </span>
       </div>

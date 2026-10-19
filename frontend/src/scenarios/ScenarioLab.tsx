@@ -339,7 +339,16 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
   const totalIncCount = Math.max(1, allIncidents.length);
   const incFraction = isAtEnd ? 1 : incidentsPassed / totalIncCount;
 
-  const liveFast = isAtEnd ? totalFast : Math.min(totalFast, Math.round(totalFast * incFraction));
+  const isAll = selectedScenarioId === 'all';
+  const scenarioAlertsPassed = allIncidents.filter((inc) => {
+    if (!incidentInScenario(inc, selectedScenarioId)) return false;
+    const tMin = mode === 'month' ? inc.ts / 86400 : inc.ts / 60;
+    return tMin <= currentMinute;
+  }).length;
+
+  const liveFast = isAll
+    ? (isAtEnd ? totalFast : Math.min(totalFast, Math.round(totalFast * incFraction)))
+    : scenarioAlertsPassed;
   const liveStatic = isAtEnd ? totalStatic : Math.min(totalStatic, Math.round(totalStatic * incFraction));
   const liveNaive = isAtEnd ? totalNaive : Math.min(totalNaive, Math.round(totalNaive * incFraction));
 
@@ -354,7 +363,7 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
   }, [result, selectedScenarioId]);
 
   return (
-    <div className="max-w-[1200px] mx-auto px-3.5 sm:px-8 py-5 sm:py-7 pb-24 sm:pb-16 flex flex-col gap-4 sm:gap-6">
+    <div className="max-w-[1200px] mx-auto px-3.5 sm:px-8 py-5 sm:py-7 sm:pb-16 flex flex-col gap-4 sm:gap-6">
       {/* 1. Header */}
       <header className="flex flex-col gap-1.5">
         <div className="flex items-center gap-x-3.5 gap-y-2.5 flex-wrap">
@@ -497,6 +506,7 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
           nHit={nHit}
           nDone={nDone}
           clockLabel={clockLabel}
+          selectedScenarioId={selectedScenarioId}
           onPanelVisibleChange={setDockVisible}
         />
       </section>
@@ -534,6 +544,9 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
           onClose={() => setSelectedChannelId(null)}
         />
       )}
+
+      {/* Spacer on mobile so sticky mini-dock lands in this empty area at the page bottom and doesn't cover content */}
+      <div className="h-24 sm:hidden" aria-hidden />
 
       {/* 9. Mobile Sticky Mini-Dock (OUTSIDE the card, last child of outermost page wrapper) */}
       <ScenarioMiniDock

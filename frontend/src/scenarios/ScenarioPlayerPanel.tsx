@@ -18,6 +18,7 @@ interface ScenarioPlayerPanelProps {
   nHit: number;
   nDone: number;
   clockLabel: string;
+  selectedScenarioId?: string;
   onPanelVisibleChange?: (visible: boolean) => void;
 }
 
@@ -38,6 +39,7 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
   nHit,
   nDone,
   clockLabel,
+  selectedScenarioId = 'all',
   onPanelVisibleChange,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -45,6 +47,7 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
 
   const locked = loading || !!error;
   const isMonth = mode === 'month';
+  const isAll = selectedScenarioId === 'all';
   const maxMinutes = isMonth ? 30 : 1440;
   const clampedMinute = Math.min(Math.max(0, currentMinute), maxMinutes);
   const pct = Math.min(100, Math.max(0, (clampedMinute / maxMinutes) * 100));
@@ -52,14 +55,15 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
   const isAtEnd = !isPlaying && currentMinute >= maxMinutes - 0.001;
 
   // IntersectionObserver on panel to notify parent (ScenarioLab) whether panel is visible
+  // Show dock only when panel has scrolled out through the TOP (boundingClientRect.top < 0)
   useEffect(() => {
     const el = panelRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // When entry.isIntersecting is false, panel is scrolled out of view
-        onPanelVisibleChange?.(!entry.isIntersecting);
+        const isPastTop = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        onPanelVisibleChange?.(isPastTop);
       },
       { threshold: 0.01 }
     );
@@ -321,11 +325,11 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
               className="text-3xl sm:text-4xl font-normal leading-none"
               style={{
                 fontFamily: "'Source Serif 4', Georgia, serif",
-                color: 'oklch(0.72 0.15 72)',
+                color: isAll ? 'oklch(0.72 0.15 72)' : 'var(--mu)',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              {liveStatic.toLocaleString('ru-RU')}
+              {isAll ? liveStatic.toLocaleString('ru-RU') : '—'}
             </div>
             <div
               className="text-xs font-medium mt-1.5 leading-tight"
@@ -340,11 +344,11 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
               className="text-3xl sm:text-4xl font-normal leading-none"
               style={{
                 fontFamily: "'Source Serif 4', Georgia, serif",
-                color: 'var(--rd)',
+                color: isAll ? 'var(--rd)' : 'var(--mu)',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              {liveNaive.toLocaleString('ru-RU')}
+              {isAll ? liveNaive.toLocaleString('ru-RU') : '—'}
             </div>
             <div
               className="text-xs font-medium mt-1.5 leading-tight"

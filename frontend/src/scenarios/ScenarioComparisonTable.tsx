@@ -80,7 +80,7 @@ export const ScenarioComparisonTable: React.FC<ScenarioComparisonTableProps> = (
   };
 
   return (
-    <div className="panel p-5 flex flex-col gap-5">
+    <div className="p-4 sm:p-6 flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b" style={{ borderColor: 'var(--ln)' }}>
         <div>
           <h2 className="text-base sm:text-lg font-bold">
