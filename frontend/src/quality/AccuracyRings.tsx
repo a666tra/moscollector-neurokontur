@@ -86,7 +86,10 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
   const currentCaption = rings.find(r => r.id === selected)?.caption || '';
 
   return (
-    <section className="space-y-4">
+    <section
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)]"
+      style={{ background: 'var(--sf)' }}
+    >
       <h2
         className="font-normal text-2xl sm:text-3xl"
         style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
@@ -163,14 +166,13 @@ export const AccuracyRings: React.FC<AccuracyRingsProps> = ({
         })}
       </div>
 
-      {currentCaption && (
-        <div
-          className="text-lg sm:text-xl leading-snug max-w-2xl min-h-[44px] pt-1"
-          style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
-        >
-          {currentCaption}
-        </div>
-      )}
+      {/* Caption under the rings */}
+      <div
+        className="mt-4 rounded-[18px] p-[14px_16px] min-h-[56px] text-lg sm:text-[23px] font-normal leading-[1.3] bg-[var(--sf2)]"
+        style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
+      >
+        {currentCaption}
+      </div>
     </section>
   );
 };

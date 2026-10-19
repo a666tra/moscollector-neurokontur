@@ -23,11 +23,8 @@ export const ModelLimitsBlock: React.FC = () => {
 
   return (
     <section
-      className="p-4 sm:p-6 rounded-2xl space-y-4"
-      style={{
-        background: 'var(--sf)',
-        border: '1px solid var(--ln2)',
-      }}
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)] space-y-4"
+      style={{ background: 'var(--sf)' }}
     >
       <div className="flex items-center gap-2.5">
         <span

@@ -355,6 +355,10 @@
 [data-theme="dark"] .nk-pin-pill {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
+.nk-pin-pill.pill-below {
+  bottom: auto;
+  top: calc(100% + 4px);
+}
 
 .nk-pin-tip {
   position: absolute;

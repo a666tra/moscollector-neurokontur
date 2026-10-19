@@ -175,7 +175,7 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
   const fastIncidentsVal = typeof fastIncidents === 'number' ? fastIncidents : null;
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-8 max-w-[1240px] mx-auto pb-12 min-w-0 w-full overflow-x-hidden">
+    <div className="flex flex-col gap-3.5 sm:gap-5 max-w-[1000px] mx-auto pb-12 min-w-0 w-full overflow-x-hidden">
       {/* 1. Header & Verdict Sentence (from real numbers, no fallbacks) */}
       <VerdictHeader
         deployed={deployedVal}

@@ -82,10 +82,10 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
               disabled={isAssigningUrgent}
               aria-label="Назначить бригады на все срочные заявки"
               title="Назначить все срочные заявки"
-              className="w-full md:w-auto min-h-[32px] md:h-9 px-2 sm:px-3.5 rounded-full text-[11px] sm:text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50 border-0 cursor-pointer whitespace-nowrap shadow-sm"
+              className="w-full max-w-full md:w-auto min-h-[32px] md:h-9 px-1.5 sm:px-3.5 py-1 rounded-full text-[10.5px] sm:text-xs font-bold text-white flex items-center justify-center gap-1 text-center leading-tight transition-opacity hover:opacity-90 disabled:opacity-50 border-0 cursor-pointer shadow-sm"
               style={{ background: 'var(--rd)' }}
             >
-              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <Truck className="w-3.5 h-3.5 shrink-0" />
               <span>{isAssigningUrgent ? 'Назначаем…' : 'Назначить все'}</span>
             </button>
           </div>

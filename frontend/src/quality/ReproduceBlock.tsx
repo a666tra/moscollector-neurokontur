@@ -132,8 +132,8 @@ export const ReproduceBlock: React.FC<ReproduceBlockProps> = ({
 
   return (
     <section
-      className="p-4 sm:p-5 rounded-2xl space-y-4"
-      style={{ background: 'var(--sf)', border: '1px solid var(--ln2)' }}
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)] space-y-4"
+      style={{ background: 'var(--sf)' }}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">

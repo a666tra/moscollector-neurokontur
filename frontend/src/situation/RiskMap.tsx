@@ -152,6 +152,7 @@ export const RiskMap: React.FC<Props> = ({
 
   const [currentZoom, setCurrentZoom] = useState(zoom);
   const [routesReady, setRoutesReady] = useState(false);
+  const [mapMoveSeq, setMapMoveSeq] = useState(0);
 
   const displayLatLng = useCallback(
     (o: { object_id: string; lat: number; lon: number }): [number, number] => {
@@ -211,9 +212,10 @@ export const RiskMap: React.FC<Props> = ({
     pinsLayerRef.current = pinsLayer;
     youLayerRef.current = youLayer;
 
-    // Update zoom level state on zoomend to scale pins and recalculate label collisions
-    m.on('zoomend', () => {
+    // Update zoom and view sequence state on zoomend / moveend
+    m.on('zoomend moveend', () => {
       setCurrentZoom(m.getZoom());
+      setMapMoveSeq(s => s + 1);
     });
 
     fetch('/api/objects/geojson/network')
@@ -383,8 +385,10 @@ export const RiskMap: React.FC<Props> = ({
 
       const colorVar = p.color || (p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)');
 
+      const isNearTop = m ? m.latLngToContainerPoint(pos).y < 40 : false;
+
       // Key string containing everything that affects the DOM of this marker
-      const key = `${p.risk}_${p.done ? 1 : 0}_${colorVar}_${pinLabel || ''}_${p.textLabel || ''}_${p.tooltip || ''}_${p.pct ?? ''}_${sel ? 1 : 0}_${isHov ? 1 : 0}_${showPill ? 1 : 0}_${r}_${haloD}_${pulse ? 1 : 0}_${interactive ? 1 : 0}_${pos[0]},${pos[1]}`;
+      const key = `${p.risk}_${p.done ? 1 : 0}_${colorVar}_${pinLabel || ''}_${p.textLabel || ''}_${p.tooltip || ''}_${p.pct ?? ''}_${sel ? 1 : 0}_${isHov ? 1 : 0}_${showPill ? 1 : 0}_${isNearTop ? 1 : 0}_${r}_${haloD}_${pulse ? 1 : 0}_${interactive ? 1 : 0}_${pos[0]},${pos[1]}`;
 
       const existing = pinsMarkersRef.current.get(p.objectId);
       if (existing && existing.key === key) {
@@ -423,12 +427,13 @@ export const RiskMap: React.FC<Props> = ({
 
       const checkSvg = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6.5L4.5 9L10 3"/></svg>`;
 
+      const pillClass = `nk-pin-pill ${isNearTop ? 'pill-below' : ''}`;
       const pillHtml = pinLabel
-        ? `<div class="nk-pin-pill">${pinLabel}</div>`
+        ? `<div class="${pillClass}">${pinLabel}</div>`
         : p.done
-        ? `<div class="nk-pin-pill">решено</div>`
+        ? `<div class="${pillClass}">решено</div>`
         : p.pct != null
-        ? `<div class="nk-pin-pill">${p.pct}%</div>`
+        ? `<div class="${pillClass}">${p.pct}%</div>`
         : '';
 
       const tipText = p.tooltip ? `${o.name} · ${p.tooltip}` : o.name;
@@ -498,7 +503,7 @@ export const RiskMap: React.FC<Props> = ({
         pinsMarkersRef.current.delete(objId);
       }
     });
-  }, [pins, selectedObjectId, hoveredObjectId, currentZoom, interactive, routesReady, textLabel, objects, displayLatLng]);
+  }, [pins, selectedObjectId, hoveredObjectId, currentZoom, interactive, routesReady, textLabel, objects, displayLatLng, mapMoveSeq]);
 
   // 3. Draw 'You' position marker and route line if provided
   useEffect(() => {

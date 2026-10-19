@@ -67,11 +67,10 @@ export const WhoGuessesBetter: React.FC<Props> = ({
   ];
 
   return (
-    <div
-      className="rounded-[24px] p-5 sm:p-6 border flex flex-col gap-5 min-w-0 w-full"
+    <section
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_14px] sm:p-[26px_28px] border border-[var(--ln)] flex flex-col gap-5 min-w-0 w-full"
       style={{
         background: 'var(--sf)',
-        borderColor: 'var(--ln)',
       }}
     >
       {/* Title & Legend row */}
@@ -96,8 +95,8 @@ export const WhoGuessesBetter: React.FC<Props> = ({
           </div>
           <div className="flex items-center gap-2">
             <span
-              className="w-3.5 h-3.5 rounded-full inline-block border"
-              style={{ background: 'var(--sf2)', borderColor: 'var(--ln2)' }}
+              className="w-3.5 h-3.5 rounded-full inline-block"
+              style={{ background: 'var(--ln)' }}
             />
             <span>мимо</span>
           </div>
@@ -144,85 +143,81 @@ export const WhoGuessesBetter: React.FC<Props> = ({
       </div>
 
       {/* 3 Dot Grids */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 min-w-0 pt-2">
+      <div className="grid grid-cols-3 gap-2 sm:gap-6 min-w-0 pt-2">
         {grids.map((g) => {
           const IconComp = g.icon;
           return (
             <div
               key={g.id}
-              className="rounded-[20px] p-4 sm:p-5 border flex flex-col justify-between gap-3 min-w-0"
+              className="rounded-[20px] p-[10px_8px_12px] sm:p-[16px_18px_18px] border border-[var(--ln)] flex flex-col justify-between gap-3 min-w-0"
               style={{
                 background: 'var(--sf2)',
-                borderColor: 'var(--ln)',
               }}
             >
-              {/* Header: Score and Best Badge */}
-              <div className="flex items-baseline justify-between gap-2">
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className="serif font-normal text-4xl sm:text-5xl leading-none num"
-                    style={{ color: g.color }}
-                  >
-                    {g.value}
-                  </span>
-                  <span className="text-xs sm:text-sm font-medium text-[var(--mu)]">
-                    из 100
-                  </span>
+              <div>
+                {/* Header: Score and Best Badge */}
+                <div className="flex items-baseline justify-between gap-1 flex-wrap">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span
+                      className="serif font-normal text-3xl sm:text-5xl leading-none tabular-nums"
+                      style={{ color: g.color }}
+                    >
+                      {g.value}
+                    </span>
+                    <span className="text-[11px] sm:text-xs font-medium text-[var(--mu)]">
+                      из 100
+                    </span>
+                  </div>
+
+                  {g.isBest ? (
+                    <span
+                      className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-white shrink-0 flex items-center gap-1"
+                      style={{ background: g.color }}
+                    >
+                      <Award className="w-3 h-3" /> лучше всех
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[10px] sm:text-[11px] text-[var(--mu)] font-semibold shrink-0">
+                      {g.tag}
+                    </span>
+                  )}
                 </div>
 
-                {g.isBest ? (
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-full text-white shrink-0 flex items-center gap-1"
-                    style={{ background: g.color }}
-                  >
-                    <Award className="w-3 h-3" /> лучше всех
-                  </span>
-                ) : (
-                  <span className="font-mono text-[11px] text-[var(--mu)] font-semibold shrink-0">
-                    {g.tag}
-                  </span>
-                )}
-              </div>
-
-              {/* 10x10 Dot Grid (100 circles) */}
-              <div
-                className="grid grid-cols-10 gap-1 sm:gap-1.5 p-2 rounded-xl border my-1 max-w-[280px] w-full"
-                style={{
-                  background: 'var(--sf)',
-                  borderColor: 'var(--ln)',
-                }}
-                aria-label={`${g.label}: ${g.value} из 100`}
-              >
-                {Array.from({ length: 100 }, (_, i) => {
-                  const isFilled = i < g.value;
-                  return (
-                    <div
-                      key={i}
-                      className="aspect-square rounded-full transition-transform duration-200"
-                      style={{
-                        background: isFilled ? g.color : 'var(--sf2)',
-                        border: isFilled ? 'none' : '1px solid var(--ln2)',
-                      }}
-                      title={`${i + 1} / 100`}
-                    />
-                  );
-                })}
+                {/* 10x10 Dot Grid (100 circles) */}
+                <div
+                  className="grid grid-cols-10 gap-[2px] sm:gap-1 mt-2.5 w-full"
+                  aria-label={`${g.label}: ${g.value} из 100`}
+                >
+                  {Array.from({ length: 100 }, (_, i) => {
+                    const isFilled = i < g.value;
+                    return (
+                      <div
+                        key={i}
+                        className="aspect-square rounded-full"
+                        style={{
+                          background: isFilled ? g.color : 'var(--ln)',
+                        }}
+                        title={`${i + 1} / 100`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Label and description */}
               <div className="flex flex-col gap-1 pt-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-white shrink-0"
                     style={{ background: g.color }}
                   >
-                    <IconComp className="w-3.5 h-3.5" />
+                    <IconComp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   </div>
-                  <span className="font-bold text-sm sm:text-base text-[var(--ink)] leading-tight">
+                  <span className="font-bold text-xs sm:text-base text-[var(--ink)] leading-tight truncate sm:whitespace-normal">
                     {g.label}
                   </span>
                 </div>
-                <span className="text-xs text-[var(--mu)] leading-snug pl-8">
+                <span className="text-[10px] sm:text-xs text-[var(--mu)] leading-snug pl-0 sm:pl-8 hidden sm:block">
                   {g.sublabel}
                 </span>
               </div>
@@ -230,6 +225,6 @@ export const WhoGuessesBetter: React.FC<Props> = ({
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };

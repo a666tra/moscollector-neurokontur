@@ -122,14 +122,13 @@ export const InteractiveChart: React.FC<Props> = ({
   const activeX = getX(activeIdx);
 
   return (
-    <div
+    <section
       ref={containerRef}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className="rounded-[24px] p-5 sm:p-6 border flex flex-col gap-4 min-w-0 w-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)]"
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_14px] sm:p-[26px_28px] border border-[var(--ln)] flex flex-col gap-4 min-w-0 w-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)]"
       style={{
         background: 'var(--sf)',
-        borderColor: 'var(--ln)',
       }}
       aria-label="Интерактивный график точности по неделям. Используйте стрелки влево и вправо для перемещения."
     >
@@ -393,6 +392,6 @@ export const InteractiveChart: React.FC<Props> = ({
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 };

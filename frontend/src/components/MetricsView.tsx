@@ -141,7 +141,7 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
   }
 
   return (
-    <div className="max-w-[960px] mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-9 sm:space-y-12">
+    <div className="flex flex-col gap-3.5 sm:gap-5 max-w-[960px] mx-auto px-4 sm:px-8 py-6 sm:py-10">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--ln2)' }}>
         <div>

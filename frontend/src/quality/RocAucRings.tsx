@@ -58,7 +58,7 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
       displayVal: fmtRoc(pilotVal),
       label: 'Пилот, расчёт',
       color: 'var(--gnt)',
-      caption: '', // Kept only in the grey box under the rings, not repeated in large serif text
+      caption: 'В пилоте с еженедельным дообучением. Это расчёт, а не замер на стенде.',
       ariaLabel: `ROC-AUC ${fmtRoc(pilotVal)}: Пилот, расчёт`,
     },
   ];
@@ -73,7 +73,10 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
   const currentCaption = rings.find(r => r.id === selected)?.caption || '';
 
   return (
-    <section className="space-y-4">
+    <section
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)]"
+      style={{ background: 'var(--sf)' }}
+    >
       <h2
         className="font-normal text-2xl sm:text-3xl"
         style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
@@ -153,24 +156,13 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
         })}
       </div>
 
-      {/* Mandatory caption banner: directly under the rings (shown only once) */}
+      {/* Caption under the rings */}
       <div
-        className="text-xs sm:text-sm px-3.5 py-2.5 rounded-lg inline-flex items-center gap-2"
-        style={{ background: 'var(--sf2)', color: 'var(--mu)', border: '1px solid var(--ln2)' }}
+        className="mt-4 rounded-[18px] p-[14px_16px] min-h-[56px] text-lg sm:text-[23px] font-normal leading-[1.3] bg-[var(--sf2)]"
+        style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
       >
-        <span className="w-2 h-2 rounded-full" style={{ background: 'var(--gnt)' }} />
-        <span>В пилоте с еженедельным дообучением. Это расчёт, а не замер на стенде.</span>
+        {currentCaption}
       </div>
-
-      {/* Selected dynamic commentary for stand or holdout */}
-      {selected !== 'pilot' && currentCaption && (
-        <div
-          className="text-lg sm:text-xl leading-snug max-w-2xl min-h-[44px] pt-1"
-          style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
-        >
-          {currentCaption}
-        </div>
-      )}
     </section>
   );
 };

@@ -92,7 +92,10 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
   const currentRows = openIndex >= 0 && openIndex < checks.length ? checks[openIndex].rows : [];
 
   return (
-    <section className="space-y-4">
+    <section
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)]"
+      style={{ background: 'var(--sf)' }}
+    >
       <h2
         className="font-normal text-2xl sm:text-3xl"
         style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
@@ -151,7 +154,7 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
 
       {/* Detail explanation cards */}
       {currentRows.length > 0 && (
-        <div className="flex flex-col gap-3 mt-4 min-h-[140px]">
+        <div className="flex flex-col gap-3 mt-[18px] min-h-[150px] bg-[var(--sf2)] rounded-[20px] p-4">
           {currentRows.map((r, i) => {
             const isWarn = r.type === 'warn';
             const isCheck = r.type === 'check';
@@ -162,10 +165,8 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
             return (
               <div
                 key={i}
-                className="flex items-center gap-3.5 p-3 rounded-xl transition-all"
+                className="flex items-center gap-3.5"
                 style={{
-                  background: 'var(--sf)',
-                  border: '1px solid var(--ln2)',
                   animation: `nkUp 0.3s both ${i * 80}ms`,
                 }}
               >
@@ -176,7 +177,7 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
                   <RowIcon className="w-5 h-5" />
                 </span>
                 <span
-                  className="text-base sm:text-lg leading-snug"
+                  className="text-base sm:text-[19px] leading-snug"
                   style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
                 >
                   <strong className="font-semibold">{r.label}:</strong> {r.text}

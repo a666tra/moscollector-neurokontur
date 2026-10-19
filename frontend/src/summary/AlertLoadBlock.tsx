@@ -75,11 +75,10 @@ export const AlertLoadBlock: React.FC<Props> = ({
   const fastIncidents = fast?.incidents;
 
   return (
-    <div
-      className="rounded-[24px] p-5 sm:p-6 border flex flex-col gap-5 min-w-0 w-full"
+    <section
+      className="rounded-[26px] shadow-[var(--sh)] p-[18px_14px] sm:p-[26px_28px] border border-[var(--ln)] flex flex-col gap-5 min-w-0 w-full"
       style={{
         background: 'var(--sf)',
-        borderColor: 'var(--ln)',
       }}
     >
       {/* Header and Link to Scenarios */}
@@ -270,6 +269,6 @@ export const AlertLoadBlock: React.FC<Props> = ({
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };

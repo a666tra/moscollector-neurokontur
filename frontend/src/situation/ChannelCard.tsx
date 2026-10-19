@@ -348,9 +348,9 @@ export const ChannelCard: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Result banner & Ticket link (when resolved) */}
+        {/* Result banner (when resolved) */}
         {done && (
-          <div className="space-y-2 pt-0.5 animate-fadeIn">
+          <div className="pt-0.5 animate-fadeIn">
             <div
               className="flex gap-2.5 items-start rounded-[14px] p-3 text-[13px] leading-snug"
               style={{ background: 'var(--gns)', color: 'var(--gnt)' }}
@@ -367,67 +367,70 @@ export const ChannelCard: React.FC<Props> = ({
                 <span className="block text-[12px] opacity-90 mt-0.5">{done}</span>
               </div>
             </div>
-
-            {/* Link «Открыть в заявках и журнале» in card body */}
-            <button
-              onClick={() => onOpenTickets?.(item.object_id)}
-              className="w-full min-h-[44px] rounded-[12px] border-[1.5px] flex items-center justify-center gap-2 text-[13.5px] font-semibold transition hover:bg-[var(--sf2)] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-[var(--ac)] cursor-pointer"
-              style={{ borderColor: 'var(--ln2)', background: 'var(--sf)', color: 'var(--ink)' }}
-            >
-              <ClipboardList className="w-4 h-4 shrink-0" />
-              Открыть в заявках и журнале
-            </button>
           </div>
         )}
       </div>
 
-      {/* 3. Sticky Footer / 3 Decision Buttons (always visible without scrolling) */}
+      {/* 3. Sticky Footer / Decision or Result button */}
       <div
-        className="p-3.5 pt-2.5 border-t shrink-0 flex flex-col gap-2 bg-[var(--sf)] sticky bottom-0 z-10"
+        className="p-3.5 pt-2.5 border-t shrink-0 flex flex-col gap-2 bg-[var(--sf)] sticky bottom-0 z-10 overflow-hidden"
         style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}
       >
-        {/* Primary Action: Plan Repair */}
-        <button
-          disabled={busy}
-          onClick={ticket}
-          className="min-h-[46px] h-[46px] w-full rounded-[14px] flex items-center gap-2.5 px-3.5 text-left transition hover:brightness-105 active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ac)] cursor-pointer"
-          style={{ background: 'var(--ac)', color: 'var(--onac)' }}
-        >
-          <Wrench className="w-[18px] h-[18px] shrink-0" />
-          <span className="leading-tight flex-1">
-            <span className="block font-semibold text-[14px]">Запланировать ремонт</span>
-            <span className="block text-[11px] opacity-90 mt-0.5">создать черновик заявки ТО</span>
-          </span>
-        </button>
-
-        {/* Secondary Actions: False alarm and Force dispatch */}
-        <div className="grid grid-cols-2 gap-2">
+        {done ? (
           <button
-            disabled={busy}
-            onClick={() => setMode('false')}
-            className="min-h-[44px] h-[44px] rounded-[14px] border-[1.5px] flex items-center gap-2 px-2.5 text-left transition hover:bg-[var(--sf2)] active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--ac)] cursor-pointer"
+            onClick={() => onOpenTickets?.(item.object_id)}
+            className="w-full min-h-[46px] h-[46px] rounded-[14px] border-[1.5px] flex items-center justify-center gap-2 text-[14px] font-semibold transition hover:bg-[var(--sf2)] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-[var(--ac)] cursor-pointer"
             style={{ borderColor: 'var(--ln2)', background: 'var(--sf)', color: 'var(--ink)' }}
           >
-            <Hand className="w-4 h-4 shrink-0 text-[var(--mu)]" />
-            <span className="leading-tight">
-              <span className="block font-semibold text-[13px]">Отбой</span>
-              <span className="block text-[11px] text-[var(--mu)]">ложная тревога</span>
-            </span>
+            <ClipboardList className="w-4 h-4 shrink-0" />
+            Открыть в заявках и журнале
           </button>
+        ) : (
+          <>
+            {/* Primary Action: Plan Repair */}
+            <button
+              disabled={busy}
+              onClick={ticket}
+              className="min-h-[46px] h-[46px] w-full rounded-[14px] flex items-center gap-2.5 px-3.5 text-left transition hover:brightness-105 active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ac)] cursor-pointer"
+              style={{ background: 'var(--ac)', color: 'var(--onac)' }}
+            >
+              <Wrench className="w-[18px] h-[18px] shrink-0" />
+              <span className="leading-tight flex-1">
+                <span className="block font-semibold text-[14px]">Запланировать ремонт</span>
+                <span className="block text-[11px] opacity-90 mt-0.5">создать черновик заявки ТО</span>
+              </span>
+            </button>
 
-          <button
-            disabled={busy}
-            onClick={() => setMode('dispatch')}
-            className="min-h-[44px] h-[44px] rounded-[14px] flex items-center gap-2 px-2.5 text-left transition hover:brightness-95 active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--rd)] cursor-pointer"
-            style={{ background: 'var(--rds)', color: 'var(--rdt)' }}
-          >
-            <Truck className="w-4 h-4 shrink-0" />
-            <span className="leading-tight">
-              <span className="block font-semibold text-[13px]">Выезд бригады</span>
-              <span className="block text-[11px] opacity-85">отправить людей</span>
-            </span>
-          </button>
-        </div>
+            {/* Secondary Actions: False alarm and Force dispatch */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                disabled={busy}
+                onClick={() => setMode('false')}
+                className="min-h-[44px] h-[44px] rounded-[14px] border-[1.5px] flex items-center gap-2 px-2.5 text-left transition hover:bg-[var(--sf2)] active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--ac)] cursor-pointer"
+                style={{ borderColor: 'var(--ln2)', background: 'var(--sf)', color: 'var(--ink)' }}
+              >
+                <Hand className="w-4 h-4 shrink-0 text-[var(--mu)]" />
+                <span className="leading-tight">
+                  <span className="block font-semibold text-[13px]">Отбой</span>
+                  <span className="block text-[11px] text-[var(--mu)]">ложная тревога</span>
+                </span>
+              </button>
+
+              <button
+                disabled={busy}
+                onClick={() => setMode('dispatch')}
+                className="min-h-[44px] h-[44px] rounded-[14px] flex items-center gap-2 px-2.5 text-left transition hover:brightness-95 active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--rd)] cursor-pointer"
+                style={{ background: 'var(--rds)', color: 'var(--rdt)' }}
+              >
+                <Truck className="w-4 h-4 shrink-0" />
+                <span className="leading-tight">
+                  <span className="block font-semibold text-[13px]">Выезд бригады</span>
+                  <span className="block text-[11px] opacity-85">отправить людей</span>
+                </span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Reason selection modal for False alarm / Dispatch */}

@@ -25,7 +25,10 @@ export const ModelFactsGrid: React.FC<ModelFactsGridProps> = ({ latencyMs, chann
   ];
 
   return (
-    <section className="grid grid-cols-2 md:grid-cols-3 gap-x-4 sm:gap-x-6 gap-y-5">
+    <section
+      className="grid grid-cols-2 md:grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-4 sm:gap-y-[18px] rounded-[26px] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)] shadow-[var(--sh)]"
+      style={{ background: 'var(--sf)' }}
+    >
       {facts.map((f, i) => {
         const Icon = f.icon;
         return (
