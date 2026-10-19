@@ -14,6 +14,7 @@ import { RiskMap, MapPin, MOSCOW } from '../situation/RiskMap';
 import { ScenarioChooser } from './ScenarioChooser';
 import { PeriodSwitch } from './PeriodSwitch';
 import { ScenarioPlayerPanel } from './ScenarioPlayerPanel';
+import { ScenarioMiniDock } from './ScenarioMiniDock';
 import { ScenarioTimelineLanes } from './ScenarioTimelineLanes';
 import { ScenarioExampleCard } from './ScenarioExampleCard';
 import { ScenarioMetricsFooter } from './ScenarioMetricsFooter';
@@ -40,6 +41,7 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
   const [currentMinute, setCurrentMinute] = useState<number>(720); // Default 12:00
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isInitialPreview, setIsInitialPreview] = useState<boolean>(true);
+  const [dockVisible, setDockVisible] = useState<boolean>(false);
 
   // Ref to track latest request ID and avoid out-of-order responses
   const requestIdRef = useRef<number>(0);
@@ -495,7 +497,7 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
           nHit={nHit}
           nDone={nDone}
           clockLabel={clockLabel}
-          clockMini={clockMini}
+          onPanelVisibleChange={setDockVisible}
         />
       </section>
 
@@ -532,6 +534,21 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
           onClose={() => setSelectedChannelId(null)}
         />
       )}
+
+      {/* 9. Mobile Sticky Mini-Dock (OUTSIDE the card, last child of outermost page wrapper) */}
+      <ScenarioMiniDock
+        visible={dockVisible}
+        locked={loading || !!error}
+        isPlaying={isPlaying}
+        isAtEnd={!isPlaying && currentMinute >= maxMinutes - 0.001}
+        onTogglePlay={handleTogglePlay}
+        playAriaLabel={isPlaying ? 'Пауза' : (!isPlaying && currentMinute >= maxMinutes - 0.001) ? 'Повторить смену' : 'Воспроизвести смену'}
+        clockMini={clockMini}
+        clockLabel={clockLabel}
+        currentMinute={currentMinute}
+        mode={mode}
+        onTimeChange={handleTimeChange}
+      />
     </div>
   );
 };
