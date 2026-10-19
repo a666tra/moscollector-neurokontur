@@ -411,6 +411,7 @@
 .leaflet-overlay-pane .obj-ATTENTION { fill: var(--at); stroke: #fff; }
 .leaflet-overlay-pane .obj-WARNING { fill: var(--am); stroke: #fff; }
 .leaflet-overlay-pane .obj-CRITICAL { fill: var(--rd); stroke: #fff; }
+.leaflet-overlay-pane .obj-hit-target { pointer-events: all !important; cursor: pointer; }
 
 /* Technician 'you' position marker */
 .nk-you-wrap { position: relative; width: 0; height: 0; }
