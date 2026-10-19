@@ -321,7 +321,7 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="p-3.5 rounded-xl space-y-1" style={{ background: 'var(--sf2)' }}>
                     <div className="text-xs" style={{ color: 'var(--mu)' }}>Пропускная способность:</div>
                     <div className="text-2xl font-bold num" style={{ color: 'var(--ac)' }}>
@@ -347,14 +347,14 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
                   </div>
 
                   <div className="p-3.5 rounded-xl space-y-1 min-w-0 overflow-hidden" style={{ background: 'var(--sf2)' }}>
-                    <div className="text-xs leading-tight truncate" style={{ color: 'var(--mu)' }}>
+                    <div className="text-xs leading-tight break-words" style={{ color: 'var(--mu)' }}>
                       Норматив ТЗ: ответ ≤ {httpBench.tz_sla_target_ms ? Math.round(httpBench.tz_sla_target_ms / 1000) : 300} с
                     </div>
-                    <div className="text-lg sm:text-2xl font-bold num truncate" style={{ color: 'var(--gnt)' }}>
+                    <div className="text-lg sm:text-2xl font-bold num break-words" style={{ color: 'var(--gnt)' }}>
                       p95 {httpBench.latency_p95_ms ? httpBench.latency_p95_ms.toFixed(0) : 0} мс
                     </div>
                     {Boolean(httpBench.tz_sla_target_ms && httpBench.latency_p95_ms && httpBench.latency_p95_ms > 0) && (
-                      <div className="text-[11px] leading-tight truncate" style={{ color: 'var(--mu)' }}>
+                      <div className="text-[11px] leading-tight break-words" style={{ color: 'var(--mu)' }}>
                         в {Math.round(httpBench.tz_sla_target_ms / httpBench.latency_p95_ms)}× быстрее норматива
                       </div>
                     )}

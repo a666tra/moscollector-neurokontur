@@ -53,7 +53,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
   const maxMinutes = isMonth ? 30 : 1440;
   const m = Math.min(Math.max(0, currentMinute), maxMinutes);
 
-  // Extract real incident timestamps in minutes from response
+  // Extract real alert timestamps in minutes from response (for the 3 approach lanes)
   const rawIncidents = runResult?.incident_list || [];
   const incidents = rawIncidents
     .filter((inc) => incidentInScenario(inc, selectedScenarioId))
@@ -61,12 +61,18 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
 
   incidents.sort((a, b) => a - b);
 
+  // Distinct incidents only (excluding reminders and escalations) for the "Инциденты" lane
+  const incidentOnly = rawIncidents
+    .filter((inc) => !inc.is_reminder && !inc.is_escalation && incidentInScenario(inc, selectedScenarioId))
+    .map((inc) => (isMonth ? (inc.ts / 86400) : (inc.ts / 60)));
+
+  incidentOnly.sort((a, b) => a - b);
+
   // Real comparison totals from API response
   const comp = runResult?.comparison;
   const totalFast = comp?.fast?.alerts_total ?? runResult?.summary?.alerts_total ?? 0;
   const totalStatic = comp?.static_dedup?.alerts_total ?? 0;
   const totalNaive = comp?.naive?.alerts_total ?? 0;
-  const totalIncidents = incidents.length > 0 ? incidents.length : (runResult?.summary?.incidents ?? 0);
 
   // Function to distribute alerts to incident timestamps
   const distributeToIncidents = (total: number, incList: number[]) => {
@@ -95,12 +101,12 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
     return sum;
   };
 
-  const liveIncidents = m >= maxMinutes - 0.001 ? totalIncidents : incidents.filter((t) => t <= m).length;
+  const isAtEnd = m >= maxMinutes - 0.001;
+
+  const liveIncidents = isAtEnd ? incidentOnly.length : incidentOnly.filter((t) => t <= m).length;
   const liveFast = countUpTo(fastDistribution, totalFast);
   const liveStatic = countUpTo(staticDistribution, totalStatic);
   const liveNaive = countUpTo(naiveDistribution, totalNaive);
-
-  const isAtEnd = m >= maxMinutes - 0.001;
 
   // Pointer scrubber handler
   const handlePointerScrub = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -166,7 +172,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
       color: 'var(--ink)',
       count: liveIncidents.toLocaleString('ru-RU'),
       strokeWidth: 3,
-      ticks: incidents,
+      ticks: incidentOnly,
     },
     {
       id: 'fast',
