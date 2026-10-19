@@ -74,7 +74,7 @@ export const ScenarioChooser: React.FC<ScenarioChooserProps> = ({
       <div
         role="radiogroup"
         aria-label="Выбор сценария"
-        className="flex items-start gap-2.5 sm:gap-4 overflow-x-auto py-2 px-1 scrollbar-none"
+        className="flex items-start gap-1.5 sm:gap-3.5 overflow-x-auto py-1.5 px-1 scrollbar-none"
       >
         {items.map((item) => {
           const isSelected = selectedId === item.id;
@@ -87,11 +87,10 @@ export const ScenarioChooser: React.FC<ScenarioChooserProps> = ({
               role="radio"
               aria-checked={isSelected}
               onClick={() => onSelect(item.id)}
-              className="flex-none flex flex-col items-center gap-2 p-0 bg-transparent border-0 cursor-pointer group focus:outline-none"
-              style={{ width: '74px' }}
+              className="flex-none flex flex-col items-center gap-1.5 p-0 bg-transparent border-0 cursor-pointer group focus:outline-none w-[68px] sm:w-[90px]"
             >
               <span
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all duration-200"
+                className="w-[50px] h-[50px] sm:w-[66px] sm:h-[66px] rounded-full flex items-center justify-center transition-all duration-200"
                 style={{
                   background: isSelected ? 'var(--ac)' : 'var(--sf2)',
                   color: isSelected ? 'var(--onac)' : 'var(--ink)',
@@ -99,7 +98,7 @@ export const ScenarioChooser: React.FC<ScenarioChooserProps> = ({
                   boxShadow: isSelected ? '0 8px 20px -6px var(--ac)' : 'none',
                 }}
               >
-                <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
+                <Icon className="w-6 h-6 sm:w-[30px] sm:h-[30px]" />
               </span>
 
               <span

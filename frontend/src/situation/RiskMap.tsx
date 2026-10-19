@@ -10,6 +10,7 @@ export interface MapPin {
   color?: string;
   label?: string;
   textLabel?: string;
+  tooltip?: string;
 }
 
 interface Props {
@@ -383,7 +384,7 @@ export const RiskMap: React.FC<Props> = ({
       const colorVar = p.color || (p.done ? 'var(--gn)' : isCritical ? 'var(--rd)' : isWarning ? 'var(--am)' : 'var(--at)');
 
       // Key string containing everything that affects the DOM of this marker
-      const key = `${p.risk}_${p.done ? 1 : 0}_${colorVar}_${pinLabel || ''}_${p.textLabel || ''}_${p.pct ?? ''}_${sel ? 1 : 0}_${isHov ? 1 : 0}_${showPill ? 1 : 0}_${r}_${haloD}_${pulse ? 1 : 0}_${interactive ? 1 : 0}_${pos[0]},${pos[1]}`;
+      const key = `${p.risk}_${p.done ? 1 : 0}_${colorVar}_${pinLabel || ''}_${p.textLabel || ''}_${p.tooltip || ''}_${p.pct ?? ''}_${sel ? 1 : 0}_${isHov ? 1 : 0}_${showPill ? 1 : 0}_${r}_${haloD}_${pulse ? 1 : 0}_${interactive ? 1 : 0}_${pos[0]},${pos[1]}`;
 
       const existing = pinsMarkersRef.current.get(p.objectId);
       if (existing && existing.key === key) {
@@ -404,7 +405,9 @@ export const RiskMap: React.FC<Props> = ({
         : p.pct != null
         ? `риск ${p.pct} %`
         : 'без оценки';
-      const ariaLabel = p.done
+      const ariaLabel = p.tooltip
+        ? `${o.name}, ${p.tooltip}`
+        : p.done
         ? `${o.name}, ${pinLabel || 'решено'}`
         : isCritical
         ? `${o.name}, ${pctText}, срочно проверить`
@@ -428,6 +431,8 @@ export const RiskMap: React.FC<Props> = ({
         ? `<div class="nk-pin-pill">${p.pct}%</div>`
         : '';
 
+      const tipText = p.tooltip ? `${o.name} · ${p.tooltip}` : o.name;
+
       const html = `
         <div class="nk-pin-wrap ${sel ? 'sel' : ''} ${isHov ? 'hov' : ''} ${showPill ? 'show-pill' : ''}" style="--pin-color: ${colorVar}; --r: ${r}px; --halo-d: ${haloD}px;">
           <div class="nk-pin-hit" tabindex="${interactive ? 0 : -1}" role="${interactive ? 'button' : 'img'}" aria-label="${ariaLabel}">
@@ -438,7 +443,7 @@ export const RiskMap: React.FC<Props> = ({
               ${p.done ? checkSvg : ''}
             </div>
             ${pillHtml}
-            <div class="nk-pin-tip">${o.name}</div>
+            <div class="nk-pin-tip">${tipText}</div>
           </div>
         </div>
       `;

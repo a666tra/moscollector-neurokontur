@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   FlaskConical,
-  Bell,
   RefreshCw,
-  Clock,
-  Calendar,
-  AlertCircle,
-  Eye,
-  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   ScenarioCatalogResponse,
@@ -15,9 +10,10 @@ import {
   ObjectItem,
 } from '../types';
 import { api } from '../lib/api';
-import { useToast } from '../lib/toast';
 import { RiskMap, MapPin, MOSCOW } from '../situation/RiskMap';
 import { ScenarioChooser } from './ScenarioChooser';
+import { PeriodSwitch } from './PeriodSwitch';
+import { ScenarioPlayerPanel } from './ScenarioPlayerPanel';
 import { ScenarioTimelineLanes } from './ScenarioTimelineLanes';
 import { ScenarioExampleCard } from './ScenarioExampleCard';
 import { ScenarioMetricsFooter } from './ScenarioMetricsFooter';
@@ -29,8 +25,6 @@ interface ScenarioLabProps {
 }
 
 export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObjects }) => {
-  const toast = useToast();
-
   const [objects, setObjects] = useState<ObjectItem[]>(initialObjects || []);
   const [catalog, setCatalog] = useState<ScenarioCatalogResponse | null>(null);
   const [result, setResult] = useState<ScenarioRunResponse | null>(null);
@@ -212,20 +206,67 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }, [mode, currentMinute]);
 
+  const clockMini = useMemo(() => {
+    if (mode === 'month') {
+      const day = Math.max(1, Math.min(30, Math.ceil(currentMinute)));
+      return `день ${day}`;
+    }
+    const totalMinutes = Math.floor(currentMinute);
+    if (totalMinutes >= 1440) {
+      return '24:00';
+    }
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }, [mode, currentMinute]);
+
+  // Real incident timestamps in minutes for day scrubber ticks
+  const incidentTimestamps = useMemo(() => {
+    if (!result?.incident_list || mode === 'month') return [];
+    return result.incident_list
+      .filter((inc) => incidentInScenario(inc, selectedScenarioId))
+      .map((inc) => inc.ts / 60);
+  }, [result, mode, selectedScenarioId]);
+
   // Pins for RiskMap
   const pins: MapPin[] = useMemo(() => {
     if (!result?.incident_list || result.incident_list.length === 0) return [];
+    if (loading || error) return [];
 
-    const isMonth = mode === 'month';
+    if (mode === 'month') {
+      // Month mode: show only alerts of the currently selected day, capped at 14 pins
+      const selectedDay = Math.max(1, Math.min(30, Math.ceil(currentMinute)));
+      const dayAlerts: typeof result.incident_list = [];
+
+      for (const inc of result.incident_list) {
+        if (!incidentInScenario(inc, selectedScenarioId)) continue;
+        const alertDay = Math.floor(inc.ts / 86400) + 1;
+        if (alertDay === selectedDay) {
+          dayAlerts.push(inc);
+        }
+      }
+
+      const capped = dayAlerts.slice(0, 14);
+
+      return capped.map((inc) => ({
+        objectId: inc.object_id,
+        risk: 'CRITICAL',
+        done: false,
+        color: 'var(--rd)',
+        tooltip: `Событие дня ${selectedDay}`,
+      }));
+    }
+
+    // Day mode: warn/hit/done pins with lead and resolution conventions
     const m = currentMinute;
     const pinMap = new Map<string, { warn: boolean; hit: boolean; done: boolean }>();
 
     for (const inc of result.incident_list) {
       if (!incidentInScenario(inc, selectedScenarioId)) continue;
 
-      const tMin = isMonth ? inc.ts / 86400 : inc.ts / 60;
-      const leadMin = isMonth ? 0.2 : 20; // 20 min early warning lead
-      const resMin = isMonth ? 2 : 150; // 150 min resolution convention from prototype
+      const tMin = inc.ts / 60;
+      const leadMin = 20; // 20 min early warning lead
+      const resMin = 150; // 150 min resolution convention
 
       if (m < tMin - leadMin) continue;
 
@@ -265,9 +306,9 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
     });
 
     return outPins;
-  }, [result, mode, currentMinute, selectedScenarioId]);
+  }, [result, mode, currentMinute, selectedScenarioId, loading, error]);
 
-  // Counters for the map legend
+  // Counters for the map legend (day mode only)
   const { nWarn, nHit, nDone } = useMemo(() => {
     let warn = 0;
     let hit = 0;
@@ -311,34 +352,31 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
   }, [result, selectedScenarioId]);
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+    <div className="max-w-[1200px] mx-auto px-3.5 sm:px-8 py-5 sm:py-7 pb-24 sm:pb-16 flex flex-col gap-4 sm:gap-6">
       {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[var(--ln2)]">
-        <div>
+      <header className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-x-3.5 gap-y-2.5 flex-wrap">
           <h1
-            className="text-3xl sm:text-5xl font-normal tracking-tight"
+            className="m-0 text-[30px] sm:text-[42px] leading-[1.05] tracking-[-0.02em] font-normal"
             style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
           >
             Сценарный полигон
           </h1>
-          <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--mu)' }}>
-            Быстрый контур правил против простого порога на смоделированных авариях (S1–S8)
-          </p>
+          <span
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-bold"
+            style={{ background: 'var(--ams)', color: 'var(--amt)' }}
+          >
+            <FlaskConical className="w-[15px] h-[15px] shrink-0" />
+            <span>Синтетика</span>
+          </span>
         </div>
-
-        {/* Visible Orange Disclaimer Badge */}
-        <span
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-xs sm:text-[13px] self-start sm:self-center"
-          style={{
-            background: 'var(--ams)',
-            color: 'var(--amt)',
-            border: '1px solid var(--am)',
-          }}
+        <p
+          className="m-0 text-[13px] leading-[1.35] max-w-[620px]"
+          style={{ color: 'var(--mu)', textWrap: 'pretty' }}
         >
-          <FlaskConical className="w-4 h-4 shrink-0" />
-          <span>Синтетика: проверка логики, часть преимущества — по построению теста</span>
-        </span>
-      </div>
+          Проверка логики, часть преимущества — по построению теста
+        </p>
+      </header>
 
       {/* 2. Scenario Chooser */}
       <ScenarioChooser
@@ -351,226 +389,141 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
         catalog={catalog}
       />
 
-      {/* 3. Map Section */}
-      <section className="space-y-3">
-        <div className="relative h-[340px] sm:h-[460px] rounded-2xl sm:rounded-3xl overflow-hidden border border-[var(--ln2)] shadow-md flex items-center justify-center bg-[var(--sf2)]">
-          {error ? (
-            <div className="flex flex-col items-center justify-center gap-3 p-6 text-center z-[1001]">
-              <AlertCircle className="w-8 h-8 text-[var(--rd)]" />
-              <div className="text-sm font-semibold text-[var(--ink)]">{error}</div>
-              <button
-                type="button"
-                onClick={handleRetry}
-                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer border border-[var(--ln2)] hover:border-[var(--ac)] bg-[var(--sf)] text-[var(--ink)] shadow-sm inline-flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Повторить</span>
-              </button>
+      {/* 3. Centered Period Switch */}
+      <PeriodSwitch
+        mode={mode}
+        onChange={handleModeChange}
+        disabled={loading}
+      />
+
+      {/* 4. Main Card: Map on top + Control Panel directly below */}
+      <section
+        className="rounded-[28px] overflow-hidden"
+        style={{ background: 'var(--sf)', boxShadow: 'var(--sh)' }}
+      >
+        {/* Map Container */}
+        <div
+          className="relative h-[280px] sm:h-[430px]"
+          style={{ background: 'var(--sf2)' }}
+        >
+          <RiskMap
+            objects={objects}
+            pins={pins}
+            center={MOSCOW}
+            zoom={11.4}
+            interactive={!loading && !error}
+            onPick={(objId) => {
+              const inc = result?.incident_list?.find((i) => i.object_id === objId);
+              if (inc?.channel_id) setSelectedChannelId(inc.channel_id);
+            }}
+          />
+
+          {/* Loading / Error Cover */}
+          {(loading || error) && (
+            <div
+              className="absolute inset-0 z-[100] flex flex-col items-center justify-center gap-3.5 p-5 text-center"
+              style={{ background: 'var(--sf2)' }}
+            >
+              {error ? (
+                <>
+                  <span
+                    className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: 'var(--rds)', color: 'var(--rdt)' }}
+                  >
+                    <AlertTriangle className="w-7 h-7" />
+                  </span>
+                  <b
+                    className="text-[22px] font-normal leading-tight"
+                    style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
+                  >
+                    {mode === 'month' ? 'Не удалось посчитать месяц' : 'Не удалось посчитать'}
+                  </b>
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    className="min-h-[52px] rounded-full border-0 font-semibold text-[15px] px-[22px] pl-4 flex items-center gap-2 cursor-pointer transition-opacity active:opacity-90"
+                    style={{ background: 'var(--ink)', color: 'var(--bg)' }}
+                  >
+                    <RefreshCw className="w-[19px] h-[19px]" />
+                    <span>Повторить</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="w-full max-w-[360px] flex flex-col gap-2.5"
+                    style={{ animation: 'nkShim 1.3s ease-in-out infinite' }}
+                  >
+                    <i className="h-3.5 rounded-[7px] w-full block" style={{ background: 'var(--ln2)' }} />
+                    <i className="h-3.5 rounded-[7px] w-[72%] block" style={{ background: 'var(--ln)' }} />
+                    <i className="h-3.5 rounded-[7px] w-[88%] block" style={{ background: 'var(--ln)' }} />
+                  </div>
+                  <span
+                    className="flex items-center gap-2.5 font-semibold text-[15px]"
+                    style={{ color: 'var(--ink)' }}
+                  >
+                    <span className="grid animate-spin" style={{ color: 'var(--ac)' }}>
+                      <RefreshCw className="w-5 h-5" />
+                    </span>
+                    <span>
+                      {mode === 'month'
+                        ? 'Считаю месяц — несколько секунд'
+                        : 'Считаю смену…'}
+                    </span>
+                  </span>
+                </>
+              )}
             </div>
-          ) : loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 p-6 text-center z-[1001]">
-              <div className="text-sm sm:text-base font-medium text-[var(--mu)]">
-                {mode === 'month'
-                  ? 'Считаю месяц — это занимает несколько секунд'
-                  : 'Считаю смену…'}
-              </div>
-            </div>
-          ) : (
-            <>
-              <RiskMap
-                objects={objects}
-                pins={pins}
-                center={MOSCOW}
-                zoom={11.4}
-                interactive={true}
-                onPick={(objId) => {
-                  // Find incident on this object to view details
-                  const inc = result?.incident_list?.find((i) => i.object_id === objId);
-                  if (inc?.channel_id) setSelectedChannelId(inc.channel_id);
-                }}
-              />
-
-              {/* Desktop Floating Overlay: Clock & Approach counters (Top Left) */}
-              <div
-                className="hidden md:flex absolute left-3 top-3 flex-col gap-2 p-3 sm:p-4 rounded-2xl shadow-lg z-[1000] border border-[var(--ln2)]"
-                style={{ background: 'var(--sf)' }}
-              >
-                <span
-                  className="text-2xl sm:text-3xl font-semibold num"
-                  style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--ink)' }}
-                >
-                  {clockLabel}
-                </span>
-
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--mu)]">
-                  <Bell className="w-3.5 h-3.5" />
-                  <span>звонков диспетчеру:</span>
-                </span>
-
-                <div className="space-y-1 text-xs sm:text-[13px]">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="flex items-center gap-1.5 text-[var(--ink)]">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ac)' }} />
-                      <span>НейроКонтур:</span>
-                    </span>
-                    <b
-                      className="font-normal text-lg sm:text-xl num"
-                      style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ac)' }}
-                    >
-                      {liveFast}
-                    </b>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="flex items-center gap-1.5 text-[var(--ink)]">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'oklch(0.72 0.15 72)' }} />
-                      <span>Статический:</span>
-                    </span>
-                    <b
-                      className="font-normal text-lg sm:text-xl num"
-                      style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'oklch(0.72 0.15 72)' }}
-                    >
-                      {liveStatic}
-                    </b>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="flex items-center gap-1.5 text-[var(--ink)]">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--rd)' }} />
-                      <span>Простой:</span>
-                    </span>
-                    <b
-                      className="font-normal text-lg sm:text-xl num"
-                      style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--rd)' }}
-                    >
-                      {liveNaive}
-                    </b>
-                  </div>
-                </div>
-              </div>
-
-              {/* Desktop Floating Overlay: Legend (Top Right) */}
-              <div
-                className="hidden md:flex absolute right-3 top-3 flex-col gap-1.5 p-3 rounded-xl shadow-lg z-[1000] border border-[var(--ln2)] text-xs font-medium"
-                style={{ background: 'var(--sf)' }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--ac)' }} />
-                  <span>контур предупредил: <b>{nWarn}</b></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--rd)' }} />
-                  <span>событие идёт: <b>{nHit}</b></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--gn)' }} />
-                  <span>решено: <b>{nDone}</b></span>
-                </div>
-                <div className="text-[10.5px] text-[var(--mu)] pt-1 border-t border-[var(--ln)]">
-                  условно: событие считается закрытым через 150 мин
-                </div>
-              </div>
-            </>
           )}
         </div>
 
-        {/* Mobile Dedicated Board (Shown only on mobile below map) */}
-        {!loading && !error && result && (
-          <div
-            className="flex md:hidden flex-col gap-3 p-4 rounded-2xl border border-[var(--ln2)] bg-[var(--sf)]"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className="text-2xl font-semibold num"
-                style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--ink)' }}
-              >
-                {clockLabel}
-              </span>
-
-              <div className="flex items-center gap-2.5 text-xs">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--ac)' }} />
-                  <span>{nWarn}</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--rd)' }} />
-                  <span>{nHit}</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full" style={{ background: 'var(--gn)' }} />
-                  <span>{nDone}</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--ln)] text-center">
-              <div>
-                <div
-                  className="text-2xl font-normal num"
-                  style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ac)' }}
-                >
-                  {liveFast}
-                </div>
-                <div className="text-[11px] text-[var(--mu)] font-medium">НейроКонтур</div>
-              </div>
-
-              <div>
-                <div
-                  className="text-2xl font-normal num"
-                  style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'oklch(0.72 0.15 72)' }}
-                >
-                  {liveStatic}
-                </div>
-                <div className="text-[11px] text-[var(--mu)] font-medium">Статический</div>
-              </div>
-
-              <div>
-                <div
-                  className="text-2xl font-normal num"
-                  style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--rd)' }}
-                >
-                  {liveNaive}
-                </div>
-                <div className="text-[11px] text-[var(--mu)] font-medium">Простой</div>
-              </div>
-            </div>
-
-            <div className="text-[10px] text-[var(--mu)] text-center">
-              условно: событие считается закрытым через 150 мин
-            </div>
-          </div>
-        )}
+        {/* Player Panel directly under map */}
+        <ScenarioPlayerPanel
+          mode={mode}
+          currentMinute={currentMinute}
+          onTimeChange={handleTimeChange}
+          isPlaying={isPlaying}
+          onTogglePlay={handleTogglePlay}
+          onNewSeed={handleNewSeed}
+          loading={loading}
+          error={error}
+          incidentTimestamps={incidentTimestamps}
+          liveFast={liveFast}
+          liveStatic={liveStatic}
+          liveNaive={liveNaive}
+          nWarn={nWarn}
+          nHit={nHit}
+          nDone={nDone}
+          clockLabel={clockLabel}
+          clockMini={clockMini}
+        />
       </section>
 
-      {/* 4. Timeline Lanes & Playback Controls */}
+      {/* 5. Timeline Lanes */}
       <ScenarioTimelineLanes
         runResult={result}
         mode={mode}
-        onModeChange={handleModeChange}
         currentMinute={currentMinute}
         onTimeChange={handleTimeChange}
-        isPlaying={isPlaying}
-        onTogglePlay={handleTogglePlay}
-        onNewSeed={handleNewSeed}
         selectedScenarioId={selectedScenarioId}
         loading={loading}
       />
 
-      {/* 5. Example breakdown: "Что случилось" */}
+      {/* 6. Example breakdown: "Что случилось" */}
       <ScenarioExampleCard
         incident={exampleIncident}
         comparison={result?.comparison}
         selectedScenarioId={selectedScenarioId}
       />
 
-      {/* 6. Footer Metrics, Bars, and Comparison Table */}
+      {/* 7. Footer Metrics, Bars, and Comparison Table */}
       <ScenarioMetricsFooter
         runResult={result}
         catalog={catalog}
         selectedScenarioId={selectedScenarioId}
       />
 
-      {/* 7. Detail modal for channel telemetry (from /api/scenarios/series) */}
+      {/* 8. Detail modal for channel telemetry */}
       {selectedChannelId && (
         <ScenarioSeriesDetail
           channelId={selectedChannelId}

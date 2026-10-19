@@ -6,12 +6,12 @@ import { incidentInScenario } from './scenarioLabels';
 interface ScenarioTimelineLanesProps {
   runResult: ScenarioRunResponse | null;
   mode: 'day' | 'month';
-  onModeChange: (mode: 'day' | 'month') => void;
+  onModeChange?: (mode: 'day' | 'month') => void;
   currentMinute: number; // 0..1440 for day, 0..30 for month
   onTimeChange: (minute: number) => void;
-  isPlaying: boolean;
-  onTogglePlay: () => void;
-  onNewSeed: () => void;
+  isPlaying?: boolean;
+  onTogglePlay?: () => void;
+  onNewSeed?: () => void;
   selectedScenarioId: string;
   loading?: boolean;
 }
@@ -143,7 +143,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
     } else if (e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      onTogglePlay();
+      onTogglePlay?.();
     }
   };
 
@@ -205,89 +205,6 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Controls Bar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Play/Pause Button */}
-          <button
-            type="button"
-            disabled={loading}
-            onClick={onTogglePlay}
-            className={`min-h-[50px] sm:min-h-[54px] px-6 rounded-full border-0 font-semibold text-sm sm:text-base inline-flex items-center gap-3 shadow-md transition-all ${
-              loading
-                ? 'opacity-50 cursor-not-allowed'
-                : 'cursor-pointer active:scale-95'
-            }`}
-            style={{ background: 'var(--ink)', color: 'var(--bg)' }}
-            aria-label={
-              isPlaying
-                ? 'Пауза воспроизведения'
-                : isAtEnd
-                ? 'Повторить смену'
-                : 'Воспроизвести смену'
-            }
-          >
-            <span
-              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: 'var(--bg)', color: 'var(--ink)' }}
-            >
-              {isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
-              ) : (
-                <Play className="w-4 h-4 ml-0.5 fill-current" />
-              )}
-            </span>
-            <span>
-              {isPlaying
-                ? 'Пауза'
-                : isAtEnd
-                ? 'Повторить смену'
-                : 'Воспроизвести смену'}
-            </span>
-          </button>
-
-          {/* New Seed Button */}
-          <button
-            type="button"
-            disabled={loading}
-            onClick={onNewSeed}
-            className={`min-h-[48px] sm:min-h-[52px] px-4 rounded-full border border-[var(--ln2)] hover:border-[var(--ac)] bg-transparent font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-colors text-[var(--ink)] ${
-              loading
-                ? 'opacity-50 cursor-not-allowed'
-                : 'cursor-pointer'
-            }`}
-            title="Сгенерировать другой номер смены"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Другая смена</span>
-          </button>
-        </div>
-
-        {/* Day / Month Segmented Switch */}
-        <div className="flex p-1 rounded-full border border-[var(--ln2)] bg-[var(--sf2)]">
-          <button
-            type="button"
-            onClick={() => onModeChange('day')}
-            className={`min-h-[42px] px-4 rounded-full text-xs sm:text-sm font-semibold transition-all border-0 cursor-pointer ${
-              !isMonth ? 'shadow-sm text-[var(--ink)] bg-[var(--sf)]' : 'text-[var(--mu)] bg-transparent'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 inline mr-1.5" />
-            Сутки
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange('month')}
-            className={`min-h-[42px] px-4 rounded-full text-xs sm:text-sm font-semibold transition-all border-0 cursor-pointer ${
-              isMonth ? 'shadow-sm text-[var(--ink)] bg-[var(--sf)]' : 'text-[var(--mu)] bg-transparent'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5 inline mr-1.5" />
-            Месяц
-          </button>
-        </div>
-      </div>
-
       {/* 4 Lanes Container */}
       <div
         ref={containerRef}
@@ -333,48 +250,58 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
               </span>
             </div>
 
-            {/* SVG Scrub Strip */}
-            <svg
-              width="100%"
-              height="44"
-              viewBox={`0 0 ${svgWidth} 44`}
-              preserveAspectRatio="none"
-              onPointerDown={handlePointerScrub}
-              onPointerMove={(e) => {
-                if (e.buttons === 1) handlePointerScrub(e);
-              }}
-              className={`block rounded-xl select-none overflow-hidden ${
-                loading ? 'cursor-not-allowed pointer-events-none' : 'cursor-ew-resize'
-              }`}
-              style={{
-                background: 'var(--sf2)',
-                touchAction: 'pan-y',
-              }}
-            >
-              {/* Future ticks (dimmed) */}
-              <g opacity="0.25">{renderLaneTicks(lane.ticks, lane.color, lane.strokeWidth, maxMinutes)}</g>
-
-              {/* Past ticks (active) */}
-              <g>{renderLaneTicks(lane.ticks, lane.color, lane.strokeWidth, m)}</g>
-
-              {/* Vertical playhead cursor */}
-              <line
-                x1={playheadX}
-                x2={playheadX}
-                y1="0"
-                y2="44"
-                stroke="var(--ink)"
-                strokeWidth="2"
+            {/* Pulsing placeholder during loading or SVG Scrub Strip */}
+            {loading || !runResult ? (
+              <div
+                className="h-11 rounded-xl w-full"
+                style={{
+                  background: 'var(--sf2)',
+                  animation: 'nkShim 1.3s ease-in-out infinite',
+                }}
               />
-              <circle
-                cx={playheadX}
-                cy="22"
-                r="7"
-                fill="var(--ink)"
-                stroke="var(--bg)"
-                strokeWidth="2.5"
-              />
-            </svg>
+            ) : (
+              <svg
+                width="100%"
+                height="44"
+                viewBox={`0 0 ${svgWidth} 44`}
+                preserveAspectRatio="none"
+                onPointerDown={handlePointerScrub}
+                onPointerMove={(e) => {
+                  if (e.buttons === 1) handlePointerScrub(e);
+                }}
+                className={`block rounded-xl select-none overflow-hidden ${
+                  loading ? 'cursor-not-allowed pointer-events-none' : 'cursor-ew-resize'
+                }`}
+                style={{
+                  background: 'var(--sf2)',
+                  touchAction: 'pan-y',
+                }}
+              >
+                {/* Future ticks (dimmed) */}
+                <g opacity="0.25">{renderLaneTicks(lane.ticks, lane.color, lane.strokeWidth, maxMinutes)}</g>
+
+                {/* Past ticks (active) */}
+                <g>{renderLaneTicks(lane.ticks, lane.color, lane.strokeWidth, m)}</g>
+
+                {/* Vertical playhead cursor */}
+                <line
+                  x1={playheadX}
+                  x2={playheadX}
+                  y1="0"
+                  y2="44"
+                  stroke="var(--ink)"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx={playheadX}
+                  cy="22"
+                  r="7"
+                  fill="var(--ink)"
+                  stroke="var(--bg)"
+                  strokeWidth="2.5"
+                />
+              </svg>
+            )}
           </div>
         ))}
       </div>

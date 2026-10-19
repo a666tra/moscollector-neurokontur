@@ -480,8 +480,8 @@
 }
 
 @keyframes nkShim {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
 }
 @keyframes nkPopA {
   0% { transform: scale(0.3); opacity: 0; }
