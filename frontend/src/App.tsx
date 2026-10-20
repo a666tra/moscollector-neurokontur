@@ -17,6 +17,7 @@ import { ToastProvider } from './lib/toast';
 import { ThemeProvider, ThemeButton } from './lib/theme';
 import { ConfirmedAlarmItem, ObjectItem, PredictionItem, UserRole } from './types';
 import { FieldView } from './field/FieldView';
+import { TechTasks } from './field/TechTasks';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 type View = 'summary' | 'field' | 'situation' | 'tickets' | 'quality' | 'scenarios';
@@ -507,7 +508,20 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
                 }}
               />
             )}
-            {view === 'tickets' && (
+            {view === 'tickets' && isTech && (
+              <TechTasks
+                onOpenField={() => setView('field')}
+                onOpenObject={(objId) => {
+                  try {
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('obj', objId);
+                    window.history.replaceState({}, '', u);
+                  } catch {}
+                  setView('field');
+                }}
+              />
+            )}
+            {view === 'tickets' && !isTech && (
               <div className="relative z-[1] h-full overflow-y-auto px-3 sm:px-4 py-4 pb-20 lg:p-6">
                 <div className="max-w-[1400px] mx-auto">
                   <MaintenanceTickets

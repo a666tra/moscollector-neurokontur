@@ -545,9 +545,13 @@ export const RiskMap: React.FC<Props> = ({
         youMarkerRef.current.setIcon(youIcon);
       }
 
-      if (routeTo && routeTo[0] && routeTo[1]) {
+      // Метка объекта нарисована на ближайшей точке трассы (displayLatLng), поэтому и линия маршрута
+      // должна заканчиваться там же, а не в «сырых» координатах объекта.
+      const target = selectedObjectId ? (objects || []).find(o => o.object_id === selectedObjectId) : undefined;
+      const routeEnd: [number, number] | null = target ? displayLatLng(target) : routeTo;
+      if (routeEnd && routeEnd[0] && routeEnd[1]) {
         if (!routePolylineRef.current) {
-          routePolylineRef.current = L.polyline([you, routeTo], {
+          routePolylineRef.current = L.polyline([you, routeEnd], {
             color: 'var(--ac)',
             weight: 2.5,
             dashArray: '6, 6',
@@ -555,7 +559,7 @@ export const RiskMap: React.FC<Props> = ({
             interactive: false,
           }).addTo(yl);
         } else {
-          routePolylineRef.current.setLatLngs([you, routeTo]);
+          routePolylineRef.current.setLatLngs([you, routeEnd]);
         }
       } else if (routePolylineRef.current) {
         routePolylineRef.current.remove();
@@ -571,7 +575,7 @@ export const RiskMap: React.FC<Props> = ({
         routePolylineRef.current = null;
       }
     }
-  }, [you, youLabel, routeTo, interactive]);
+  }, [you, youLabel, routeTo, interactive, selectedObjectId, objects, displayLatLng, routesReady]);
 
   // 4. Fly to selected object
   useEffect(() => {

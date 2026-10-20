@@ -66,6 +66,8 @@ export const FieldView: React.FC<Props> = ({
     try {
       const s = new URLSearchParams(window.location.search).get('snap');
       if (s === 'peek' || s === 'full') return s;
+      // пришли по ссылке на конкретный объект (например, из «Заявок» техника) — сразу сводка, карта видна
+      if (new URLSearchParams(window.location.search).get('obj')) return 'peek';
     } catch {}
     return 'half';
   });

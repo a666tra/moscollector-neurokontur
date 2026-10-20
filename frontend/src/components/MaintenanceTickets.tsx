@@ -4,7 +4,7 @@ import { MaintenanceTicket, ObjectItem, PredictionItem } from '../types';
 import { DecisionLedger } from './DecisionLedger';
 import { TicketTiles, TicketTileType } from '../tickets/TicketTiles';
 import { TicketStatusTrack, StageCounts } from '../tickets/TicketStatusTrack';
-import { TicketRow } from '../tickets/TicketRow';
+import { TicketRow, BRIGADES } from '../tickets/TicketRow';
 import { TicketMiniMap } from '../tickets/TicketMiniMap';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
@@ -109,6 +109,13 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
           dispatcher_pin: d.pin,
         },
       });
+      // «Назначить» без ручного выбора: ставим самую свободную бригаду (демо-выбор), чтобы нагрузка была видна
+      if (newStatus === 'НАЗНАЧЕН' && !brigadeChoice.current[ticketId]) {
+        brigadeChoice.current[ticketId] = BRIGADES.reduce(
+          (best, b) => ((brigadeLoad[b] || 0) < (brigadeLoad[best] || 0) ? b : best),
+          BRIGADES[0]
+        );
+      }
       setTickets((prev) => prev.map((t) => (t.ticket_id === ticketId ? withChoice(updated) : t)));
       toast(`Статус наряда ${ticketId} изменён: ${newStatus}`, 'success');
       onRefreshStats?.();
@@ -171,7 +178,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
       });
       setTickets((prev) => [newTicket, ...prev]);
       setExpandedTicketId(newTicket.ticket_id);
-      toast(`Сформирован наряд ${newTicket.ticket_id}`, 'success');
+      toast(`Создан черновик наряда ${newTicket.ticket_id} для самого рискованного канала без наряда. Бригаду назначьте кнопкой «Назначить».`, 'success');
       onRefreshStats?.();
     } catch (err: any) {
       toast(err?.message || 'Не удалось сформировать наряд', 'error');
@@ -192,6 +199,15 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
 
     setIsAssigningUrgent(true);
     try {
+      // раскладываем срочные наряды по бригадам по очереди — каждый раз на самую свободную (демо-выбор)
+      const load: Record<string, number> = { ...brigadeLoad };
+      for (const t of urgentDrafts) {
+        if (!brigadeChoice.current[t.ticket_id]) {
+          const free = BRIGADES.reduce((best, b) => ((load[b] || 0) < (load[best] || 0) ? b : best), BRIGADES[0]);
+          brigadeChoice.current[t.ticket_id] = free;
+          load[free] = (load[free] || 0) + 1;
+        }
+      }
       for (const t of urgentDrafts) {
         await api<MaintenanceTicket>(`/api/tickets/${t.ticket_id}/status`, {
           method: 'PATCH',
@@ -435,13 +451,13 @@ ${ticket.assigned_team}
               onClick={handleGenerateTicket}
               disabled={isGenerating}
               aria-label="Сформировать наряд по модели"
-              title="Модель подскажет, что проверить и создаст наряд"
+              title="Модель берёт самый рискованный канал без наряда и создаёт для него черновик наряда. Бригаду назначает диспетчер кнопкой «Назначить»."
               className="relative min-h-[48px] px-4 sm:px-5 rounded-full flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-[var(--onac)] border-0 cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
               style={{ background: 'var(--ac)' }}
             >
               <Sparkles className={`w-4 h-4 shrink-0 ${isGenerating ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">
-                {isGenerating ? 'Создаём…' : 'Подсказки модели'}
+                {isGenerating ? 'Создаём…' : 'Создать наряд по модели'}
               </span>
 
               {/* Red counter badge */}

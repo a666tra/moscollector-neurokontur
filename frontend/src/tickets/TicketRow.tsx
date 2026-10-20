@@ -19,7 +19,7 @@ interface TicketRowProps {
   isUpdatingStatus?: boolean;
 }
 
-const BRIGADES = ['Условная бригада 1', 'Условная бригада 2', 'Условная бригада 3', 'Условная бригада 4', 'Условная бригада 5'];
+export const BRIGADES = ['Условная бригада 1', 'Условная бригада 2', 'Условная бригада 3', 'Условная бригада 4', 'Условная бригада 5'];
 
 export const TicketRow: React.FC<TicketRowProps> = ({
   ticket,
