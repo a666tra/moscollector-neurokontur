@@ -4,6 +4,7 @@ import {
   ScenarioRunResponse,
   MaintenanceTicket,
 } from '../types';
+import { LineChart } from 'lucide-react';
 import { VerdictHeader } from './VerdictHeader';
 import { ActionTiles } from './ActionTiles';
 import { WhoGuessesBetter } from './WhoGuessesBetter';
@@ -34,6 +35,7 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
   const [selectedModel, setSelectedModel] = useState<'deployed' | 'lgbm_weekly'>('deployed');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(20); // Default to last backtest week
   const [isPlaying, setIsPlaying] = useState(false);
+  const [chartOn, setChartOn] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -236,12 +238,31 @@ export const SummaryView: React.FC<Props> = ({ onOpenScenarios, onOpenTickets })
 
       {/* 6. Interactive Chart: 3 Lines with Legend Toggles & Arrow Controls */}
       {backtest?.weeks && backtest.weeks.length > 0 && (
-        <InteractiveChart
-          weeks={backtest.weeks}
-          scope={scope}
-          selectedWeekIdx={selectedWeekIdx}
-          onSelectWeek={handleSelectWeek}
-        />
+        <>
+          <section
+            className="rounded-[26px] shadow-[var(--sh)] p-3.5 sm:p-[18px_24px] border border-[var(--ln)] min-w-0 w-full"
+            style={{ background: 'var(--sf)' }}
+          >
+            <button
+              type="button"
+              onClick={() => setChartOn((v) => !v)}
+              aria-expanded={chartOn}
+              className="min-h-[52px] px-5 rounded-full bg-transparent font-semibold text-[15px] flex items-center gap-2.5 cursor-pointer"
+              style={{ border: '1.5px solid var(--ln2)', color: 'var(--ink)' }}
+            >
+              <LineChart className="w-[19px] h-[19px] shrink-0" />
+              {chartOn ? 'Скрыть график' : 'Показать график по неделям'}
+            </button>
+          </section>
+          {chartOn && (
+            <InteractiveChart
+              weeks={backtest.weeks}
+              scope={scope}
+              selectedWeekIdx={selectedWeekIdx}
+              onSelectWeek={handleSelectWeek}
+            />
+          )}
+        </>
       )}
 
       {/* 7. Alert Load: naive 1 436 / static 535 / fast 146 (синтетика) */}

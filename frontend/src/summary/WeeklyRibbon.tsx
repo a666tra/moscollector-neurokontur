@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BacktestWeek } from '../types';
-import { ChevronLeft, ChevronRight, Play, Pause, Zap, Clock, Minus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Clock, Minus, RefreshCw } from 'lucide-react';
 
 interface Props {
   weeks: BacktestWeek[];
@@ -27,8 +27,6 @@ export const WeeklyRibbon: React.FC<Props> = ({
   onModelChange,
   selectedWeekIdx,
   onSelectWeek,
-  isPlaying,
-  onTogglePlay,
 }) => {
   const currentWeek = weeks[selectedWeekIdx] || weeks[0];
 
@@ -163,145 +161,87 @@ export const WeeklyRibbon: React.FC<Props> = ({
           })}
         </div>
 
-        {/* Tally counters (C2) */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mt-3 min-w-0">
-          <div
-            className="flex flex-col items-center text-center p-2 rounded-xl min-w-0"
-            aria-label={`Модель: ${higherCount}`}
-          >
-            <span
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 mb-1 text-white"
-              style={{ background: modelColor }}
-            >
-              <Zap className="w-5 h-5" />
-            </span>
-            <b
-              style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
-              className="text-2xl sm:text-3xl font-normal leading-none tabular-nums text-[var(--ink)]"
-            >
-              {higherCount}
-            </b>
-            <span
-              className="text-[13px] font-semibold text-[var(--mu)] leading-tight text-center mt-1"
-              style={{ textWrap: 'balance' }}
-            >
-              Модель
-            </span>
-          </div>
-
-          <div
-            className="flex flex-col items-center text-center p-2 rounded-xl min-w-0"
-            aria-label={`Правило: ${lowerCount}`}
-          >
-            <span
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 mb-1 text-white"
-              style={{ background: 'oklch(0.55 0.015 260)' }}
-            >
-              <Clock className="w-5 h-5" />
-            </span>
-            <b
-              style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
-              className="text-2xl sm:text-3xl font-normal leading-none tabular-nums text-[var(--ink)]"
-            >
-              {lowerCount}
-            </b>
-            <span
-              className="text-[13px] font-semibold text-[var(--mu)] leading-tight text-center mt-1"
-              style={{ textWrap: 'balance' }}
-            >
-              Правило
-            </span>
-          </div>
-
-          <div
-            className="flex flex-col items-center text-center p-2 rounded-xl min-w-0"
-            aria-label={`Ничья: ${equalCount}`}
-          >
-            <span
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 mb-1 text-white"
-              style={{ background: 'oklch(0.7 0.01 260)' }}
-            >
-              <Minus className="w-5 h-5" />
-            </span>
-            <b
-              style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
-              className="text-2xl sm:text-3xl font-normal leading-none tabular-nums text-[var(--ink)]"
-            >
-              {equalCount}
-            </b>
-            <span
-              className="text-[13px] font-semibold text-[var(--mu)] leading-tight text-center mt-1"
-              style={{ textWrap: 'balance' }}
-            >
-              Ничья
-            </span>
-          </div>
+        {/* Tally counters: icon + number + label in a row (as in the design) */}
+        <div className="grid grid-cols-3 gap-2.5 mt-3 min-w-0">
+          {[
+            { label: 'Модель', n: higherCount, bg: modelColor, icon: <Zap className="w-5 h-5" /> },
+            { label: 'Правило', n: lowerCount, bg: 'oklch(0.55 0.015 260)', icon: <Clock className="w-5 h-5" /> },
+            { label: 'Ничья', n: equalCount, bg: 'oklch(0.7 0.01 260)', icon: <Minus className="w-5 h-5" /> },
+          ].map((t) => (
+            <div key={t.label} className="flex items-center gap-2 sm:gap-2.5 min-w-0" aria-label={`${t.label}: ${t.n}`}>
+              <span
+                className="w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-white"
+                style={{ background: t.bg }}
+              >
+                {t.icon}
+              </span>
+              <span className="flex flex-col gap-0.5 min-w-0">
+                <b
+                  style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
+                  className="text-[30px] sm:text-[38px] font-normal leading-none tabular-nums text-[var(--ink)]"
+                >
+                  {t.n}
+                </b>
+                <span className="text-[13px] font-semibold text-[var(--mu)] leading-tight">{t.label}</span>
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Rule vs model row */}
-      <div className="flex items-center gap-2.5 flex-wrap border-t border-[var(--ln)] pt-4 mt-2">
-        <span className="text-xs sm:text-sm font-semibold text-[var(--mu)] flex items-center gap-2">
+      {/* Rule vs model: segmented control (as in the design) */}
+      <div className="flex flex-col items-center gap-2.5 border-t border-[var(--ln)] pt-4 mt-2">
+        <span className="text-[13.5px] font-semibold text-[var(--mu)] flex items-center gap-2">
           <span
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
+            className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white"
             style={{ background: 'oklch(0.55 0.015 260)' }}
           >
             <Clock className="w-3.5 h-3.5" />
           </span>
-          Правило против
+          Правило сравниваем с
         </span>
-        <div className="inline-flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => onModelChange('deployed')}
-            className="min-h-[44px] px-4 rounded-full border-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
-            style={{
-              background: selectedModel === 'deployed' ? 'var(--acs)' : 'transparent',
-              borderColor: selectedModel === 'deployed' ? 'var(--ac)' : 'var(--ln2)',
-              color: 'var(--ink)',
-            }}
-            aria-pressed={selectedModel === 'deployed'}
-          >
-            Модель
-          </button>
-          <button
-            type="button"
-            onClick={() => onModelChange('lgbm_weekly')}
-            className="min-h-[44px] px-4 rounded-full border-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
-            style={{
-              background: selectedModel === 'lgbm_weekly' ? 'var(--gns)' : 'transparent',
-              borderColor: selectedModel === 'lgbm_weekly' ? 'var(--gn)' : 'var(--ln2)',
-              color: 'var(--ink)',
-            }}
-            aria-pressed={selectedModel === 'lgbm_weekly'}
-          >
-            С дообучением
-          </button>
+        <div
+          role="radiogroup"
+          aria-label="С какой моделью сравнить правило"
+          className="grid grid-cols-2 gap-1 p-1 rounded-full w-[min(100%,420px)]"
+          style={{ background: 'var(--sf2)' }}
+        >
+          {([
+            { id: 'deployed', icon: <Zap className="w-[17px] h-[17px]" />, label: <>Модель</> },
+            {
+              id: 'lgbm_weekly',
+              icon: <RefreshCw className="w-[17px] h-[17px]" />,
+              label: (
+                <>
+                  <span className="sm:hidden">Дообучение</span>
+                  <span className="hidden sm:inline">С дообучением</span>
+                </>
+              ),
+            },
+          ] as const).map((m) => {
+            const on = selectedModel === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => onModelChange(m.id)}
+                className="min-h-[46px] px-2.5 rounded-full border-0 text-[14.5px] flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer transition-[background,box-shadow] duration-200"
+                style={{
+                  background: on ? 'var(--sf)' : 'transparent',
+                  boxShadow: on ? 'var(--sh)' : 'none',
+                  color: on ? 'var(--ink)' : 'var(--mu)',
+                  fontWeight: on ? 700 : 500,
+                }}
+              >
+                {m.icon}
+                {m.label}
+              </button>
+            );
+          })}
         </div>
       </div>
-
-      {/* Play/pause animation button */}
-      <button
-        type="button"
-        onClick={onTogglePlay}
-        className="w-full sm:w-auto min-h-[52px] sm:min-h-[56px] px-6 rounded-full border-0 font-semibold text-sm sm:text-[15px] flex items-center justify-center gap-2.5 transition-all cursor-pointer mt-1"
-        style={{
-          background: 'var(--ink)',
-          color: 'var(--bg)',
-        }}
-      >
-        {isPlaying ? (
-          <>
-            <Pause className="w-4 h-4" />
-            <span>Пауза</span>
-          </>
-        ) : (
-          <>
-            <Play className="w-4 h-4" />
-            <span>Пройти все недели</span>
-          </>
-        )}
-      </button>
     </section>
   );
 };
