@@ -49,7 +49,7 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
         >
           <span
             className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-white ${
-              urgentCount > 0 ? 'animate-[nkRing_1.6s_infinite]' : ''
+              urgentCount > 0 ? 'nk-ring' : ''
             }`}
             style={{ background: 'var(--rd)' }}
           >

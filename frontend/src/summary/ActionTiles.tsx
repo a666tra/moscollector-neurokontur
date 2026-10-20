@@ -123,11 +123,8 @@ export const ActionTiles: React.FC<Props> = ({ tickets, loading, onOpenTickets }
             <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 w-full">
               {/* Circular Icon with pulse */}
               <div
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 text-white relative"
-                style={{
-                  background: t.color,
-                  animation: t.pulse ? 'nkRing 1.6s infinite' : 'none',
-                }}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 text-white relative ${t.pulse ? 'nk-ring' : ''}`}
+                style={{ background: t.color }}
               >
                 <IconComponent className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>

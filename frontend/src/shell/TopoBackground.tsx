@@ -1,11 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Animated "topographic" background (two slowly drifting layers of contour lines).
  * Purely decorative: pointer-events none, aria-hidden, no data, no network.
- * Contour lines are generated once (marching squares over a sum of gaussian hills),
- * then only CSS transforms animate (cheap, GPU friendly).
- * Ported 1:1 from the Claude Design prototype (NeuroKontur.dc.html: contours/buildBg/POSE).
+ * Contour lines are generated once (marching squares over a sum of gaussian hills) and
+ * RASTERISED ONCE into two bitmaps (canvas -> blob URL). Only compositor-friendly CSS
+ * transforms animate afterwards, so no SVG is re-rasterised on every frame
+ * (the old inline-SVG version with vector-effect: non-scaling-stroke was repainted each frame).
+ * Bitmaps are redrawn only when the theme changes or the host size changes noticeably.
+ * Ported from the Claude Design prototype (NeuroKontur.dc.html: contours/drawBg/POSE).
  */
 
 type Peak = [number, number, number, number, number]; // x, y, amplitude, sx, sy
@@ -138,8 +141,49 @@ const POSE: Record<TopoPose, [string, string]> = {
 };
 
 interface Props {
-  /** null = hide the background (fades out), otherwise show it with that screen's pose */
+  /** null = hide the background (fades out, animation paused), otherwise show it with that screen's pose */
   pose: TopoPose | null;
+}
+
+type Path = { d: string; o: number };
+
+const MAX_SIDE = 2000; // cap on the bitmap side in device pixels (keeps texture memory sane on retina)
+
+/** Rasterise one layer of contour paths to a PNG blob URL. Resolves '' if canvas is unavailable. */
+function rasterise(paths: Path[], lineCss: number, W: number, H: number, sc: number, color: string): Promise<string> {
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const ctx = cv.getContext('2d');
+  if (!ctx) return Promise.resolve('');
+  const s = Math.max(W / 1600, H / 1000);
+  ctx.setTransform(s, 0, 0, s, (W - 1600 * s) / 2, (H - 1000 * s) / 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = (lineCss * sc) / s;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (const p of paths) {
+    ctx.globalAlpha = p.o;
+    ctx.stroke(new Path2D(p.d));
+  }
+  return new Promise((res) => cv.toBlob((b) => res(b ? URL.createObjectURL(b) : ''), 'image/png'));
+}
+
+/** Resolve the accent colour for canvas (canvas may reject oklch() in old engines -> fallback). */
+function accentForCanvas(): string {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--ac').trim();
+  const fallback = dark ? '#86aef0' : '#2b55d6';
+  if (!raw) return fallback;
+  try {
+    const c = document.createElement('canvas').getContext('2d');
+    if (!c) return fallback;
+    c.fillStyle = '#000001';
+    c.fillStyle = raw;
+    return c.fillStyle === '#000001' ? fallback : raw;
+  } catch {
+    return fallback;
+  }
 }
 
 export const TopoBackground: React.FC<Props> = ({ pose }) => {
@@ -173,20 +217,182 @@ export const TopoBackground: React.FC<Props> = ({ pose }) => {
     return { layerA: A, layerB: B };
   }, []);
 
+  const hostRef = useRef<HTMLDivElement>(null);
+  const urlsRef = useRef<[string, string]>(['', '']);
+  const sizeRef = useRef<[number, number]>([0, 0]);
+  const aliveRef = useRef(true);
+  const [urls, setUrls] = useState<[string, string]>(['', '']);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let drawing = false;
+    let again = false;
+
+    const draw = async () => {
+      const host = hostRef.current;
+      if (!host) return;
+      if (drawing) {
+        again = true;
+        return;
+      }
+      const r = host.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      drawing = true;
+      sizeRef.current = [r.width, r.height];
+      const lw = r.width * 1.28;
+      const lh = r.height * 1.28;
+      let sc = Math.min(window.devicePixelRatio || 1, 2);
+      const mx = Math.max(lw, lh) * sc;
+      if (mx > MAX_SIDE) sc *= MAX_SIDE / mx;
+      const W = Math.round(lw * sc);
+      const H = Math.round(lh * sc);
+      const color = accentForCanvas();
+      try {
+        const [ua, ub] = await Promise.all([
+          rasterise(layerA, 0.9, W, H, sc, color),
+          rasterise(layerB, 0.8, W, H, sc, color),
+        ]);
+        if (!aliveRef.current) {
+          [ua, ub].forEach((u) => u && URL.revokeObjectURL(u));
+          return;
+        }
+        const old = urlsRef.current;
+        urlsRef.current = [ua, ub];
+        setUrls([ua, ub]);
+        setTimeout(() => old.forEach((u) => u && URL.revokeObjectURL(u)), 3000);
+      } finally {
+        drawing = false;
+        if (again) {
+          again = false;
+          draw();
+        }
+      }
+    };
+
+    // first draw right after the first paint so it never blocks the initial render
+    timer = setTimeout(draw, 60);
+
+    // redraw when the theme (accent colour) changes
+    const mo = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(draw, 80);
+    });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // redraw only on a real size change (> 8 %), debounced
+    let ro: ResizeObserver | undefined;
+    if (hostRef.current && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          const h = hostRef.current;
+          if (!h) return;
+          const r = h.getBoundingClientRect();
+          const [zw, zh] = sizeRef.current;
+          if (!zw || !zh || Math.abs(r.width - zw) > zw * 0.08 || Math.abs(r.height - zh) > zh * 0.08) draw();
+        }, 250);
+      });
+      ro.observe(hostRef.current);
+    }
+
+    return () => {
+      aliveRef.current = false;
+      clearTimeout(timer);
+      mo.disconnect();
+      ro?.disconnect();
+      urlsRef.current.forEach((u) => u && URL.revokeObjectURL(u));
+    };
+  }, [layerA, layerB]);
+
+
+  // --- FPS governor: if the device cannot keep ~45 fps with the drifting layers, freeze the drift
+  //     (the lines stay, only the idle motion stops) so the whole UI stays smooth. ---
+  const [lite, setLite] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('nk-topo-lite') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const show = !!pose;
+  useEffect(() => {
+    if (!show || lite) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    let stopped = false;
+    let bad = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const sample = () => {
+      if (stopped) return;
+      if (document.hidden) {
+        timer = setTimeout(sample, 2000);
+        return;
+      }
+      const dts: number[] = [];
+      let last = 0;
+      const tick = (t: number) => {
+        if (stopped) return;
+        if (last) dts.push(t - last);
+        last = t;
+        if (dts.length < 45) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        dts.sort((a, b) => a - b);
+        const median = dts[Math.floor(dts.length / 2)];
+        bad = median > 26 ? bad + 1 : 0; // slower than ~38 fps
+        if (bad >= 2) {
+          setLite(true);
+          try {
+            sessionStorage.setItem('nk-topo-lite', '1');
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+        timer = setTimeout(sample, bad ? 800 : 15000);
+      };
+      raf = requestAnimationFrame(tick);
+    };
+    timer = setTimeout(sample, 2500);
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, [show, lite]);
+
   const p = POSE[pose || 'tickets'];
+  const play = show && !lite ? 'running' : 'paused';
+  const layerStyle = (url: string, anim: string): React.CSSProperties => ({
+    width: '100%',
+    height: '100%',
+    backgroundImage: url ? `url(${url})` : 'none',
+    backgroundSize: '100% 100%',
+    backgroundRepeat: 'no-repeat',
+    willChange: 'transform',
+    backfaceVisibility: 'hidden',
+    animation: `${anim} infinite alternate ease-in-out`,
+    animationPlayState: play,
+  });
 
   return (
     <div
+      ref={hostRef}
       aria-hidden="true"
       className="nk-topo"
+      data-topo-lite={lite ? '1' : '0'}
       style={{
         position: 'absolute',
         inset: 0,
         overflow: 'hidden',
         pointerEvents: 'none',
         zIndex: 0,
-        opacity: pose ? 1 : 0,
-        transition: 'opacity .7s ease',
+        opacity: show ? 1 : 0,
+        visibility: show ? 'visible' : 'hidden',
+        transition: 'opacity .7s ease, visibility .7s',
+        contain: 'strict',
       }}
     >
       <div
@@ -198,25 +404,7 @@ export const TopoBackground: React.FC<Props> = ({ pose }) => {
           willChange: 'transform',
         }}
       >
-        <svg
-          viewBox="0 0 1600 1000"
-          preserveAspectRatio="xMidYMid slice"
-          style={{ width: '100%', height: '100%', display: 'block', animation: 'nkDrift2 62s ease-in-out infinite alternate' }}
-        >
-          {layerB.map((g, i) => (
-            <path
-              key={i}
-              d={g.d}
-              fill="none"
-              stroke="var(--ac)"
-              strokeOpacity={g.o}
-              strokeWidth={0.8}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </svg>
+        <div data-topo-layer style={layerStyle(urls[1], 'nkDrift2 62s')} />
       </div>
       <div
         style={{
@@ -227,25 +415,7 @@ export const TopoBackground: React.FC<Props> = ({ pose }) => {
           willChange: 'transform',
         }}
       >
-        <svg
-          viewBox="0 0 1600 1000"
-          preserveAspectRatio="xMidYMid slice"
-          style={{ width: '100%', height: '100%', display: 'block', animation: 'nkDrift 44s ease-in-out infinite alternate' }}
-        >
-          {layerA.map((g, i) => (
-            <path
-              key={i}
-              d={g.d}
-              fill="none"
-              stroke="var(--ac)"
-              strokeOpacity={g.o}
-              strokeWidth={0.9}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </svg>
+        <div data-topo-layer style={layerStyle(urls[0], 'nkDrift 44s')} />
       </div>
     </div>
   );

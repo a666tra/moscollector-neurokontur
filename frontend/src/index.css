@@ -496,6 +496,26 @@
   from { transform: translateY(16px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+/* Attention ring on icons: transform + opacity only (compositor), NOT an animated box-shadow
+   (animated box-shadow repaints on the main thread every frame). */
+.nk-ring { position: relative; }
+.nk-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px oklch(0.7 0.18 55 / 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.9);
+  animation: nkRingT 1.6s ease-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes nkRingT {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  70%, 100% { transform: scale(1.18); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .nk-ring::after { animation: none !important; opacity: 0.35; transform: none; } }
 @keyframes nkRing {
   0%, 100% { box-shadow: 0 0 0 0 oklch(0.7 0.18 55 / 0.4); }
   50% { box-shadow: 0 0 0 8px oklch(0.7 0.18 55 / 0); }
@@ -510,4 +530,4 @@
 /* Animated topographic background (shell/TopoBackground.tsx) */
 @keyframes nkDrift { from { transform: translate3d(-2%, -1.5%, 0); } to { transform: translate3d(2%, 1.5%, 0); } }
 @keyframes nkDrift2 { from { transform: translate3d(1.8%, 1.2%, 0) rotate(.6deg); } to { transform: translate3d(-1.8%, -1.2%, 0) rotate(-.6deg); } }
-@media (prefers-reduced-motion: reduce) { .nk-topo svg { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .nk-topo [data-topo-layer] { animation: none !important; } }

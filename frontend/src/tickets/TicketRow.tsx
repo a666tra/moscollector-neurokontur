@@ -147,7 +147,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           {/* Priority Icon */}
           <span
             className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm mt-0.5 sm:mt-0 ${
-              isUrgent && isDraft ? 'animate-[nkRing_1.6s_infinite]' : ''
+              isUrgent && isDraft ? 'nk-ring' : ''
             }`}
             style={{ background: iconBg }}
           >
