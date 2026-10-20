@@ -159,7 +159,7 @@ export const FieldObjectCard: React.FC<Props> = ({
               title="Открыть наряд в разделе заявок"
             >
               <ClipboardList className="w-4 h-4 shrink-0" />
-              <span className="truncate">Заявка {ticket.ticket_id.slice(-6)}</span>
+              <span className="truncate">Заявка {ticket.ticket_id}</span>
             </button>
           ) : (
             <button

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { BacktestWeek } from '../types';
 import { LineChart as ChartIcon } from 'lucide-react';
 
@@ -35,6 +35,21 @@ export const InteractiveChart: React.FC<Props> = ({
   const [showRule, setShowRule] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartBoxRef = useRef<HTMLDivElement>(null);
+  // Chart is drawn in real pixels (viewBox = container width), so labels stay readable on phones
+  const [W, setW] = useState(860);
+  useEffect(() => {
+    const el = chartBoxRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = Math.round(el.getBoundingClientRect().width);
+      if (w > 0) setW(Math.max(280, w));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const activeIdx = hoveredIdx !== null ? hoveredIdx : selectedWeekIdx;
   const activeWeek = weeks[activeIdx] || weeks[0];
@@ -43,10 +58,10 @@ export const InteractiveChart: React.FC<Props> = ({
     : null;
 
   // Chart coordinates
-  const W = 860;
-  const H = 260;
-  const padLeft = 45;
-  const padRight = 20;
+  const compact = W < 520;
+  const H = compact ? 240 : 260;
+  const padLeft = compact ? 34 : 45;
+  const padRight = compact ? 12 : 20;
   const padTop = 20;
   const padBottom = 32;
   const plotW = W - padLeft - padRight;
@@ -64,7 +79,7 @@ export const InteractiveChart: React.FC<Props> = ({
       const val = p?.deployed?.precision_at_100 ?? 0;
       return { x: getX(i), y: getY(val), val, hits: p?.deployed?.hits_at_100 ?? 0 };
     });
-  }, [weeks, scope]);
+  }, [weeks, scope, W]);
 
   const lgbmPoints = useMemo(() => {
     return weeks.map((w, i) => {
@@ -72,7 +87,7 @@ export const InteractiveChart: React.FC<Props> = ({
       const val = p?.lgbm_weekly?.precision_at_100 ?? 0;
       return { x: getX(i), y: getY(val), val, hits: p?.lgbm_weekly?.hits_at_100 ?? 0 };
     });
-  }, [weeks, scope]);
+  }, [weeks, scope, W]);
 
   const rulePoints = useMemo(() => {
     return weeks.map((w, i) => {
@@ -80,7 +95,7 @@ export const InteractiveChart: React.FC<Props> = ({
       const val = p?.persistence?.precision_at_100 ?? 0;
       return { x: getX(i), y: getY(val), val, hits: p?.persistence?.hits_at_100 ?? 0 };
     });
-  }, [weeks, scope]);
+  }, [weeks, scope, W]);
 
   const deployedPath = deployedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
   const lgbmPath = lgbmPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
@@ -191,11 +206,11 @@ export const InteractiveChart: React.FC<Props> = ({
       </div>
 
       {/* Interactive SVG Chart */}
-      <div className="relative w-full overflow-hidden select-none min-h-[220px]">
+      <div ref={chartBoxRef} className="relative w-full overflow-hidden select-none min-h-[220px]">
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          className="w-full h-auto block cursor-crosshair touch-none"
-          style={{ minHeight: '220px' }}
+          className="w-full h-auto block cursor-crosshair"
+          style={{ minHeight: '220px', touchAction: 'pan-y' }}
           onPointerMove={handlePointer}
           onPointerDown={handlePointer}
           onPointerLeave={() => setHoveredIdx(null)}
@@ -319,7 +334,7 @@ export const InteractiveChart: React.FC<Props> = ({
                 key={`label-${i}`}
                 x={x}
                 y={H - 10}
-                textAnchor="middle"
+                textAnchor={i === weeks.length - 1 ? 'end' : 'middle'}
                 className="font-mono text-[10px] fill-neutral-400 dark:fill-neutral-500 font-medium"
               >
                 {formatShortDate(w.cutoff)}

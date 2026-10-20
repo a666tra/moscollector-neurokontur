@@ -17,6 +17,7 @@ import { ToastProvider } from './lib/toast';
 import { ThemeProvider, ThemeButton } from './lib/theme';
 import { ConfirmedAlarmItem, ObjectItem, PredictionItem, UserRole } from './types';
 import { FieldView } from './field/FieldView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type View = 'summary' | 'field' | 'situation' | 'tickets' | 'quality' | 'scenarios';
 type Tool = 'signal' | 'simulator' | null;
@@ -460,7 +461,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
             <i className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--gn)' }} />
             <span>{shortDateText}</span>
           </span>
-          <ThemeButton className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[var(--sf2)] text-[var(--ink)] flex items-center justify-center border-0 cursor-pointer shrink-0" />
+          <ThemeButton className="relative before:content-[''] before:absolute before:-inset-[6px] w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[var(--sf2)] text-[var(--ink)] flex items-center justify-center border-0 cursor-pointer shrink-0" />
         </div>
       </header>
 
@@ -486,7 +487,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
             </div>
           </div>
         ) : (
-          <>
+          <ErrorBoundary key={view}>
             {view === 'situation' && (
               <Situation
                 objects={objects}
@@ -549,7 +550,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
                 }}
               />
             )}
-          </>
+          </ErrorBoundary>
         )}
       </main>
 

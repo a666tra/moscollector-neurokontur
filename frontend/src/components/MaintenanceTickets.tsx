@@ -40,6 +40,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
   const [isAssigningUrgent, setIsAssigningUrgent] = useState(false);
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   // Demo-only brigade choices (ticket id -> brigade name): the server does not store them,
   // so they are re-applied after any server response that replaces the ticket
   const brigadeChoice = useRef<Record<string, string>>({});
@@ -64,8 +65,10 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
     try {
       const data = await api<MaintenanceTicket[]>('/api/tickets');
       setTickets((data || []).map(withChoice));
+      setLoadFailed(false);
     } catch {
-      // silently handle network error on initial mount
+      // an empty list must not look like "nothing found": remember the failure and say so
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -116,11 +119,11 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
     }
   };
 
-  // Active tickets per brigade (assigned / in progress) — used for the load dots in the picker
+  // Open tickets per picker brigade (demo choices in this window + any matching server team) — load dots
   const brigadeLoad = useMemo(() => {
     const m: Record<string, number> = {};
     tickets.forEach((t) => {
-      if (t.assigned_team && (t.status === 'НАЗНАЧЕН' || t.status === 'В_РАБОТЕ')) {
+      if (t.assigned_team && t.status !== 'ВЫПОЛНЕН') {
         m[t.assigned_team] = (m[t.assigned_team] || 0) + 1;
       }
     });
@@ -444,7 +447,7 @@ ${ticket.assigned_team}
               {/* Red counter badge */}
               {candidatePredictions.length > 0 && (
                 <span
-                  className="absolute -top-1.5 -right-1 min-w-[20px] h-5 rounded-full text-white font-bold text-[11px] leading-5 text-center px-1 border-2 border-[var(--bg)] shadow-sm"
+                  className="absolute -top-1.5 -right-1 min-w-[20px] h-5 rounded-full text-[var(--onrd)] font-bold text-[11px] leading-5 text-center px-1 border-2 border-[var(--bg)] shadow-sm"
                   style={{ background: 'var(--rd)' }}
                 >
                   {candidatePredictions.length}
@@ -474,6 +477,29 @@ ${ticket.assigned_team}
           {loading ? (
             <div className="rounded-[22px] border border-[var(--ln)] p-12 text-center text-xs" style={{ color: 'var(--mu)' }}>
               Загрузка наряд-заказов…
+            </div>
+          ) : loadFailed && tickets.length === 0 ? (
+            <div
+              role="alert"
+              className="rounded-[22px] border border-[var(--ln)] p-8 sm:p-12 text-center space-y-3 bg-[var(--sf)]"
+              style={{ boxShadow: 'var(--sh)' }}
+            >
+              <h3 className="serif text-xl sm:text-2xl font-normal" style={{ color: 'var(--ink)' }}>
+                Не удалось загрузить заявки
+              </h3>
+              <p className="text-xs sm:text-sm max-w-sm mx-auto leading-relaxed" style={{ color: 'var(--mu)' }}>
+                Это сбой загрузки, а не пустой список. Проверьте связь и повторите.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoading(true);
+                  fetchTickets();
+                }}
+                className="btn btn-primary min-h-[44px] px-5 text-xs sm:text-sm font-semibold cursor-pointer"
+              >
+                Повторить
+              </button>
             </div>
           ) : filteredTickets.length === 0 ? (
             <div

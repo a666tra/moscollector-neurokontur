@@ -20,6 +20,7 @@ import { ScenarioExampleCard } from './ScenarioExampleCard';
 import { ScenarioMetricsFooter } from './ScenarioMetricsFooter';
 import { ScenarioSeriesDetail } from './ScenarioSeriesDetail';
 import { incidentInScenario } from './scenarioLabels';
+import { computeLiveCounts } from './liveCounts';
 
 interface ScenarioLabProps {
   objects?: ObjectItem[];
@@ -332,12 +333,6 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
   const isAtEnd = currentMinute >= maxMinutes - 0.001;
 
   const allIncidents = result?.incident_list || [];
-  const incidentsPassed = allIncidents.filter((inc) => {
-    const tMin = mode === 'month' ? inc.ts / 86400 : inc.ts / 60;
-    return tMin <= currentMinute;
-  }).length;
-  const totalIncCount = Math.max(1, allIncidents.length);
-  const incFraction = isAtEnd ? 1 : incidentsPassed / totalIncCount;
 
   const isAll = selectedScenarioId === 'all';
   const scenarioAlertsPassed = allIncidents.filter((inc) => {
@@ -346,11 +341,11 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
     return tMin <= currentMinute;
   }).length;
 
-  const liveFast = isAll
-    ? (isAtEnd ? totalFast : Math.min(totalFast, Math.round(totalFast * incFraction)))
-    : scenarioAlertsPassed;
-  const liveStatic = isAtEnd ? totalStatic : Math.min(totalStatic, Math.round(totalStatic * incFraction));
-  const liveNaive = isAtEnd ? totalNaive : Math.min(totalNaive, Math.round(totalNaive * incFraction));
+  // Same function as in the timeline lanes, so the two counters on screen never disagree
+  const live = computeLiveCounts(result ?? null, selectedScenarioId, mode, currentMinute);
+  const liveFast = live?.fast ?? (isAll ? totalFast : scenarioAlertsPassed);
+  const liveStatic = live?.staticDedup ?? 0;
+  const liveNaive = live?.naive ?? 0;
 
   // Example incident for breakdown card
   const exampleIncident = useMemo(() => {

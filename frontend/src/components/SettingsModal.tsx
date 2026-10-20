@@ -169,7 +169,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   const toast = useToast();
 
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
-  const [defaultSettings, setDefaultSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [holdoutRocAuc, setHoldoutRocAuc] = useState<number | null>(null);
   const [predictions, setPredictions] = useState<PredictionItem[]>([]);
@@ -178,23 +177,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
   useEffect(() => {
     if (isOpen) {
-      api<SystemSettings>('/api/settings/defaults')
-        .then((defs) => {
-          if (defs) setDefaultSettings((prev) => ({ ...prev, ...defs }));
-        })
-        .catch(() => {});
-
       api<SystemSettings>('/api/settings')
         .then((data) => {
           setSettings((prev) => ({ ...prev, ...data }));
-          setDefaultSettings((prev) => ({
-            ...prev,
-            chatter_window_seconds: data.chatter_window_seconds ?? prev.chatter_window_seconds,
-            chatter_min_flips: data.chatter_min_flips ?? prev.chatter_min_flips,
-            decision_threshold: data.decision_threshold ?? prev.decision_threshold,
-            callout_cost_rub: data.callout_cost_rub ?? prev.callout_cost_rub,
-            preventive_cost_rub: data.preventive_cost_rub ?? prev.preventive_cost_rub,
-          }));
         })
         .catch(() => {});
 
@@ -271,7 +256,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   };
 
   const handleReset = () => {
-    setSettings(defaultSettings);
+    // Factory values (same as the backend schema defaults); applied to the form, saved only on «Сохранить»
+    setSettings(DEFAULT_SETTINGS);
   };
 
   // Preview of channels queue count
@@ -395,7 +381,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 className="text-xs font-semibold px-2.5 py-1 rounded-xl bg-[var(--sf)] border text-[var(--ac)] text-left sm:text-right max-w-full whitespace-normal break-words"
                 style={{ borderColor: 'var(--ln)' }}
               >
-                ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3) : '0.771'} — отложенная выборка (январь)
+                ROC-AUC {holdoutRocAuc !== null ? holdoutRocAuc.toFixed(3).replace('.', ',') : '—'} — отложенная выборка (январь), не медиана 21 недели
               </span>
             </div>
           </div>

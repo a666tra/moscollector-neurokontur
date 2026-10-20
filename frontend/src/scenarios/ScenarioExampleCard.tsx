@@ -70,11 +70,12 @@ export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
   const staticAlerts = comparison?.static_dedup?.alerts_total ?? 0;
   const naiveAlerts = comparison?.naive?.alerts_total ?? 0;
 
-  const xVal = totalEvents > 0 ? staticAlerts / totalEvents : 0;
-  const xStr = xVal.toFixed(1).replace('.', ',');
-
-  const yVal = totalEvents > 0 ? naiveAlerts / totalEvents : 0;
-  const yStr = yVal.toFixed(1).replace('.', ',');
+  const hasTotals =
+    totalEvents > 0 &&
+    typeof comparison?.static_dedup?.alerts_total === 'number' &&
+    typeof comparison?.naive?.alerts_total === 'number';
+  const xStr = hasTotals ? (staticAlerts / totalEvents).toFixed(1).replace('.', ',') : '—';
+  const yStr = hasTotals ? (naiveAlerts / totalEvents).toFixed(1).replace('.', ',') : '—';
 
   const hasChips = Boolean(thatScenario);
   const period = mode === 'month' ? 'за месяц' : 'вся смена';
@@ -96,7 +97,7 @@ export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
       dot: 'oklch(0.72 0.15 72)',
       bg: 'var(--ams)',
       fg: 'var(--amt)',
-      value: `${xStr} зв.`,
+      value: hasTotals ? `${xStr} зв.` : '—',
       sub: `на событие в среднем (${period})`,
     },
     {
@@ -104,7 +105,7 @@ export const ScenarioExampleCard: React.FC<ScenarioExampleCardProps> = ({
       dot: 'var(--rd)',
       bg: 'var(--rds)',
       fg: 'var(--rdt)',
-      value: `${yStr} зв.`,
+      value: hasTotals ? `${yStr} зв.` : '—',
       sub: `на событие в среднем (${period})`,
     }
   );

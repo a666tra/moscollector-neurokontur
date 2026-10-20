@@ -56,6 +56,24 @@ export const VerdictHeader: React.FC<Props> = ({
     }
   }, [lgbm, rule]);
 
+  // Wording follows the numbers (never a fixed «слабее»/«лучше» regardless of data)
+  const standPhrase =
+    deployed === null || rule === null
+      ? 'сравнивается с простым правилом:'
+      : deployed < rule
+        ? 'слабее простого правила:'
+        : deployed > rule
+          ? 'сильнее простого правила:'
+          : 'на уровне простого правила:';
+  const calmPhrase =
+    lgbmCalm === null || ruleCalm === null
+      ? 'сравнивается так'
+      : lgbmCalm > ruleCalm
+        ? 'находит новые сбои лучше'
+        : lgbmCalm < ruleCalm
+          ? 'находит новые сбои хуже'
+          : 'находит новые сбои не лучше';
+
   return (
     <div className="flex flex-col gap-4 min-w-0 w-full">
       {/* Top title and refresh bar */}
@@ -113,13 +131,13 @@ export const VerdictHeader: React.FC<Props> = ({
           </p>
         ) : (
           <p className="serif text-lg sm:text-xl lg:text-2xl font-normal leading-snug text-[var(--ink)] m-0">
-            Модель на стенде (январская, без дообучения) слабее простого правила:{' '}
+            Модель на стенде (январская, без дообучения) {standPhrase}{' '}
             <strong className="num font-bold text-[var(--ac)]">{deployed}</strong> против{' '}
             <strong className="num font-bold text-[var(--mu)]">{rule}</strong> из 100. Модель с
             еженедельным дообучением (пилот, расчёт) {compPhrase}{' '}
             <strong className="num font-bold text-[var(--gn)]">{lgbm}</strong> против{' '}
             <strong className="num font-bold text-[var(--mu)]">{rule}</strong>, а на тихих каналах, где
-            сбоев за неделю не было, находит новые сбои лучше:{' '}
+            сбоев за неделю не было (правило там по построению ничего не находит), {calmPhrase}:{' '}
             <strong className="num font-bold text-[var(--gn)]">{lgbmCalm}</strong> против{' '}
             <strong className="num font-bold text-[var(--mu)]">{ruleCalm}</strong> из 100. Быстрый
             контур сокращает поток тревог с{' '}

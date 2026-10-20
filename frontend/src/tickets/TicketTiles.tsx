@@ -48,7 +48,7 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
           className="w-full flex-1 min-w-0 flex flex-col sm:flex-row items-center sm:items-center gap-1.5 sm:gap-3 text-left bg-transparent border-0 p-0 cursor-pointer min-h-[44px]"
         >
           <span
-            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-white ${
+            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-[var(--onrd)] ${
               urgentCount > 0 ? 'nk-ring' : ''
             }`}
             style={{ background: 'var(--rd)' }}
@@ -82,7 +82,7 @@ export const TicketTiles: React.FC<TicketTilesProps> = ({
               disabled={isAssigningUrgent}
               aria-label="Назначить бригады на все срочные заявки"
               title="Назначить все срочные заявки"
-              className="w-full max-w-full md:w-auto min-h-[44px] md:h-11 px-1.5 sm:px-3.5 py-1 rounded-full text-[10.5px] sm:text-xs font-bold text-white flex items-center justify-center gap-1 text-center leading-tight transition-opacity hover:opacity-90 disabled:opacity-50 border-0 cursor-pointer shadow-sm"
+              className="w-full max-w-full md:w-auto min-h-[44px] md:h-11 px-1.5 sm:px-3.5 py-1 rounded-full text-[10.5px] sm:text-xs font-bold text-[var(--onrd)] flex items-center justify-center gap-1 text-center leading-tight transition-opacity hover:opacity-90 disabled:opacity-50 border-0 cursor-pointer shadow-sm"
               style={{ background: 'var(--rd)' }}
             >
               <Truck className="w-3.5 h-3.5 shrink-0" />

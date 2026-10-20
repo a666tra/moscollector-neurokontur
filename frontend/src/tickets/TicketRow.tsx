@@ -84,7 +84,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           icon: Truck,
           nextStatus: 'НАЗНАЧЕН',
           className: isUrgent
-            ? 'bg-[var(--rd)] text-white hover:brightness-105'
+            ? 'bg-[var(--rd)] text-[var(--onrd)] hover:brightness-105'
             : 'bg-[var(--am)] text-[#241a00] hover:brightness-105',
           title: 'Назначить бригаду (передать наряд)',
         };
@@ -101,7 +101,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           label: 'Завершить',
           icon: Check,
           nextStatus: 'ВЫПОЛНЕН',
-          className: 'bg-[var(--gn)] text-white hover:brightness-105',
+          className: 'bg-[var(--gn)] text-[var(--ongn)] hover:brightness-105',
           title: 'Отметить наряд выполненным',
         };
       case 'ВЫПОЛНЕН':
@@ -221,8 +221,12 @@ export const TicketRow: React.FC<TicketRowProps> = ({
               </div>
 
               {/* Cost: ТО: плановая стоимость */}
-              <span className="text-[11px] sm:text-[11.5px] num shrink-0" style={{ color: 'var(--mu)' }}>
-                ТО: <b style={{ color: 'var(--ink)' }}>{ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽</b>
+              <span
+                className="text-[11px] sm:text-[11.5px] num shrink-0"
+                style={{ color: 'var(--mu)' }}
+                title="Нормативная стоимость планового ТО по регламенту, не подтверждённая экономия"
+              >
+                ТО: <b style={{ color: 'var(--ink)' }}>{typeof ticket.estimated_cost_rub === 'number' ? `${ticket.estimated_cost_rub.toLocaleString('ru-RU')} ₽` : '—'}</b>
               </span>
             </div>
           </div>

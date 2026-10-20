@@ -141,7 +141,9 @@ export const AlertLoadBlock: React.FC<Props> = ({
         </div>
 
         <div className="text-xs text-[var(--mu)] sm:text-right max-w-[320px]">
-          среднее по 20 прогонам, seed 42 отдельно: 1 414 → 535 → 146 оповещений в сутки (67 инцидентов)
+          {typeof naiveAlerts === 'number' && typeof staticAlerts === 'number' && typeof fastAlerts === 'number'
+            ? `синтетический прогон (seed ${data.seed}, ${data.mode === 'month' ? 'месяц' : 'одни сутки'}): ${naiveAlerts.toLocaleString('ru-RU')} → ${staticAlerts.toLocaleString('ru-RU')} → ${fastAlerts.toLocaleString('ru-RU')} оповещений${typeof fastIncidents === 'number' ? ` (${fastIncidents.toLocaleString('ru-RU')} инцидентов диспетчеру)` : ''}`
+            : 'синтетический прогон: нет данных о числе оповещений'}
         </div>
       </div>
 

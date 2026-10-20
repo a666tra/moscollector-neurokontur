@@ -370,7 +370,7 @@ export const ScenarioPlayerPanel: React.FC<ScenarioPlayerPanelProps> = ({
               className="text-3xl sm:text-4xl font-normal leading-none"
               style={{
                 fontFamily: "'Source Serif 4', Georgia, serif",
-                color: isAll ? 'oklch(0.72 0.15 72)' : 'var(--mu)',
+                color: isAll ? 'var(--amt)' : 'var(--mu)',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >

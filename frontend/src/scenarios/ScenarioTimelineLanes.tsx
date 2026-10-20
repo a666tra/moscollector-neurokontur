@@ -354,7 +354,7 @@ export const ScenarioTimelineLanes: React.FC<ScenarioTimelineLanesProps> = ({
                     className="text-[22px] leading-none font-normal shrink-0 ml-auto md:ml-0"
                     style={{
                       fontFamily: "'Source Serif 4', Georgia, serif",
-                      color: l.color,
+                      color: l.color === 'oklch(0.72 0.15 72)' ? 'var(--amt)' : l.color,
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >

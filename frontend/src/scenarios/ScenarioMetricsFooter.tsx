@@ -33,6 +33,17 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
 
   const comp = runResult.comparison;
   const summary = runResult.summary;
+  if (!comp?.fast || !comp?.static_dedup || !comp?.naive || !summary?.overall) {
+    return (
+      <div
+        role="status"
+        className="rounded-[22px] p-5 text-sm"
+        style={{ background: 'var(--sf)', border: '1px solid var(--ln)', color: 'var(--mu)' }}
+      >
+        Нет данных расчёта сценария: ответ сервера неполный. Запустите расчёт ещё раз.
+      </div>
+    );
+  }
   const isAll = selectedScenarioId === 'all';
 
   // Subtitle next to "Итоги"

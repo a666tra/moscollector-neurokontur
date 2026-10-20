@@ -10,7 +10,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [items, setItems] = useState<Toast[]>([]);
   const push = useCallback((text: string, tone: Tone = 'info') => {
     const id = Date.now() + Math.random();
-    setItems(prev => [...prev.slice(-2), { id, tone, text }]);
+    setItems(prev => [...prev.filter(t => t.text !== text).slice(-2), { id, tone, text }]);
     setTimeout(() => setItems(prev => prev.filter(t => t.id !== id)), tone === 'error' ? 7000 : 4000);
   }, []);
   return (
@@ -24,7 +24,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               ? <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: 'var(--cr)' }} />
               : <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--ok)' }} />}
             <span className="flex-1">{t.text}</span>
-            <button className="w-6 h-6 rounded-full flex items-center justify-center opacity-60 hover:opacity-100" aria-label="Закрыть"
+            <button className="w-9 h-9 rounded-full flex items-center justify-center opacity-60 hover:opacity-100" aria-label="Закрыть"
                     onClick={() => setItems(prev => prev.filter(x => x.id !== t.id))}><X className="w-3.5 h-3.5" /></button>
           </div>
         ))}

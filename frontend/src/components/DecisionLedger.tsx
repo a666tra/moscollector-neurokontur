@@ -16,6 +16,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
   const toast = useToast();
   const [items, setItems] = useState<ConfirmedAlarmItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [audit, setAudit] = useState<AuditVerificationResult | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [tamper, setTamper] = useState(false);
@@ -30,8 +31,9 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
     try {
       const data = await api<ConfirmedAlarmItem[]>('/api/alarms/confirmed');
       setItems(data || []);
+      setLoadFailed(false);
     } catch {
-      // silently handle initial load failure
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -211,8 +213,8 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
           Загрузка журнала решений…
         </div>
       ) : items.length === 0 ? (
-        <div className="p-8 text-center text-xs" style={{ color: 'var(--mu)' }}>
-          За текущую смену решений пока не зафиксировано
+        <div className="p-8 text-center text-xs" style={{ color: 'var(--mu)' }} role={loadFailed ? 'alert' : undefined}>
+          {loadFailed ? 'Не удалось загрузить журнал решений. Обновите страницу.' : 'За текущую смену решений пока не зафиксировано'}
         </div>
       ) : (
         <ol className="space-y-0 list-none p-0 m-0" role="list">
@@ -301,7 +303,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
                         Канал <span className="num font-bold text-[var(--ac)]">#{rec.channel_id}</span>
                       </span>
                       {isTamperedRow && (
-                        <span className="chip text-[11px] h-5 px-2 bg-[var(--rd)] text-white font-bold">
+                        <span className="chip text-[11px] h-5 px-2 bg-[var(--rd)] text-[var(--onrd)] font-bold">
                           ДЕМО: подмена
                         </span>
                       )}
