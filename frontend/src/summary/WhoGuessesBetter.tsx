@@ -38,6 +38,7 @@ export const WhoGuessesBetter: React.FC<Props> = ({
       id: 'deployed',
       value: standVal,
       label: 'Модель в стенде',
+      short: 'Модель',
       sublabel: 'зафиксирована в январе, без дообучения',
       tag: 'стенд',
       color: 'var(--ac)',
@@ -48,6 +49,7 @@ export const WhoGuessesBetter: React.FC<Props> = ({
       id: 'lgbm_weekly',
       value: pilotVal,
       label: 'С дообучением',
+      short: 'Дообучение',
       sublabel: 'еженедельное переобучение (пилот, расчёт)',
       tag: 'пилот, расчёт',
       color: 'var(--gn)',
@@ -58,6 +60,7 @@ export const WhoGuessesBetter: React.FC<Props> = ({
       id: 'persistence',
       value: ruleVal,
       label: 'Простое правило',
+      short: 'Правило',
       sublabel: 'сбоил за последние 7 дней (бейзлайн)',
       tag: 'бейзлайн',
       color: 'oklch(0.55 0.015 260)',
@@ -103,41 +106,43 @@ export const WhoGuessesBetter: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Scope Toggles: Все каналы vs Спокойные */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        <button
-          type="button"
-          onClick={() => onScopeChange('all')}
-          className="min-h-[44px] sm:min-h-[48px] px-4 sm:px-5 rounded-full border-2 text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer"
-          style={{
-            background: scope === 'all' ? 'var(--acs)' : 'transparent',
-            borderColor: scope === 'all' ? 'var(--ac)' : 'var(--ln2)',
-            color: 'var(--ink)',
-          }}
-          aria-pressed={scope === 'all'}
+      {/* Scope: segmented control (Все каналы / Спокойные) */}
+      <div className="flex flex-col items-center gap-2">
+        <div
+          role="group"
+          aria-label="Какие каналы"
+          className="grid grid-cols-2 gap-1 p-1 rounded-full"
+          style={{ background: 'var(--sf2)', width: 'min(100%, 440px)' }}
         >
-          <Activity className="w-4 h-4 text-[var(--ac)]" />
-          <span>Все каналы</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onScopeChange('new_incidents')}
-          className="min-h-[44px] sm:min-h-[48px] px-4 sm:px-5 rounded-full border-2 text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer"
-          style={{
-            background: scope === 'new_incidents' ? 'var(--acs)' : 'transparent',
-            borderColor: scope === 'new_incidents' ? 'var(--ac)' : 'var(--ln2)',
-            color: 'var(--ink)',
-          }}
-          aria-pressed={scope === 'new_incidents'}
-        >
-          <ShieldCheck className="w-4 h-4 text-[var(--ac)]" />
-          <span>Спокойные (без сбоев за неделю)</span>
-        </button>
-
+          {([
+            { key: 'all' as const, label: 'Все каналы', aria: 'Все каналы', Icon: Activity },
+            { key: 'new_incidents' as const, label: 'Спокойные', aria: 'Каналы без сбоев за неделю', Icon: ShieldCheck },
+          ]).map(({ key, label, aria, Icon }) => {
+            const on = scope === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onScopeChange(key)}
+                aria-pressed={on}
+                aria-label={aria}
+                className="min-h-[46px] px-3.5 rounded-full border-0 text-sm flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer transition-[background,box-shadow] duration-200"
+                style={{
+                  background: on ? 'var(--sf)' : 'transparent',
+                  boxShadow: on ? 'var(--sh)' : 'none',
+                  color: on ? 'var(--ink)' : 'var(--mu)',
+                  fontWeight: on ? 700 : 500,
+                }}
+              >
+                <Icon className="w-4 h-4 text-[var(--ac)]" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
         {scope === 'new_incidents' && (
-          <span className="text-xs text-[var(--mu)] ml-1">
-            (правило здесь слепо — 0 из 100, так как ориентируется только на прошлые сбои)
+          <span className="text-xs text-[var(--mu)] text-center text-balance">
+            Каналы без сбоев за неделю: правило здесь слепо — 0 из 100, так как ориентируется только на прошлые сбои
           </span>
         )}
       </div>
@@ -169,18 +174,9 @@ export const WhoGuessesBetter: React.FC<Props> = ({
                     </span>
                   </div>
 
-                  {g.isBest ? (
-                    <span
-                      className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-white shrink-0 flex items-center gap-1"
-                      style={{ background: g.color }}
-                    >
-                      <Award className="w-3 h-3" /> лучше всех
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[10px] sm:text-[11px] text-[var(--mu)] font-semibold shrink-0">
-                      {g.tag}
-                    </span>
-                  )}
+                  <span className="font-mono text-[10px] sm:text-[11px] text-[var(--mu)] font-semibold shrink-0">
+                    {g.tag}
+                  </span>
                 </div>
 
                 {/* 10x10 Dot Grid (100 circles) */}
@@ -205,20 +201,34 @@ export const WhoGuessesBetter: React.FC<Props> = ({
               </div>
 
               {/* Label and description */}
-              <div className="flex flex-col gap-1 pt-1">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex flex-col gap-1 pt-1 min-w-0">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 sm:gap-2 min-w-0">
                   <div
                     className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-white shrink-0"
                     style={{ background: g.color }}
                   >
                     <IconComp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   </div>
-                  <span className="font-bold text-xs sm:text-base text-[var(--ink)] leading-tight truncate sm:whitespace-normal">
-                    {g.label}
+                  <span className="font-bold text-[12.5px] sm:text-base text-[var(--ink)] leading-tight min-w-0 [overflow-wrap:anywhere] text-balance">
+                    <span className="sm:hidden">{g.short}</span>
+                    <span className="hidden sm:inline">{g.label}</span>
                   </span>
                 </div>
                 <span className="text-[10px] sm:text-xs text-[var(--mu)] leading-snug pl-0 sm:pl-8 hidden sm:block">
                   {g.sublabel}
+                </span>
+                {/* "best" badge is always rendered (hidden when not applicable) so the layout never shifts */}
+                <span
+                  aria-hidden={!g.isBest}
+                  className="inline-flex items-center gap-1 self-start mt-2 px-2.5 py-1 rounded-full text-white text-[11px] sm:text-xs font-bold leading-tight whitespace-nowrap transition-[opacity,transform] duration-200"
+                  style={{
+                    background: g.color,
+                    visibility: g.isBest ? 'visible' : 'hidden',
+                    opacity: g.isBest ? 1 : 0,
+                    transform: g.isBest ? 'scale(1)' : 'scale(0.8)',
+                  }}
+                >
+                  <Award className="w-3 h-3" /> лучше всех
                 </span>
               </div>
             </div>

@@ -266,6 +266,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     ? predictions.filter((p) => probabilityOf(p) >= settings.decision_threshold).length
     : Math.round(50 * (1 - settings.decision_threshold));
 
+  // Histogram of real per-channel risk scores (40 bins over 0.10..0.90; values outside are clamped to the edge bins)
+  const HIST_BINS = 40;
+  const histogram = (() => {
+    if (predictions.length === 0) return null;
+    const counts = new Array<number>(HIST_BINS).fill(0);
+    predictions.forEach((p) => {
+      const idx = Math.floor(((probabilityOf(p) - 0.1) / 0.8) * HIST_BINS);
+      counts[Math.max(0, Math.min(HIST_BINS - 1, idx))] += 1;
+    });
+    const maxCount = Math.max(...counts, 1);
+    return counts.map((c, i) => ({
+      h: c === 0 ? 0 : Math.max(2, Math.round((c / maxCount) * 76)),
+      active: 0.1 + ((i + 0.5) / HIST_BINS) * 0.8 >= settings.decision_threshold,
+    }));
+  })();
+  const tauLabel = settings.decision_threshold.toFixed(2).replace('.', ',');
+
   // 3 Preset buttons under decision threshold
   // Presets: Все (lowest 0.30) / Норма (0.42 / WARNING) / Главные (0.60 / CRITICAL)
   const presets = [
@@ -369,8 +386,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                   <span className="font-bold text-sm sm:text-base text-[var(--ink)] block">
                     Что попадёт в очередь
                   </span>
-                  <span className="text-[11px] text-[var(--mu)] block">
-                    порог риска очереди диспетчера (tau)
+                  <span className="text-[12.5px] text-[var(--mu)] block">
+                    столбики — каналы по оценке риска
                   </span>
                 </div>
               </div>
@@ -385,35 +402,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               </div>
             </div>
 
-            {/* Queue Preview Dots */}
-            <div
-              className="flex flex-wrap gap-1.5 justify-center py-2 px-1 rounded-xl bg-[var(--sf)] border"
-              style={{ borderColor: 'var(--ln)' }}
-              aria-label={`В очереди ${inQueueCount} из ${totalChannels} каналов`}
-            >
-              {Array.from({ length: Math.min(30, totalChannels) }, (_, i) => {
-                const isActive = i < Math.min(30, inQueueCount);
-                return (
-                  <span
-                    key={i}
-                    className="w-3.5 h-3.5 rounded-full transition-all duration-200"
-                    style={{
-                      background: isActive ? 'var(--rd)' : 'var(--ln2)',
-                      transform: isActive ? 'scale(1)' : 'scale(0.8)',
-                    }}
-                  />
-                );
-              })}
-            </div>
+            {/* Queue preview: histogram of real risk scores (dots only if no data yet) */}
+            {histogram ? (
+              <div className="px-3 sm:px-[18px] mt-1">
+                <div
+                  role="img"
+                  aria-label={`Распределение оценок риска: в очереди ${inQueueCount} из ${totalChannels}`}
+                  className="h-[76px] flex items-end gap-[2px]"
+                  style={{ borderBottom: '1.5px solid var(--ln2)' }}
+                >
+                  {histogram.map((b, i) => (
+                    <i
+                      key={i}
+                      className="flex-1 min-w-0 rounded-t-[3px] transition-colors duration-200"
+                      style={{ height: `${b.h}px`, background: b.active ? 'var(--rd)' : 'var(--ln2)' }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex flex-wrap gap-1.5 justify-center py-2 px-1 rounded-xl bg-[var(--sf)] border"
+                style={{ borderColor: 'var(--ln)' }}
+                aria-label={`В очереди ${inQueueCount} из ${totalChannels} каналов`}
+              >
+                {Array.from({ length: Math.min(30, totalChannels) }, (_, i) => {
+                  const isActive = i < Math.min(30, inQueueCount);
+                  return (
+                    <span
+                      key={i}
+                      className="w-3.5 h-3.5 rounded-full transition-all duration-200"
+                      style={{
+                        background: isActive ? 'var(--rd)' : 'var(--ln2)',
+                        transform: isActive ? 'scale(1)' : 'scale(0.8)',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            )}
 
             {/* Draggable Slider for Tau */}
             <div className="pt-1">
-              <div className="flex justify-between items-center text-xs text-[var(--mu)] mb-1 px-1">
-                <span>0.10 (мягкий отбор)</span>
-                <span className="font-mono font-bold text-sm text-[var(--ac)]">
-                  {settings.decision_threshold.toFixed(2)}
+              <div className="flex justify-between items-baseline gap-2 text-[12.5px] text-[var(--mu)] mb-1 px-3 sm:px-[18px] whitespace-nowrap">
+                <span>мягкий отбор</span>
+                <span className="font-mono font-semibold text-[13px] text-[var(--ink)]">
+                  порог {tauLabel}
                 </span>
-                <span>0.90 (строгий отбор)</span>
+                <span>строгий отбор</span>
               </div>
               <DraggableSlider
                 label="Порог риска очереди диспетчера"

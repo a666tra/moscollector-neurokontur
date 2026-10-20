@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { BacktestWeek } from '../types';
-import { LineChart as ChartIcon, Eye, EyeOff } from 'lucide-react';
+import { LineChart as ChartIcon } from 'lucide-react';
 
 interface Props {
   weeks: BacktestWeek[];
@@ -141,58 +141,52 @@ export const InteractiveChart: React.FC<Props> = ({
           </h3>
         </div>
 
-        {/* Legend buttons with line toggle state */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setShowDeployed((v) => !v)}
-            className="min-h-[36px] px-3 rounded-full text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer"
-            style={{
-              background: showDeployed ? 'var(--sf2)' : 'transparent',
-              borderColor: showDeployed ? '#2563eb' : 'var(--ln2)',
-              color: showDeployed ? 'var(--ink)' : 'var(--mu)',
-              opacity: showDeployed ? 1 : 0.5,
-            }}
-            title="Переключить показ демо-модели"
-          >
-            <span className="w-3.5 h-1 rounded" style={{ background: '#2563eb' }} />
-            <span>Демо-модель</span>
-            {showDeployed ? <Eye className="w-3.5 h-3.5 text-[#2563eb]" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowLgbm((v) => !v)}
-            className="min-h-[36px] px-3 rounded-full text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer"
-            style={{
-              background: showLgbm ? 'var(--sf2)' : 'transparent',
-              borderColor: showLgbm ? '#059669' : 'var(--ln2)',
-              color: showLgbm ? 'var(--ink)' : 'var(--mu)',
-              opacity: showLgbm ? 1 : 0.5,
-            }}
-            title="Переключить показ модели с дообучением"
-          >
-            <span className="w-3.5 border-t-2 border-dashed" style={{ borderColor: '#059669' }} />
-            <span>С дообучением (пилот)</span>
-            {showLgbm ? <Eye className="w-3.5 h-3.5 text-[#059669]" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowRule((v) => !v)}
-            className="min-h-[36px] px-3 rounded-full text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer"
-            style={{
-              background: showRule ? 'var(--sf2)' : 'transparent',
-              borderColor: showRule ? '#64748b' : 'var(--ln2)',
-              color: showRule ? 'var(--ink)' : 'var(--mu)',
-              opacity: showRule ? 1 : 0.5,
-            }}
-            title="Переключить показ простого правила"
-          >
-            <span className="w-3.5 border-t-2 border-dotted" style={{ borderColor: '#64748b' }} />
-            <span>Правило</span>
-            {showRule ? <Eye className="w-3.5 h-3.5 text-[#64748b]" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </button>
+        {/* Legend: 3-column segmented group (line toggles) */}
+        <div
+          role="group"
+          aria-label="Линии на графике"
+          className="grid grid-cols-3 gap-1 p-1 rounded-[20px] sm:min-w-[420px]"
+          style={{ background: 'var(--sf2)' }}
+        >
+          {([
+            { on: showDeployed, set: setShowDeployed, color: '#2563eb', dash: 'none', full: 'Демо-модель', short: 'Модель', title: 'Переключить показ демо-модели' },
+            { on: showLgbm, set: setShowLgbm, color: '#059669', dash: '6 4', full: 'С дообучением (пилот)', short: 'Дообучение', title: 'Переключить показ модели с дообучением' },
+            { on: showRule, set: setShowRule, color: '#64748b', dash: '2 4', full: 'Правило', short: 'Правило', title: 'Переключить показ простого правила' },
+          ]).map((l) => (
+            <button
+              key={l.full}
+              type="button"
+              onClick={() => l.set((v: boolean) => !v)}
+              aria-pressed={l.on}
+              aria-label={l.full}
+              title={l.title}
+              className="border-0 rounded-2xl flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2.5 min-h-[52px] px-2 py-1.5 text-center text-[13.5px] leading-tight cursor-pointer transition-[background,box-shadow] duration-200"
+              style={{
+                background: l.on ? 'var(--sf)' : 'transparent',
+                boxShadow: l.on ? 'var(--sh)' : 'none',
+                color: l.on ? 'var(--ink)' : 'var(--mu)',
+                fontWeight: l.on ? 600 : 500,
+              }}
+            >
+              <svg width="30" height="8" aria-hidden="true" className="shrink-0">
+                <line
+                  x1="2"
+                  y1="4"
+                  x2="28"
+                  y2="4"
+                  stroke={l.color}
+                  strokeWidth="3.5"
+                  strokeDasharray={l.dash}
+                  strokeLinecap="round"
+                  opacity={l.on ? 1 : 0.3}
+                />
+              </svg>
+              <span>
+                <span className="sm:hidden">{l.short}</span>
+                <span className="hidden sm:inline">{l.full}</span>
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
