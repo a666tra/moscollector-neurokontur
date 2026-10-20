@@ -71,10 +71,11 @@ export const ScenarioChooser: React.FC<ScenarioChooserProps> = ({
   return (
     <div className="space-y-3">
       {/* Horizontal scrollable radio group */}
+      <div className="overflow-x-auto py-1.5 px-1 scrollbar-none">
       <div
         role="radiogroup"
         aria-label="Выбор сценария"
-        className="flex items-start gap-1.5 sm:gap-3.5 overflow-x-auto py-1.5 px-1 scrollbar-none"
+        className="flex items-start gap-1.5 sm:gap-3.5 w-max mx-auto"
       >
         {items.map((item) => {
           const isSelected = selectedId === item.id;
@@ -113,6 +114,7 @@ export const ScenarioChooser: React.FC<ScenarioChooserProps> = ({
             </button>
           );
         })}
+      </div>
       </div>
 
       {/* Selected scenario name & seed caption */}

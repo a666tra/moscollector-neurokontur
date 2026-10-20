@@ -97,14 +97,14 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
       style={{ background: 'var(--sf)' }}
     >
       <h2
-        className="font-normal text-2xl sm:text-3xl"
+        className="font-normal text-2xl sm:text-3xl text-center text-balance"
         style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
       >
         Три проверки
       </h2>
 
       {/* Stamps row */}
-      <div className="flex items-center gap-2 sm:gap-5 justify-between sm:justify-start">
+      <div className="flex items-center gap-2 sm:gap-5 justify-between sm:justify-center max-w-[620px] w-full mx-auto mt-[18px]">
         {checks.map((c, idx) => {
           const isOpen = openIndex === idx;
           const Icon = c.icon;
@@ -154,7 +154,7 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
 
       {/* Detail explanation cards */}
       {currentRows.length > 0 && (
-        <div className="flex flex-col gap-3 mt-[18px] min-h-[150px] bg-[var(--sf2)] rounded-[20px] p-4">
+        <div className="flex flex-col gap-3 mt-[18px] min-h-[150px] bg-[var(--sf2)] rounded-[20px] px-5 py-4 max-w-[720px] w-full mx-auto">
           {currentRows.map((r, i) => {
             const isWarn = r.type === 'warn';
             const isCheck = r.type === 'check';

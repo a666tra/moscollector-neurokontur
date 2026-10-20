@@ -78,14 +78,14 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
       style={{ background: 'var(--sf)' }}
     >
       <h2
-        className="font-normal text-2xl sm:text-3xl"
+        className="font-normal text-2xl sm:text-3xl text-center text-balance"
         style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
       >
         Насколько хорошо различает каналы
       </h2>
 
       {/* Rings Row */}
-      <div className="flex items-start gap-4 sm:gap-10 flex-wrap">
+      <div className="flex items-start gap-4 sm:gap-10 flex-wrap justify-center mt-5">
         {rings.map((r) => {
           const isSelected = selected === r.id;
           return (
@@ -158,7 +158,7 @@ export const RocAucRings: React.FC<RocAucRingsProps> = ({
 
       {/* Caption under the rings */}
       <div
-        className="mt-4 rounded-[18px] p-[14px_16px] min-h-[56px] text-lg sm:text-[23px] font-normal leading-[1.3] bg-[var(--sf2)]"
+        className="mt-5 rounded-[18px] p-[14px_18px] min-h-[56px] text-lg sm:text-[23px] font-normal leading-[1.3] bg-[var(--sf2)] text-center text-balance"
         style={{ fontFamily: "'Source Serif 4', Georgia, serif", color: 'var(--ink)' }}
       >
         {currentCaption}

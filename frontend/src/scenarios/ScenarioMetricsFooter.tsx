@@ -157,19 +157,19 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
       label: 'Контур',
       color: 'var(--ac)',
       count: fastFalse,
-      h: fastFalse === 0 ? 4 : Math.max(8, Math.round((fastFalse / fmax) * 56)),
+      h: fastFalse === 0 ? 3 : Math.max(8, Math.round((fastFalse / fmax) * 52)),
     },
     {
       label: 'Статический порог',
       color: 'oklch(0.72 0.15 72)',
       count: staticFalse,
-      h: staticFalse === 0 ? 4 : Math.max(8, Math.round((staticFalse / fmax) * 56)),
+      h: staticFalse === 0 ? 3 : Math.max(8, Math.round((staticFalse / fmax) * 52)),
     },
     {
       label: 'Простой порог',
       color: 'var(--rd)',
       count: naiveFalse,
-      h: naiveFalse === 0 ? 4 : Math.max(8, Math.round((naiveFalse / fmax) * 56)),
+      h: naiveFalse === 0 ? 3 : Math.max(8, Math.round((naiveFalse / fmax) * 52)),
     },
   ];
 
@@ -363,27 +363,32 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5 items-end pt-1">
+          <div className="grid grid-cols-3 gap-2.5 items-start pt-1">
             {falseBars.map((f) => (
-              <div key={f.label} className="flex flex-col items-center gap-1.5">
-                <b
-                  className="text-2xl font-normal leading-none"
-                  style={{
-                    fontFamily: "'Source Serif 4', Georgia, serif",
-                    color: f.color,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
+              <div key={f.label} className="flex flex-col items-center gap-1.5 min-w-0">
+                <div
+                  className="h-[88px] w-full flex flex-col justify-end items-center gap-1.5"
+                  style={{ borderBottom: '1.5px solid var(--ln2)' }}
                 >
-                  {f.count.toLocaleString('ru-RU')}
-                </b>
-                <i
-                  className="block w-full max-w-[44px] rounded-t-[10px] rounded-b-[4px] transition-all duration-500"
-                  style={{
-                    height: `${f.h}px`,
-                    background: f.color,
-                  }}
-                />
-                <span className="text-xs font-medium text-[var(--mu)] text-center leading-tight">
+                  <b
+                    className="text-2xl font-normal leading-none"
+                    style={{
+                      fontFamily: "'Source Serif 4', Georgia, serif",
+                      color: f.color,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {f.count.toLocaleString('ru-RU')}
+                  </b>
+                  <i
+                    className="block w-full max-w-[44px] rounded-t-[10px] rounded-b-none transition-all duration-500"
+                    style={{
+                      height: `${f.h}px`,
+                      background: f.color,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-[var(--mu)] text-center leading-[1.25] text-balance">
                   {f.label}
                 </span>
               </div>
