@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
-  Map as MapIcon, ClipboardList, LineChart, FlaskConical, LayoutDashboard, SlidersHorizontal, ArrowLeftRight, MoreHorizontal, X,
+  Map as MapIcon, ClipboardList, LineChart, FlaskConical, LayoutDashboard, SlidersHorizontal, ArrowLeftRight, MoreHorizontal, X, ChevronDown, Check,
 } from 'lucide-react';
 import { Landing } from './shell/Landing';
 import { TopoBackground, TopoPose } from './shell/TopoBackground';
@@ -21,12 +21,26 @@ import { FieldView } from './field/FieldView';
 type View = 'summary' | 'field' | 'situation' | 'tickets' | 'quality' | 'scenarios';
 type Tool = 'signal' | 'simulator' | null;
 
-const VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
+const PRIMARY_DISP_VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
   { id: 'situation', title: 'Обстановка', short: 'Обстановка', icon: MapIcon },
   { id: 'tickets', title: 'Заявки и журнал', short: 'Заявки', icon: ClipboardList },
-  { id: 'summary', title: 'Сводка', short: 'Сводка', icon: LayoutDashboard },
-  { id: 'quality', title: 'Качество модели', short: 'Качество', icon: LineChart },
-  { id: 'scenarios', title: 'Сценарии', short: 'Сценарии', icon: FlaskConical },
+];
+
+const EXTRA_VIEWS: Array<{
+  id: View;
+  title: string;
+  short: string;
+  subtitle: string;
+  icon: React.ElementType;
+}> = [
+  { id: 'summary', title: 'Сводка', short: 'Сводка', subtitle: 'Итоги недели и нагрузка', icon: LayoutDashboard },
+  { id: 'quality', title: 'Качество модели', short: 'Качество', subtitle: 'Точность на истории', icon: LineChart },
+  { id: 'scenarios', title: 'Сценарии', short: 'Сценарии', subtitle: 'Синтетический полигон', icon: FlaskConical },
+];
+
+const VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
+  ...PRIMARY_DISP_VIEWS,
+  ...EXTRA_VIEWS.map(e => ({ id: e.id, title: e.title, short: e.short, icon: e.icon })),
 ];
 
 const TECH_VIEWS: Array<{ id: View; title: string; short: string; icon: React.ElementType }> = [
@@ -179,18 +193,53 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
   const clockText = `${fullDateText} · прогноз на 1–3 дня`;
   const clockTooltip = 'Дата, до которой построены признаки модели в стенде';
 
+  const [extraOpen, setExtraOpen] = useState(false);
+  const extraButtonRef = useRef<HTMLButtonElement>(null);
+  const extraMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!extraOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setExtraOpen(false);
+        extraButtonRef.current?.focus();
+      }
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      if (
+        extraMenuRef.current &&
+        !extraMenuRef.current.contains(e.target as Node) &&
+        extraButtonRef.current &&
+        !extraButtonRef.current.contains(e.target as Node)
+      ) {
+        setExtraOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [extraOpen]);
+
   const isTech = role === 'tech';
+  const currentExtra = EXTRA_VIEWS.find(e => e.id === view);
+  const isExtraActive = !isTech && !!currentExtra;
+  const extraLabel = currentExtra ? currentExtra.title : 'Дополнительно';
+  const ExtraIcon = currentExtra ? currentExtra.icon : MoreHorizontal;
 
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* Desktop Header */}
       <header
-        className="hidden lg:flex shrink-0 h-16 items-center gap-2.5 xl:gap-3.5 px-3.5 xl:px-5 border-b relative z-[900]"
+        className="hidden lg:flex shrink-0 h-16 items-center gap-2 xl:gap-3.5 px-3.5 xl:px-5 border-b relative z-[1250]"
         style={{ background: 'var(--bg)', borderColor: 'var(--ln)' }}
       >
         <button
           onClick={onExit}
-          className="serif italic font-medium text-[24px] xl:text-[27px] leading-none mr-1 xl:mr-2 text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
+          className="serif italic font-medium text-[22px] xl:text-[27px] leading-none mr-1.5 xl:mr-2 text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer hover:opacity-80 transition-opacity shrink-0 min-h-[44px] flex items-center"
           title="На главную"
         >
           НейроКонтур
@@ -210,7 +259,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
           className="flex items-center gap-1 p-1 rounded-full shrink-0"
           style={{ background: 'var(--sf2)' }}
         >
-          {(isTech ? TECH_VIEWS : VIEWS).map(v => {
+          {(isTech ? TECH_VIEWS : PRIMARY_DISP_VIEWS).map(v => {
             const active = v.id === view;
             return (
               <button
@@ -244,17 +293,122 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
               </button>
             );
           })}
+
+          {!isTech && (
+            <div className="relative flex-none">
+              <button
+                ref={extraButtonRef}
+                type="button"
+                onClick={() => setExtraOpen(prev => !prev)}
+                aria-expanded={extraOpen}
+                aria-haspopup="menu"
+                aria-controls="desktop-extra-menu"
+                aria-current={isExtraActive ? 'page' : undefined}
+                className="h-9 px-3 xl:px-3.5 rounded-full flex items-center gap-1.5 xl:gap-2 text-[13px] xl:text-sm whitespace-nowrap transition-all duration-150 cursor-pointer border-0"
+                style={
+                  isExtraActive
+                    ? {
+                        background: 'var(--sf)',
+                        color: 'var(--ink)',
+                        boxShadow: 'var(--sh)',
+                        fontWeight: 600,
+                      }
+                    : extraOpen
+                    ? {
+                        background: 'var(--sf)',
+                        color: 'var(--ink)',
+                        fontWeight: 500,
+                      }
+                    : {
+                        background: 'transparent',
+                        color: 'var(--mu)',
+                        fontWeight: 500,
+                      }
+                }
+              >
+                <ExtraIcon
+                  className="w-4 h-4 shrink-0"
+                  style={isExtraActive ? { color: 'var(--ac)' } : { color: 'currentColor' }}
+                />
+                <span>{extraLabel}</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                    extraOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {extraOpen && (
+                <div
+                  ref={extraMenuRef}
+                  id="desktop-extra-menu"
+                  role="menu"
+                  aria-label="Дополнительно"
+                  className="absolute left-0 top-[calc(100%+10px)] w-[300px] rounded-[22px] p-2 flex flex-col gap-0.5 animate-fadeIn"
+                  style={{
+                    background: 'var(--sf)',
+                    boxShadow: '0 18px 44px -14px rgba(0,0,0,.45), 0 0 0 1px var(--ln)',
+                    zIndex: 1260,
+                  }}
+                >
+                  <div className="font-mono text-[11px] font-semibold tracking-[0.1em] text-[var(--mu)] px-3 pt-2 pb-1.5 uppercase select-none">
+                    ДОПОЛНИТЕЛЬНО
+                  </div>
+                  {EXTRA_VIEWS.map(e => {
+                    const active = e.id === view;
+                    return (
+                      <button
+                        key={e.id}
+                        role="menuitem"
+                        type="button"
+                        onClick={() => {
+                          setView(e.id);
+                          setExtraOpen(false);
+                          extraButtonRef.current?.focus();
+                        }}
+                        aria-current={active ? 'page' : undefined}
+                        className={`w-full min-h-[58px] p-[8px_12px] rounded-[16px] flex items-center gap-3 text-left border-0 cursor-pointer transition-colors ${
+                          active ? 'bg-[var(--acs)]' : 'bg-transparent hover:bg-[var(--sf2)]'
+                        }`}
+                      >
+                        <span
+                          className="w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 transition-colors"
+                          style={{
+                            background: active ? 'var(--ac)' : 'var(--sf2)',
+                            color: active ? 'var(--onac)' : 'var(--ink)',
+                          }}
+                        >
+                          <e.icon className="w-5 h-5 shrink-0" />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[14.5px] xl:text-[15px] font-semibold text-[var(--ink)] leading-snug">
+                            {e.title}
+                          </span>
+                          <span className="block text-[12.5px] font-medium text-[var(--mu)] mt-0.5 leading-tight">
+                            {e.subtitle}
+                          </span>
+                        </span>
+                        {active && (
+                          <Check className="w-4.5 h-4.5 text-[var(--ac)] shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
-        {/* Status dot + date: below 1500px show only green dot + short date, at >=1500px full text */}
+        {/* Status dot + date: responsive display to fit 1024, 1280, 1440 */}
         <span
-          className="ml-auto flex items-center gap-2 text-[13px] whitespace-nowrap cursor-help shrink-0"
+          className="ml-auto hidden min-[1100px]:flex items-center gap-2 text-[13px] whitespace-nowrap cursor-help shrink-0"
           style={{ color: 'var(--mu)' }}
           title={clockTooltip}
         >
           <i className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--gn)' }} />
-          <span className="hidden min-[1500px]:inline">{clockText}</span>
-          <span className="min-[1500px]:hidden">{shortDateText}</span>
+          <span className="hidden min-[1400px]:inline">{clockText}</span>
+          <span className="min-[1400px]:hidden">{shortDateText}</span>
         </span>
 
         {/* Settings button */}
@@ -277,11 +431,11 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         <button
           onClick={onExit}
           aria-label="Сменить роль"
-          className="h-9 xl:h-10 px-3 xl:px-3.5 rounded-full border flex items-center gap-1.5 xl:gap-2 text-[13px] xl:text-sm font-medium whitespace-nowrap transition-colors hover:bg-[var(--sf2)] shrink-0 cursor-pointer"
+          className="h-9 xl:h-10 px-2.5 xl:px-3.5 rounded-full border flex items-center gap-1.5 xl:gap-2 text-[13px] xl:text-sm font-medium whitespace-nowrap transition-colors hover:bg-[var(--sf2)] shrink-0 cursor-pointer"
           style={{ borderColor: 'var(--ln)', background: 'var(--sf)', color: 'var(--ink)' }}
         >
           <ArrowLeftRight className="w-4 h-4 shrink-0" />
-          <span>Сменить роль</span>
+          <span className="hidden min-[1220px]:inline">Сменить роль</span>
         </button>
       </header>
 
@@ -292,7 +446,7 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
       >
         <button
           onClick={onExit}
-          className="serif italic font-medium text-[20px] sm:text-[22px] leading-none text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer shrink-0 truncate max-w-[130px] sm:max-w-none"
+          className="serif italic font-medium text-[20px] sm:text-[22px] leading-none text-[var(--ink)] bg-transparent border-0 p-0 cursor-pointer shrink-0 truncate max-w-[130px] sm:max-w-none min-h-[44px] flex items-center"
           title="На главную"
         >
           НейроКонтур
@@ -443,52 +597,63 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         </nav>
       ) : (
         <nav
-          className="lg:hidden shrink-0 h-[68px] grid grid-cols-5 border-t z-[1100]"
+          className="lg:hidden shrink-0 h-[68px] grid grid-cols-3 border-t z-[1100]"
           style={{ borderColor: 'var(--ln)', background: 'var(--sf)' }}
         >
-          {[
-            { id: 'situation', short: 'Обстановка', icon: MapIcon },
-            { id: 'tickets', short: 'Заявки', icon: ClipboardList },
-            { id: 'summary', short: 'Сводка', icon: LayoutDashboard },
-            { id: 'scenarios', short: 'Сценарии', icon: FlaskConical },
-          ].map(v => {
-            const active = v.id === view;
-            return (
-              <button
-                key={v.id}
-                onClick={() => {
-                  if (v.id === 'tickets') setTicketFilterObjectId(null);
-                  setView(v.id as View);
-                }}
-                className="flex flex-col items-center justify-center gap-1 text-[11.5px] cursor-pointer border-0 bg-transparent min-h-[48px]"
-                style={{ color: active ? 'var(--ink)' : 'var(--mu)', fontWeight: active ? 700 : 500 }}
-              >
-                <span
-                  className="w-14 h-7.5 rounded-full flex items-center justify-center transition-colors"
-                  style={{ background: active ? 'var(--acs)' : 'transparent' }}
-                >
-                  <v.icon className="w-5 h-5 shrink-0" style={active ? { color: 'var(--ac)' } : undefined} />
-                </span>
-                <span className="leading-none">{v.short}</span>
-              </button>
-            );
-          })}
+          {/* 1. Обстановка */}
+          <button
+            onClick={() => setView('situation')}
+            className="flex flex-col items-center justify-center gap-1 text-[11.5px] cursor-pointer border-0 bg-transparent min-h-[48px]"
+            style={{ color: view === 'situation' ? 'var(--ink)' : 'var(--mu)', fontWeight: view === 'situation' ? 700 : 500 }}
+          >
+            <span
+              className="w-14 h-7.5 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: view === 'situation' ? 'var(--acs)' : 'transparent' }}
+            >
+              <MapIcon className="w-5 h-5 shrink-0" style={view === 'situation' ? { color: 'var(--ac)' } : undefined} />
+            </span>
+            <span className="leading-none">Обстановка</span>
+          </button>
 
+          {/* 2. Заявки */}
+          <button
+            onClick={() => {
+              setTicketFilterObjectId(null);
+              setView('tickets');
+            }}
+            className="flex flex-col items-center justify-center gap-1 text-[11.5px] cursor-pointer border-0 bg-transparent min-h-[48px]"
+            style={{ color: view === 'tickets' ? 'var(--ink)' : 'var(--mu)', fontWeight: view === 'tickets' ? 700 : 500 }}
+          >
+            <span
+              className="w-14 h-7.5 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: view === 'tickets' ? 'var(--acs)' : 'transparent' }}
+            >
+              <ClipboardList className="w-5 h-5 shrink-0" style={view === 'tickets' ? { color: 'var(--ac)' } : undefined} />
+            </span>
+            <span className="leading-none">Заявки</span>
+          </button>
+
+          {/* 3. Extra active view OR Ещё */}
           <button
             onClick={() => setMoreOpen(true)}
             className="flex flex-col items-center justify-center gap-1 text-[11.5px] cursor-pointer border-0 bg-transparent min-h-[48px]"
             style={{
-              color: view === 'quality' || moreOpen ? 'var(--ink)' : 'var(--mu)',
-              fontWeight: view === 'quality' || moreOpen ? 700 : 500,
+              color: isExtraActive || moreOpen ? 'var(--ink)' : 'var(--mu)',
+              fontWeight: isExtraActive || moreOpen ? 700 : 500,
             }}
           >
             <span
               className="w-14 h-7.5 rounded-full flex items-center justify-center transition-colors"
-              style={{ background: view === 'quality' || moreOpen ? 'var(--acs)' : 'transparent' }}
+              style={{ background: isExtraActive || moreOpen ? 'var(--acs)' : 'transparent' }}
             >
-              <MoreHorizontal className="w-5 h-5 shrink-0" style={view === 'quality' ? { color: 'var(--ac)' } : undefined} />
+              <ExtraIcon
+                className="w-5 h-5 shrink-0"
+                style={isExtraActive || moreOpen ? { color: 'var(--ac)' } : undefined}
+              />
             </span>
-            <span className="leading-none">{view === 'quality' ? 'Качество' : 'Ещё'}</span>
+            <span className="leading-none">
+              {currentExtra ? currentExtra.short : 'Ещё'}
+            </span>
           </button>
         </nav>
       )}
@@ -504,42 +669,94 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
             role="dialog"
             aria-modal="true"
             aria-label="Дополнительные разделы"
-            className="w-full rounded-t-[24px] p-4 pb-8 flex flex-col gap-2 shadow-2xl"
+            className="w-full rounded-t-[24px] p-4 pb-8 flex flex-col gap-2 shadow-2xl animate-fadeIn"
             style={{ background: 'var(--sf)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="w-10 h-1 rounded-full mx-auto mb-3" style={{ background: 'var(--ln2)' }} />
+            <div className="w-10 h-1 rounded-full mx-auto mb-2" style={{ background: 'var(--ln2)' }} />
 
-            <button
-              onClick={() => {
-                setMoreOpen(false);
-                setView('quality');
-              }}
-              className="flex items-center gap-3.5 px-4 h-14 rounded-2xl text-left border-0 cursor-pointer font-medium text-[16px] transition-colors"
-              style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
-            >
-              <LineChart className="w-5 h-5 shrink-0 text-[var(--ac)]" />
-              <span>Качество модели</span>
-            </button>
+            {!isTech && (
+              <>
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setView('summary');
+                  }}
+                  className="flex items-center gap-3.5 px-4 min-h-[56px] h-14 rounded-[16px] text-left border-0 cursor-pointer font-medium text-[15px] sm:text-[16px] transition-colors"
+                  style={{
+                    background: view === 'summary' ? 'var(--acs)' : 'var(--sf2)',
+                    color: 'var(--ink)',
+                    fontWeight: view === 'summary' ? 600 : 500,
+                  }}
+                >
+                  <LayoutDashboard
+                    className="w-5 h-5 shrink-0"
+                    style={{ color: view === 'summary' ? 'var(--ac)' : 'var(--ink)' }}
+                  />
+                  <span className="flex-1">Сводка</span>
+                  {view === 'summary' && <Check className="w-4.5 h-4.5 text-[var(--ac)] shrink-0" />}
+                </button>
 
-            <button
-              onClick={() => {
-                setMoreOpen(false);
-                setSettingsOpen(true);
-              }}
-              className="flex items-center gap-3.5 px-4 h-14 rounded-2xl text-left border-0 cursor-pointer font-medium text-[16px] transition-colors"
-              style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
-            >
-              <SlidersHorizontal className="w-5 h-5 shrink-0 text-[var(--ac)]" />
-              <span>Параметры и пороги</span>
-            </button>
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setView('quality');
+                  }}
+                  className="flex items-center gap-3.5 px-4 min-h-[56px] h-14 rounded-[16px] text-left border-0 cursor-pointer font-medium text-[15px] sm:text-[16px] transition-colors"
+                  style={{
+                    background: view === 'quality' ? 'var(--acs)' : 'var(--sf2)',
+                    color: 'var(--ink)',
+                    fontWeight: view === 'quality' ? 600 : 500,
+                  }}
+                >
+                  <LineChart
+                    className="w-5 h-5 shrink-0"
+                    style={{ color: view === 'quality' ? 'var(--ac)' : 'var(--ink)' }}
+                  />
+                  <span className="flex-1">Качество модели</span>
+                  {view === 'quality' && <Check className="w-4.5 h-4.5 text-[var(--ac)] shrink-0" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setView('scenarios');
+                  }}
+                  className="flex items-center gap-3.5 px-4 min-h-[56px] h-14 rounded-[16px] text-left border-0 cursor-pointer font-medium text-[15px] sm:text-[16px] transition-colors"
+                  style={{
+                    background: view === 'scenarios' ? 'var(--acs)' : 'var(--sf2)',
+                    color: 'var(--ink)',
+                    fontWeight: view === 'scenarios' ? 600 : 500,
+                  }}
+                >
+                  <FlaskConical
+                    className="w-5 h-5 shrink-0"
+                    style={{ color: view === 'scenarios' ? 'var(--ac)' : 'var(--ink)' }}
+                  />
+                  <span className="flex-1">Сценарии</span>
+                  {view === 'scenarios' && <Check className="w-4.5 h-4.5 text-[var(--ac)] shrink-0" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setSettingsOpen(true);
+                  }}
+                  className="flex items-center gap-3.5 px-4 min-h-[56px] h-14 rounded-[16px] text-left border-0 cursor-pointer font-medium text-[15px] sm:text-[16px] transition-colors"
+                  style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
+                >
+                  <SlidersHorizontal className="w-5 h-5 shrink-0 text-[var(--ink)]" />
+                  <span>Параметры и пороги</span>
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => {
                 setMoreOpen(false);
                 onExit();
               }}
-              className="flex items-center gap-3.5 px-4 h-14 rounded-2xl text-left border-0 cursor-pointer font-medium text-[16px] transition-colors"
+              className="flex items-center gap-3.5 px-4 min-h-[56px] h-14 rounded-[16px] text-left border-0 cursor-pointer font-medium text-[15px] sm:text-[16px] transition-colors"
               style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
             >
               <ArrowLeftRight className="w-5 h-5 shrink-0 text-[var(--mu)]" />
