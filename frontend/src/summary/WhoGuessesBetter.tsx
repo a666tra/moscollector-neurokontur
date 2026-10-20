@@ -25,6 +25,22 @@ export const WhoGuessesBetter: React.FC<Props> = ({
 }) => {
   const currentSummary = scope === 'new_incidents' ? summaryNewIncidents : summaryAll;
 
+  // No backtest data (request failed or still loading): say so instead of drawing three zeros
+  if (!summaryAll) {
+    return (
+      <section
+        className="rounded-[26px] shadow-[var(--sh)] p-[18px_14px] sm:p-[26px_28px] border border-[var(--ln)] flex flex-col gap-2 min-w-0 w-full"
+        style={{ background: 'var(--sf)' }}
+        role="status"
+      >
+        <h2 className="serif font-normal text-2xl sm:text-3xl text-[var(--ink)] m-0">Кто чаще угадывает?</h2>
+        <p className="text-sm text-[var(--mu)] m-0">
+          Нет данных бэктеста: результаты 21 недели не загрузились. Обновите страницу или нажмите «Обновить замеры».
+        </p>
+      </section>
+    );
+  }
+
   // Medians from API
   const standVal = Math.round((currentSummary?.deployed?.precision_at_100?.median ?? 0) * 100);
   const pilotVal = Math.round((currentSummary?.lgbm_weekly?.precision_at_100?.median ?? 0) * 100);

@@ -170,8 +170,14 @@ export const Situation: React.FC<Props> = ({
   // Keyboard navigation: Left/Right arrows switch channels when not inside inputs
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const activeTag = document.activeElement?.tagName?.toUpperCase() || '';
       if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+        return;
+      }
+      // Arrows belong to sliders, dialogs and other interactive widgets, not to channel switching
+      const el = (e.target as HTMLElement | null) ?? (document.activeElement as HTMLElement | null);
+      if (el?.closest?.('[role="slider"],[role="dialog"],[aria-modal="true"],[role="listbox"],[role="tablist"],[contenteditable="true"]')) {
         return;
       }
       if (e.key === 'ArrowRight') {

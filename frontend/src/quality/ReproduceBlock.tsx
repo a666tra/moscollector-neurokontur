@@ -125,10 +125,15 @@ export const ReproduceBlock: React.FC<ReproduceBlockProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const totalMismatches =
-    (consistency?.train?.label_mismatches ?? 0) +
-    (consistency?.val?.label_mismatches ?? 0) +
-    (consistency?.test?.label_mismatches ?? 0);
+  const mmParts = [
+    consistency?.train?.label_mismatches,
+    consistency?.val?.label_mismatches,
+    consistency?.test?.label_mismatches,
+  ];
+  // Missing data is "no data", not "0 mismatches"
+  const totalMismatches: number | null = mmParts.every((v) => typeof v === 'number' && Number.isFinite(v))
+    ? (mmParts as number[]).reduce((a, b) => a + b, 0)
+    : null;
 
   return (
     <section
@@ -145,7 +150,16 @@ export const ReproduceBlock: React.FC<ReproduceBlockProps> = ({
 
         <div className="text-xs" style={{ color: 'var(--mu)' }}>
           Сверка с кэшем обучения:{' '}
-          <strong className="font-semibold text-[var(--gnt)]">{totalMismatches} расхождений</strong>
+          {totalMismatches === null ? (
+            <strong className="font-semibold">нет данных</strong>
+          ) : (
+            <strong
+              className="font-semibold"
+              style={{ color: totalMismatches === 0 ? 'var(--gnt)' : 'var(--rd)' }}
+            >
+              {totalMismatches} расхождений
+            </strong>
+          )}
         </div>
       </div>
 

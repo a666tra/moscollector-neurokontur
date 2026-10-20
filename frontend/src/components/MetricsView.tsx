@@ -74,6 +74,13 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
   const firstCutoff = weeks[0]?.cutoff ? formatDate(weeks[0].cutoff) : '04.02.2026';
   const lastCutoff = weeks[weeks.length - 1]?.cutoff ? formatDate(weeks[weeks.length - 1].cutoff) : '24.06.2026';
 
+  // Reproducibility check: only a real number from the API counts; a missing value is "no data", never "0"
+  const cons = backtest?.consistency_with_training_cache;
+  const mm = [cons?.train?.label_mismatches, cons?.val?.label_mismatches, cons?.test?.label_mismatches];
+  const mismatchesTotal: number | null = mm.every((v) => typeof v === 'number' && Number.isFinite(v))
+    ? (mm as number[]).reduce((a, b) => a + b, 0)
+    : null;
+
   const bench = report?.performance_benchmark;
   const httpBench = report?.http_load_benchmark;
   const models = report?.model_comparison;
@@ -184,10 +191,10 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
 
       {/* 3. Accuracy rings (Сколько из 100 подтверждается) */}
       <AccuracyRings
-        standPrecisionPct={backtest?.summary?.all?.deployed?.precision_at_100?.median ? backtest.summary.all.deployed.precision_at_100.median * 100 : 22}
-        pilotPrecisionPct={backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median ? backtest.summary.all.lgbm_weekly.precision_at_100.median * 100 : 38}
-        standMinPct={backtest?.summary?.all?.deployed?.precision_at_100?.min ? backtest.summary.all.deployed.precision_at_100.min * 100 : 14}
-        standMaxPct={backtest?.summary?.all?.deployed?.precision_at_100?.max ? backtest.summary.all.deployed.precision_at_100.max * 100 : 38}
+        standPrecisionPct={(backtest?.summary?.all?.deployed?.precision_at_100?.median ?? 0.22) * 100}
+        pilotPrecisionPct={(backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median ?? 0.38) * 100}
+        standMinPct={(backtest?.summary?.all?.deployed?.precision_at_100?.min ?? 0.14) * 100}
+        standMaxPct={(backtest?.summary?.all?.deployed?.precision_at_100?.max ?? 0.38) * 100}
         lgbmWeeklyPrecisionAt100Median={backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median}
         prevalenceMedian={backtest?.summary?.all?.prevalence?.median}
       />
@@ -200,6 +207,7 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
         deployedPrecisionMinPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.min ?? 0.14) * 100)}
         deployedPrecisionMaxPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.max ?? 0.38) * 100)}
         holdoutRocAuc={report?.model_comparison?.champion_lightgbm?.roc_auc ?? 0.771}
+        mismatchesTotal={mismatchesTotal}
       />
 
       {/* 5. Reproduce block */}

@@ -107,7 +107,7 @@ export const FieldBottomSheet: React.FC<Props> = ({
           aria-label="Изменить высоту панели"
           aria-expanded={snap === 'full'}
           onKeyDown={handleKeyDown}
-          className="h-7 w-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ac)]"
+          className="h-7 w-full relative flex items-center justify-center before:content-[''] before:absolute before:inset-x-0 before:top-0 before:-bottom-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ac)]"
         >
           <span
             className="w-12 h-1.5 rounded-full transition-colors"

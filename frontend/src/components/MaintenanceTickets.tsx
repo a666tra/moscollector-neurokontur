@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search, Sparkles, Map as MapIcon, RotateCcw, Plus, RefreshCw } from 'lucide-react';
 import { MaintenanceTicket, ObjectItem, PredictionItem } from '../types';
 import { DecisionLedger } from './DecisionLedger';
@@ -40,6 +40,11 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
   const [isAssigningUrgent, setIsAssigningUrgent] = useState(false);
   const [showMobileMap, setShowMobileMap] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  // Demo-only brigade choices (ticket id -> brigade name): the server does not store them,
+  // so they are re-applied after any server response that replaces the ticket
+  const brigadeChoice = useRef<Record<string, string>>({});
+  const withChoice = (t: MaintenanceTicket): MaintenanceTicket =>
+    brigadeChoice.current[t.ticket_id] ? { ...t, assigned_team: brigadeChoice.current[t.ticket_id] } : t;
 
   // Sync objects and predictions if passed via props
   useEffect(() => {
@@ -58,7 +63,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
   const fetchTickets = useCallback(async () => {
     try {
       const data = await api<MaintenanceTicket[]>('/api/tickets');
-      setTickets(data || []);
+      setTickets((data || []).map(withChoice));
     } catch {
       // silently handle network error on initial mount
     } finally {
@@ -101,7 +106,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
           dispatcher_pin: d.pin,
         },
       });
-      setTickets((prev) => prev.map((t) => (t.ticket_id === ticketId ? updated : t)));
+      setTickets((prev) => prev.map((t) => (t.ticket_id === ticketId ? withChoice(updated) : t)));
       toast(`Статус наряда ${ticketId} изменён: ${newStatus}`, 'success');
       onRefreshStats?.();
     } catch (err: any) {
@@ -124,6 +129,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
 
   // Assign brigade selection handler
   const handleSelectBrigade = (ticketId: string, brigadeName: string) => {
+    brigadeChoice.current[ticketId] = brigadeName;
     setTickets((prev) =>
       prev.map((t) =>
         t.ticket_id === ticketId ? { ...t, assigned_team: brigadeName } : t

@@ -22,6 +22,9 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
   const [verifiedStep, setVerifiedStep] = useState<number>(-1);
   const [blockStatus, setBlockStatus] = useState<boolean[]>([]);
   const [hasVerifiedOnce, setHasVerifiedOnce] = useState(false);
+  // Real (non-demo) failure: the server or the per-block check reported a broken chain
+  const [realBroken, setRealBroken] = useState(false);
+  const [brokenAt, setBrokenAt] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
@@ -45,6 +48,8 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
     setVerifying(true);
     setVerifiedStep(0);
     setBlockStatus([]);
+    setRealBroken(false);
+    setBrokenAt(null);
 
     try {
       const res = await api<AuditVerificationResult>('/api/alarms/audit/verify');
@@ -58,7 +63,16 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
         await new Promise(r => setTimeout(r, 120));
         // If tamper is simulated on index 2 (item #3)
         const isTamperedBlock = tamper && i === Math.min(2, count - 1);
-        const isValid = !isTamperedBlock && (res.details?.[i]?.link_valid ?? true);
+        // API details are chronological (oldest first); the list is newest first.
+        // A missing result is never treated as success.
+        let blockOk: boolean;
+        if (res.details && res.details.length === count) {
+          const d = res.details[count - 1 - i];
+          blockOk = !!d && d.link_valid === true && d.hash_valid === true;
+        } else {
+          blockOk = res.is_valid === true;
+        }
+        const isValid = !isTamperedBlock && blockOk;
         statuses.push(isValid);
         setVerifiedStep(i + 1);
         setBlockStatus([...statuses]);
@@ -69,11 +83,15 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
         }
       }
 
+      const firstBad = statuses.findIndex((s) => !s);
+      const broken = !tamper && (res.is_valid !== true || firstBad !== -1);
+      setRealBroken(broken);
+      setBrokenAt(firstBad !== -1 && res.details?.length === count ? firstBad : null);
       setHasVerifiedOnce(true);
 
       if (tamper) {
         toast('Демо: подмена показана только на экране, в журнале ничего не менялось.', 'info');
-      } else if (res.is_valid) {
+      } else if (!broken) {
         toast(`Цепочка проверена: ${count} блоков валидны`, 'success');
       } else {
         toast('Нарушена целостность цепочки аудита решений!', 'error');
@@ -91,10 +109,12 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
     setVerifiedStep(-1);
     setBlockStatus([]);
     setHasVerifiedOnce(false);
+    setRealBroken(false);
+    setBrokenAt(null);
   };
 
   const tamperedIndex = Math.min(2, Math.max(0, items.length - 1));
-  const isChainTampered = tamper && hasVerifiedOnce;
+  const isChainTampered = (tamper || realBroken) && hasVerifiedOnce;
 
   return (
     <section
@@ -161,7 +181,9 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
             <>
               <ShieldAlert className="w-5 h-5 shrink-0 text-[var(--rd)]" />
               <span>
-                ДЕМО: так цепочка покажет подмену. Мы изменили запись №{tamperedIndex + 1} только на этом экране — настоящие данные не тронуты.
+                {realBroken
+                  ? `Нарушена целостность журнала${brokenAt !== null ? `: запись №${brokenAt + 1} не прошла проверку` : ''}. Передайте журнал администратору.`
+                  : `ДЕМО: так цепочка покажет подмену. Мы изменили запись №${tamperedIndex + 1} только на этом экране — настоящие данные не тронуты.`}
               </span>
             </>
           ) : (

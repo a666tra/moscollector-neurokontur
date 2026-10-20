@@ -359,7 +359,8 @@ export const ScenarioLab: React.FC<ScenarioLabProps> = ({ objects: initialObject
       return result.incident_list[0];
     }
     const found = result.incident_list.find((inc) => incidentInScenario(inc, selectedScenarioId));
-    return found || result.incident_list[0];
+    // No event of this scenario in the run: show no example rather than someone else's event
+    return found || null;
   }, [result, selectedScenarioId]);
 
   return (

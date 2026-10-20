@@ -173,6 +173,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
   const [loading, setLoading] = useState(false);
   const [holdoutRocAuc, setHoldoutRocAuc] = useState<number | null>(null);
   const [predictions, setPredictions] = useState<PredictionItem[]>([]);
+  // Server-side totals: the list holds only the top-500 channels by risk, the counts cover all channels
+  const [predMeta, setPredMeta] = useState<{ total: number; activeCount: number; activeThr: number } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -205,10 +207,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
         })
         .catch(() => {});
 
-      api<{ items: PredictionItem[] }>('/api/predictions?limit=500')
+      api<{
+        items: PredictionItem[];
+        total?: number;
+        critical_count?: number;
+        warning_count?: number;
+        active_threshold?: number;
+      }>('/api/predictions?limit=500')
         .then((data) => {
           if (data?.items) {
             setPredictions(data.items);
+            if (
+              typeof data.total === 'number' &&
+              typeof data.critical_count === 'number' &&
+              typeof data.warning_count === 'number' &&
+              typeof data.active_threshold === 'number'
+            ) {
+              setPredMeta({
+                total: data.total,
+                activeCount: data.critical_count + data.warning_count,
+                activeThr: data.active_threshold,
+              });
+            }
           }
         })
         .catch(() => {});
@@ -261,10 +281,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     return 0;
   };
 
-  const totalChannels = predictions.length > 0 ? predictions.length : 50;
-  const inQueueCount = predictions.length > 0
-    ? predictions.filter((p) => probabilityOf(p) >= settings.decision_threshold).length
-    : Math.round(50 * (1 - settings.decision_threshold));
+  const totalChannels = predMeta?.total ?? (predictions.length > 0 ? predictions.length : null);
+  // Exact count where the data allows it; otherwise a lower bound ("≥ N"); never invented numbers
+  const queue = (() => {
+    if (predictions.length === 0) return null;
+    const thr = settings.decision_threshold;
+    if (predMeta && Math.abs(thr - predMeta.activeThr) < 1e-6) {
+      return { n: predMeta.activeCount, approx: false };
+    }
+    const n = predictions.filter((p) => probabilityOf(p) >= thr).length;
+    const minShown = Math.min(...predictions.map(probabilityOf));
+    const complete = !predMeta || predictions.length >= predMeta.total;
+    return { n, approx: !complete && thr < minShown };
+  })();
+  const inQueueText = queue ? `${queue.approx ? '≥ ' : ''}${queue.n}` : '—';
+  const isTopOnly = predMeta ? predictions.length < predMeta.total : false;
 
   // Histogram of real per-channel risk scores (40 bins over 0.10..0.90; values outside are clamped to the edge bins)
   const HIST_BINS = 40;
@@ -387,27 +418,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                     Что попадёт в очередь
                   </span>
                   <span className="text-[12.5px] text-[var(--mu)] block">
-                    столбики — каналы по оценке риска
+                    {isTopOnly
+                      ? `столбики — ${predictions.length} каналов с наивысшим риском`
+                      : 'столбики — каналы по оценке риска'}
                   </span>
                 </div>
               </div>
 
               <div className="flex items-baseline gap-1 shrink-0">
                 <span className="serif text-3xl sm:text-4xl font-normal num text-[var(--ink)]">
-                  {inQueueCount}
+                  {inQueueText}
                 </span>
                 <span className="text-xs text-[var(--mu)] font-medium">
-                  из {totalChannels}
+                  {totalChannels !== null ? `из ${totalChannels}` : ''}
                 </span>
               </div>
             </div>
 
-            {/* Queue preview: histogram of real risk scores (dots only if no data yet) */}
+            {/* Queue preview: histogram of real risk scores (placeholder until data arrives) */}
             {histogram ? (
               <div className="px-3 sm:px-[18px] mt-1">
                 <div
                   role="img"
-                  aria-label={`Распределение оценок риска: в очереди ${inQueueCount} из ${totalChannels}`}
+                  aria-label={`Распределение оценок риска: в очереди ${inQueueText}${totalChannels !== null ? ` из ${totalChannels}` : ''}`}
                   className="h-[76px] flex items-end gap-[2px]"
                   style={{ borderBottom: '1.5px solid var(--ln2)' }}
                 >
@@ -422,23 +455,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               </div>
             ) : (
               <div
-                className="flex flex-wrap gap-1.5 justify-center py-2 px-1 rounded-xl bg-[var(--sf)] border"
-                style={{ borderColor: 'var(--ln)' }}
-                aria-label={`В очереди ${inQueueCount} из ${totalChannels} каналов`}
+                className="h-[76px] flex items-center justify-center text-[12.5px] text-[var(--mu)]"
+                style={{ borderBottom: '1.5px solid var(--ln2)' }}
               >
-                {Array.from({ length: Math.min(30, totalChannels) }, (_, i) => {
-                  const isActive = i < Math.min(30, inQueueCount);
-                  return (
-                    <span
-                      key={i}
-                      className="w-3.5 h-3.5 rounded-full transition-all duration-200"
-                      style={{
-                        background: isActive ? 'var(--rd)' : 'var(--ln2)',
-                        transform: isActive ? 'scale(1)' : 'scale(0.8)',
-                      }}
-                    />
-                  );
-                })}
+                Оценки риска загружаются…
               </div>
             )}
 

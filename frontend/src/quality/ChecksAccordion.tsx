@@ -8,6 +8,8 @@ interface ChecksAccordionProps {
   deployedPrecisionMinPct?: number;
   deployedPrecisionMaxPct?: number;
   holdoutRocAuc?: number;
+  /** Mismatches vs training cache: number, or null/undefined when no data */
+  mismatchesTotal?: number | null;
 }
 
 export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
@@ -17,6 +19,7 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
   deployedPrecisionMinPct = 14,
   deployedPrecisionMaxPct = 38,
   holdoutRocAuc = 0.771,
+  mismatchesTotal = null,
 }) => {
   const [openIndex, setOpenIndex] = useState<number>(0);
 
@@ -77,8 +80,13 @@ export const ChecksAccordion: React.FC<ChecksAccordionProps> = ({
         },
         {
           label: 'Итог',
-          type: 'check',
-          text: 'цифры на экране совпали с пересчётом (0 расхождений)',
+          type: mismatchesTotal === 0 ? 'check' : mismatchesTotal === null ? 'info' : 'warn',
+          text:
+            mismatchesTotal === 0
+              ? 'цифры на экране совпали с пересчётом (0 расхождений)'
+              : mismatchesTotal === null
+                ? 'данные сверки недоступны'
+                : `найдено расхождений: ${mismatchesTotal}`,
         },
         {
           label: 'Предел',
