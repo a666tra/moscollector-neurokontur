@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Bell, Check, Lock, Navigation, ArrowRight,
-  ClipboardList, AlertCircle, Eye, Wrench, ShieldAlert
+  ClipboardList, AlertCircle, Eye, Wrench, ShieldAlert, ChevronUp
 } from 'lucide-react';
 import { ObjectItem, PredictionItem, MaintenanceTicket } from '../types';
 import { plainReason, cleanName, formatPk } from '../lib/plain';
@@ -25,6 +25,9 @@ interface Props {
   helpSent: boolean;
   isOffline: boolean;
   onResetDemoMarks?: () => void;
+  /** Свёрнутая шторка: показываем одну строку-сводку вместо полной карточки. */
+  compact?: boolean;
+  onExpand?: () => void;
 }
 
 export const FieldObjectCard: React.FC<Props> = ({
@@ -45,6 +48,8 @@ export const FieldObjectCard: React.FC<Props> = ({
   helpSent,
   isOffline,
   onResetDemoMarks,
+  compact = false,
+  onExpand,
 }) => {
   const toast = useToast();
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -134,6 +139,42 @@ export const FieldObjectCard: React.FC<Props> = ({
     <div className="relative flex-1 min-h-0 flex flex-col justify-between overflow-hidden bg-[var(--sf)]">
       {/* Scrollable Content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 flex flex-col gap-3.5 sm:gap-4">
+        {compact && (
+          <button
+            type="button"
+            onClick={onExpand}
+            aria-label="Развернуть карточку объекта"
+            className="w-full min-h-[64px] flex items-center gap-3 text-left bg-transparent border-0 p-0 cursor-pointer"
+          >
+            <span
+              className="shrink-0 w-[64px] h-[64px] rounded-2xl flex items-center justify-center serif text-[26px] leading-none whitespace-nowrap"
+              style={{ background: statusBg, color: isDone ? 'var(--gnt)' : isCritical ? 'var(--rdt)' : 'var(--amt)' }}
+            >
+              {pct != null ? (
+                <>
+                  {pct}
+                  <span className="text-[13px] font-sans font-light ml-px">%</span>
+                </>
+              ) : (
+                '—'
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-semibold text-[var(--ink)] truncate">{object.name}</span>
+              <span className="block text-[13px] text-[var(--mu)] truncate">
+                {statusText} · {distanceText}
+              </span>
+            </span>
+            <span
+              className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-[var(--ink)]"
+              style={{ background: 'var(--sf2)' }}
+              aria-hidden="true"
+            >
+              <ChevronUp className="w-5 h-5" />
+            </span>
+          </button>
+        )}
+        <div className={compact ? 'hidden' : 'contents'}>
         {/* Header navigation bar */}
         <div className="flex items-center justify-between gap-2 shrink-0 max-w-full overflow-hidden">
           <button
@@ -248,7 +289,7 @@ export const FieldObjectCard: React.FC<Props> = ({
 
         {/* Small permanent demo disclaimer */}
         <div className="text-[11.5px] text-[var(--mu)] text-center pt-0.5 leading-snug shrink-0">
-          Демо режима техника: отметки видны только на этом телефоне и не меняют заявки на сервере
+          Демо-режим техника: отметки видны только на этом телефоне и не меняют заявки на сервере
         </div>
 
         {/* Telemetry info & Reasons */}
@@ -398,6 +439,7 @@ export const FieldObjectCard: React.FC<Props> = ({
               </button>
             </div>
           )}
+        </div>
         </div>
       </div>
 

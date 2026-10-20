@@ -414,6 +414,9 @@ export const FieldView: React.FC<Props> = ({
 
   const handleSelectObject = (id: string | null) => {
     setSelectedObjectId(id);
+    // Выбрали объект — шторка сворачивается в строку-сводку (видна карта и маршрут);
+    // вернулись к списку — обычная средняя высота.
+    setMobileSnap(id ? 'peek' : 'half');
     try {
       const u = new URL(window.location.href);
       if (id) u.searchParams.set('obj', id);
@@ -440,6 +443,9 @@ export const FieldView: React.FC<Props> = ({
     : null;
 
   const selectedDistanceStr = selectedObject ? formatDistance(getDistance(selectedObject)) : '';
+
+  // У открытой карточки только два положения: строка-сводка и полная карточка.
+  const sheetSnap: SnapHeight = selectedObject && mobileSnap === 'half' ? 'full' : mobileSnap;
 
   return (
     <div className="relative w-full h-full overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
@@ -483,7 +489,7 @@ export const FieldView: React.FC<Props> = ({
             <span className="font-semibold text-[var(--amt)]">Режим «Офлайн»</span>
           </div>
           <div className="text-[var(--mu)] leading-snug">
-            Нет сети. Данные сохранены на телефоне. Демо режима техника: отметки видны только на этом телефоне и не меняют заявки на сервере.
+            Нет сети. Данные сохранены на телефоне. Демо-режим техника: отметки видны только на этом телефоне и не меняют заявки на сервере.
           </div>
           <div className="pt-1">
             <button
@@ -562,7 +568,11 @@ export const FieldView: React.FC<Props> = ({
       </aside>
 
       {/* Mobile Draggable Bottom Sheet */}
-      <FieldBottomSheet snap={mobileSnap} onSnapChange={setMobileSnap}>
+      <FieldBottomSheet
+        snap={sheetSnap}
+        onSnapChange={setMobileSnap}
+        snaps={selectedObject ? ['peek', 'full'] : undefined}
+      >
         {selectedObject ? (
           <FieldObjectCard
             object={selectedObject}
@@ -582,6 +592,8 @@ export const FieldView: React.FC<Props> = ({
             helpSent={!!helpSent[selectedObject.object_id]}
             isOffline={isOffline}
             onResetDemoMarks={handleResetDemoMarks}
+            compact={sheetSnap === 'peek'}
+            onExpand={() => setMobileSnap('full')}
           />
         ) : (
           <FieldList
