@@ -111,6 +111,17 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
     }
   };
 
+  // Active tickets per brigade (assigned / in progress) — used for the load dots in the picker
+  const brigadeLoad = useMemo(() => {
+    const m: Record<string, number> = {};
+    tickets.forEach((t) => {
+      if (t.assigned_team && (t.status === 'НАЗНАЧЕН' || t.status === 'В_РАБОТЕ')) {
+        m[t.assigned_team] = (m[t.assigned_team] || 0) + 1;
+      }
+    });
+    return m;
+  }, [tickets]);
+
   // Assign brigade selection handler
   const handleSelectBrigade = (ticketId: string, brigadeName: string) => {
     setTickets((prev) =>
@@ -496,6 +507,7 @@ ${ticket.assigned_team}
                   }}
                   onDownload={handleExportPrint}
                   onSelectBrigade={handleSelectBrigade}
+                  brigadeLoad={brigadeLoad}
                   isUpdatingStatus={statusUpdatingId === ticket.ticket_id}
                 />
               ))}

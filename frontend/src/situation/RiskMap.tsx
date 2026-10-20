@@ -572,6 +572,9 @@ export const RiskMap: React.FC<Props> = ({
     const m = map.current;
     const o = objects.find(x => x.object_id === selectedObjectId);
     if (m && o && interactive) {
+      // Map hidden (e.g. mobile list view) has zero size: flyTo would produce NaN LatLng and crash the page
+      const sz = m.getSize();
+      if (!sz.x || !sz.y) return;
       const pos = displayLatLng(o);
       const targetLat = focusOffsetY ? pos[0] - focusOffsetY : pos[0];
       m.flyTo([targetLat, pos[1]], zoomOnSelect ? 16 : Math.max(m.getZoom(), 12.5), { duration: 0.6 });

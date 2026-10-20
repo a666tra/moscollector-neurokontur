@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Flame, Clock, Wrench, Check, RotateCcw, Truck, Play, User, 
-  MapPin, Download, AlertTriangle, ChevronDown, ChevronUp, Sparkles
+  MapPin, Download, AlertTriangle, ChevronDown, ChevronUp, Sparkles, Zap
 } from 'lucide-react';
 import { MaintenanceTicket } from '../types';
 import { formatPk } from '../lib/plain';
@@ -14,6 +14,8 @@ interface TicketRowProps {
   onFocusMap?: (objectId: string) => void;
   onDownload?: (ticket: MaintenanceTicket) => void;
   onSelectBrigade?: (ticketId: string, brigadeName: string) => void;
+  /** Active tickets per brigade name (for the load dots); missing = free */
+  brigadeLoad?: Record<string, number>;
   isUpdatingStatus?: boolean;
 }
 
@@ -27,6 +29,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
   onFocusMap,
   onDownload,
   onSelectBrigade,
+  brigadeLoad = {},
   isUpdatingStatus = false,
 }) => {
   const isUrgent = ticket.priority === 'ВЫСОКИЙ' || ticket.failure_risk_percent >= 70;
@@ -309,28 +312,66 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           {/* Right Column: Brigade selection & Actions */}
           <div className="flex flex-col justify-between space-y-3">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--mu)' }}>
-                Назначить ответственную бригаду:
-              </div>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {BRIGADES.map((bName) => {
-                  const isCurrent = ticket.assigned_team === bName;
-                  return (
-                    <button
-                      key={bName}
-                      type="button"
-                      onClick={() => onSelectBrigade?.(ticket.ticket_id, bName)}
-                      aria-pressed={isCurrent}
-                      className={`h-9 px-3 rounded-full text-xs font-semibold transition-all border cursor-pointer ${
-                        isCurrent
-                          ? 'border-[var(--ac)] bg-[var(--ac)] text-[var(--onac)] shadow-sm'
-                          : 'border-[var(--ln)] bg-[var(--sf2)] text-[var(--ink)] hover:border-[var(--ln2)]'
-                      }`}
-                    >
-                      {bName}
-                    </button>
-                  );
-                })}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13.5px] font-semibold" style={{ color: 'var(--mu)' }}>
+                    Бригада
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const free = BRIGADES.reduce((best, b) =>
+                        (brigadeLoad[b] || 0) < (brigadeLoad[best] || 0) ? b : best
+                      , BRIGADES[0]);
+                      onSelectBrigade?.(ticket.ticket_id, free);
+                    }}
+                    aria-label="Автоматически: самая свободная бригада"
+                    className="min-h-[44px] pl-2.5 pr-3.5 rounded-full text-sm font-bold flex items-center gap-1.5 cursor-pointer"
+                    style={{ border: '1.5px solid var(--ac)', background: 'var(--acs)', color: 'var(--ac)' }}
+                  >
+                    <Zap className="w-[18px] h-[18px]" />
+                    Авто
+                  </button>
+                </div>
+
+                <div
+                  role="group"
+                  aria-label="Выбрать бригаду"
+                  className="grid grid-cols-5 gap-0.5 p-[3px] rounded-full"
+                  style={{ background: 'var(--sf)', border: '1.5px solid var(--ln2)' }}
+                >
+                  {BRIGADES.map((bName, idx) => {
+                    const isCurrent = ticket.assigned_team === bName;
+                    const load = brigadeLoad[bName] || 0;
+                    const dot = load === 0 ? 'var(--gn)' : load < 3 ? 'var(--am)' : 'var(--rd)';
+                    return (
+                      <button
+                        key={bName}
+                        type="button"
+                        onClick={() => onSelectBrigade?.(ticket.ticket_id, bName)}
+                        aria-pressed={isCurrent}
+                        aria-label={`${bName}${load ? `, заявок: ${load}` : ', свободна'}`}
+                        className="min-w-0 h-11 rounded-full border-0 text-base font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-[background,color] duration-200"
+                        style={{
+                          background: isCurrent ? 'var(--ac)' : 'transparent',
+                          color: isCurrent ? 'var(--onac)' : 'var(--ink)',
+                        }}
+                      >
+                        {idx + 1}
+                        <i
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: dot, boxShadow: `0 0 0 2px ${isCurrent ? 'var(--ac)' : 'var(--sf)'}` }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs font-medium" style={{ color: 'var(--mu)' }}>
+                  <span className="flex items-center gap-1.5"><i className="w-2 h-2 rounded-full" style={{ background: 'var(--gn)' }} />свободна</span>
+                  <span className="flex items-center gap-1.5"><i className="w-2 h-2 rounded-full" style={{ background: 'var(--am)' }} />1–2 заявки</span>
+                  <span className="flex items-center gap-1.5"><i className="w-2 h-2 rounded-full" style={{ background: 'var(--rd)' }} />загружена</span>
+                </div>
               </div>
               <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: 'var(--mu)' }}>
                 Демо: выбор бригады запоминается только в этом окне и попадёт в скачанный бланк. Сервер его не получает.
