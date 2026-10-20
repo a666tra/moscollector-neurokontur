@@ -26,6 +26,8 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
   // Real (non-demo) failure: the server or the per-block check reported a broken chain
   const [realBroken, setRealBroken] = useState(false);
   const [brokenAt, setBrokenAt] = useState<number | null>(null);
+  // The server did not confirm the whole chain (no verdict, or it checked fewer records than shown)
+  const [unverified, setUnverified] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -52,12 +54,25 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
     setBlockStatus([]);
     setRealBroken(false);
     setBrokenAt(null);
+    setUnverified(null);
 
     try {
       const res = await api<AuditVerificationResult>('/api/alarms/audit/verify');
       setAudit(res);
 
       const count = items.length;
+      if (typeof res?.is_valid !== 'boolean') {
+        // No verdict from the server: say so, never imply the chain was checked
+        setUnverified('сервер не вернул результат проверки');
+        setHasVerifiedOnce(true);
+        toast('Не удалось проверить цепочку: сервер не вернул результат', 'error');
+        return;
+      }
+      const checkedByServer =
+        typeof res.total_records === 'number' ? res.total_records : res.details?.length ?? 0;
+      if (checkedByServer !== count) {
+        setUnverified(`сервер проверил ${checkedByServer} из ${count} записей`);
+      }
       const statuses: boolean[] = [];
 
       // Step-by-step verification animation for the visual chain
@@ -86,15 +101,17 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
       }
 
       const firstBad = statuses.findIndex((s) => !s);
-      const broken = !tamper && (res.is_valid !== true || firstBad !== -1);
+      const broken = !tamper && (res.is_valid !== true || res.tamper_detected === true || firstBad !== -1);
       setRealBroken(broken);
       setBrokenAt(firstBad !== -1 && res.details?.length === count ? firstBad : null);
       setHasVerifiedOnce(true);
 
       if (tamper) {
         toast('Демо: подмена показана только на экране, в журнале ничего не менялось.', 'info');
-      } else if (!broken) {
+      } else if (!broken && checkedByServer === count) {
         toast(`Цепочка проверена: ${count} блоков валидны`, 'success');
+      } else if (!broken) {
+        toast(`Проверена не вся цепочка: сервер проверил ${checkedByServer} из ${count}`, 'info');
       } else {
         toast('Нарушена целостность цепочки аудита решений!', 'error');
       }
@@ -113,6 +130,7 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
     setHasVerifiedOnce(false);
     setRealBroken(false);
     setBrokenAt(null);
+    setUnverified(null);
   };
 
   const tamperedIndex = Math.min(2, Math.max(0, items.length - 1));
@@ -174,9 +192,9 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
           role="status"
           className="p-3.5 rounded-xl border flex items-center gap-3 text-xs sm:text-sm font-semibold animate-[nkUp_0.25s_ease-out]"
           style={{
-            background: isChainTampered ? 'var(--rds)' : 'var(--gns)',
-            borderColor: isChainTampered ? 'var(--rd)' : 'var(--gn)',
-            color: isChainTampered ? 'var(--rdt)' : 'var(--gnt)',
+            background: isChainTampered ? 'var(--rds)' : unverified ? 'var(--ams)' : 'var(--gns)',
+            borderColor: isChainTampered ? 'var(--rd)' : unverified ? 'var(--am)' : 'var(--gn)',
+            color: isChainTampered ? 'var(--rdt)' : unverified ? 'var(--amt)' : 'var(--gnt)',
           }}
         >
           {isChainTampered ? (
@@ -186,6 +204,14 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
                 {realBroken
                   ? `Нарушена целостность журнала${brokenAt !== null ? `: запись №${brokenAt + 1} не прошла проверку` : ''}. Передайте журнал администратору.`
                   : `ДЕМО: так цепочка покажет подмену. Мы изменили запись №${tamperedIndex + 1} только на этом экране — настоящие данные не тронуты.`}
+              </span>
+            </>
+          ) : unverified ? (
+            <>
+              <ShieldAlert className="w-5 h-5 shrink-0 text-[var(--am)]" />
+              <span>
+                Цепочка не подтверждена полностью: {unverified}.
+                {unverified.startsWith('сервер проверил') ? ' Нарушений в проверенной части не найдено.' : ''}
               </span>
             </>
           ) : (
@@ -221,8 +247,8 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
           {items.map((rec, i) => {
             const isTamperedRow = tamper && i === tamperedIndex;
             const isFalse = isTamperedRow
-              ? !rec.decision.includes('FALSE')
-              : rec.decision.includes('FALSE');
+              ? !(rec.decision ?? '').includes('FALSE')
+              : (rec.decision ?? '').includes('FALSE');
 
             // Verification status for this block
             const isChecked = verifiedStep > i;
@@ -329,14 +355,14 @@ export const DecisionLedger: React.FC<DecisionLedgerProps> = ({ className = '', 
                       Диспетчер: <b className="num" style={{ color: 'var(--ink)' }}>{rec.dispatcher_badge}</b>
                       {rec.dispatcher_name && (
                         <span className="ml-1" style={{ color: 'var(--mu)' }}>
-                          ({rec.dispatcher_name.split(' ')[0]})
+                          ({(rec.dispatcher_name ?? '').split(' ')[0]})
                         </span>
                       )}
                     </div>
 
                     {rec.avoided_cost_rub ? (
                       <div className="num" style={{ color: 'var(--mu)' }}>
-                        Норматив вызова: <b style={{ color: 'var(--ink)' }}>{rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽</b>
+                        Норматив вызова: <b style={{ color: 'var(--ink)' }}>{typeof rec.avoided_cost_rub === 'number' ? `${rec.avoided_cost_rub.toLocaleString('ru-RU')} ₽` : '—'}</b>
                       </div>
                     ) : null}
                   </div>

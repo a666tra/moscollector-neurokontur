@@ -48,7 +48,7 @@ export const ScenarioMetricsFooter: React.FC<ScenarioMetricsFooterProps> = ({
 
   // Subtitle next to "Итоги"
   const barTitle = isAll
-    ? 'вся смена'
+    ? (runResult.mode === 'month' ? 'весь месяц' : 'вся смена')
     : `${selectedScenarioId} ${getScenarioName(selectedScenarioId)}`;
 
   // ----------------------------------------------------

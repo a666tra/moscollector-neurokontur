@@ -185,7 +185,7 @@ export const ChannelCard: React.FC<Props> = ({
         json: {
           channel_id: item.channel_id,
           priority: PRIORITY[item.risk_level] || 'СРЕДНИЙ',
-          notes: `Прогноз НейроКонтур: вероятность инцидента ${pct} % в ближайшие 1–3 дня.`,
+          notes: `Прогноз НейроКонтур: балл риска ${pct} из 100 (ранжирование каналов, не вероятность отказа), горизонт 1–3 дня.`,
           dispatcher_badge: d.badge,
           dispatcher_pin: d.pin,
         },
@@ -520,7 +520,7 @@ export const ChannelCard: React.FC<Props> = ({
                 className="min-h-[52px] rounded-[16px] text-[15px] font-semibold transition active:scale-[0.99] disabled:opacity-40"
                 style={{
                   background: mode === 'false' ? 'var(--ac)' : 'var(--rd)',
-                  color: '#ffffff',
+                  color: mode === 'false' ? 'var(--onac)' : 'var(--onrd)',
                 }}
               >
                 {busy

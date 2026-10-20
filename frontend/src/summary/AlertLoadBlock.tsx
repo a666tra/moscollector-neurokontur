@@ -103,7 +103,7 @@ export const AlertLoadBlock: React.FC<Props> = ({
         <button
           type="button"
           onClick={onOpenScenarios}
-          className="min-h-[44px] px-4 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer self-start sm:self-auto border-0 text-white"
+          className="min-h-[44px] px-4 rounded-full font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer self-start sm:self-auto border-0 text-[var(--onac)]"
           style={{
             background: 'var(--ac)',
           }}
@@ -131,10 +131,10 @@ export const AlertLoadBlock: React.FC<Props> = ({
             </span>
             <div className="text-sm sm:text-base font-medium mt-1 space-y-0.5 text-[var(--ink)]">
               <div>
-                В <b className="num text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatRatio(ratioNaive)} раза меньше</b>, чем у простого порога
+                В <b className="num text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatRatio(ratioNaive)} раза меньше</b> позиций для диспетчера: {typeof fastIncidents === 'number' ? fastIncidents.toLocaleString('ru-RU') : '—'} инцидентов против {typeof naiveAlerts === 'number' ? naiveAlerts.toLocaleString('ru-RU') : '—'} тревог простого порога
               </div>
               <div>
-                В <b className="num text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatRatio(ratioDedup)} раза меньше</b>, чем у порога с дедупликацией
+                В <b className="num text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatRatio(ratioDedup)} раза меньше</b> инцидентов, чем у порога с дедупликацией
               </div>
             </div>
           </div>
@@ -242,7 +242,7 @@ export const AlertLoadBlock: React.FC<Props> = ({
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Быстрый контур</span>
               </span>
-              <span className="font-mono text-[10px] text-white px-2 py-0.5 rounded-full bg-[var(--ac)] font-semibold">
+              <span className="font-mono text-[10px] text-[var(--onac)] px-2 py-0.5 rounded-full bg-[var(--ac)] font-semibold">
                 НейроКонтур
               </span>
             </div>

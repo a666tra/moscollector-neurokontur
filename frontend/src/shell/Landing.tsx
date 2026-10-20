@@ -58,8 +58,8 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
     const get = (u: string) => fetch(u).then(r => (r.ok ? r.json() : null)).catch(() => null);
     get('/api/predictions/backtest').then(setBt);
     get('/api/predictions/metrics').then(d => setPerf(d?.performance_benchmark));
-    get('/api/objects').then(d => d && setObjects(d));
-    get('/api/predictions?limit=300').then(d => d && setPreds(d.items || []));
+    get('/api/objects').then(d => Array.isArray(d) && setObjects(d));
+    get('/api/predictions?limit=300').then(d => d && Array.isArray(d.items) && setPreds(d.items));
     get('/api/health').then(h => {
       if (h?.data_snapshot_date) {
         const parts = h.data_snapshot_date.split('-');
@@ -80,7 +80,7 @@ export const Landing: React.FC<Props> = ({ onSelectRole, onOpenQuality, onOpenSc
   const prev = s?.prevalence?.median;
   const depRoc = s?.deployed?.roc_auc?.median;
   const depP100 = s?.deployed?.precision_at_100?.median;
-  const depText = `стенд, медиана 21 недели: ${fmtNum(depRoc ?? 0.65, 2)} · ${typeof depP100 === 'number' ? Math.round(depP100 * 100) : 22} %`;
+  const depText = `стенд, медиана 21 недели: ${fmtNum(depRoc, 2)} · ${typeof depP100 === 'number' ? Math.round(depP100 * 100) : '—'} %`;
 
   const kpis = [
     { v: bt?.test_weeks ?? '—', u: ' нед.', t: 'проверки на реальном журнале' },

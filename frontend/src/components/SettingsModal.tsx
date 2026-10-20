@@ -179,7 +179,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     if (isOpen) {
       api<SystemSettings>('/api/settings')
         .then((data) => {
-          setSettings((prev) => ({ ...prev, ...data }));
+          if (!data || typeof data !== 'object') return;
+          // Accept only values of the right type (a null/NaN from the server must not reach the sliders)
+          setSettings((prev) => {
+            const next: Record<string, unknown> = { ...prev };
+            (Object.keys(DEFAULT_SETTINGS) as Array<keyof SystemSettings>).forEach((k) => {
+              const v = (data as unknown as Record<string, unknown>)[k as string];
+              if (typeof v === typeof DEFAULT_SETTINGS[k] && (typeof v !== 'number' || Number.isFinite(v))) {
+                next[k as string] = v;
+              }
+            });
+            return next as unknown as SystemSettings;
+          });
         })
         .catch(() => {});
 
@@ -220,13 +231,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     }
   }, [isOpen]);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Escape closes; Tab stays inside the dialog; focus goes in on open and returns to the opener on close
   useEffect(() => {
     if (!isOpen) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select, textarea, [role="slider"], [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((el) => el.offsetParent !== null);
+    const t = window.setTimeout(() => (focusables()[0] ?? dialogRef.current)?.focus(), 0);
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      const inside = !!active && !!dialogRef.current?.contains(active);
+      if (e.shiftKey && (active === first || !inside)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !inside)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('keydown', handleKeyDown);
+      opener?.focus?.();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -295,7 +338,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
     const maxCount = Math.max(...counts, 1);
     return counts.map((c, i) => ({
       h: c === 0 ? 0 : Math.max(2, Math.round((c / maxCount) * 76)),
-      active: 0.1 + ((i + 0.5) / HIST_BINS) * 0.8 >= settings.decision_threshold,
+      // the last bin also holds everything above 0.90, so it is active for any threshold up to 0.90
+      active:
+        i === HIST_BINS - 1
+          ? settings.decision_threshold <= 0.9
+          : 0.1 + ((i + 0.5) / HIST_BINS) * 0.8 >= settings.decision_threshold,
     }));
   })();
   const tauLabel = settings.decision_threshold.toFixed(2).replace('.', ',');
@@ -315,6 +362,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Настройки"
@@ -675,7 +724,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             type="button"
             onClick={handleSave}
             disabled={loading}
-            className="min-h-[48px] px-6 rounded-full border-0 font-semibold text-sm sm:text-base flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 text-white shadow-md"
+            className="min-h-[48px] px-6 rounded-full border-0 font-semibold text-sm sm:text-base flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 text-[var(--onac)] shadow-md"
             style={{ background: 'var(--ac)' }}
           >
             <Save className="w-4 h-4" />

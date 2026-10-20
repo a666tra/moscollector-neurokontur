@@ -81,6 +81,26 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
     ? (mm as number[]).reduce((a, b) => a + b, 0)
     : null;
 
+  // Numbers on this screen come only from the API; if a value is missing the block says so instead of showing a stand-in
+  const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  const sAll = backtest?.summary?.all;
+  const holdRoc = report?.model_comparison?.champion_lightgbm?.roc_auc;
+  const rocReady = fin(sAll?.deployed?.roc_auc?.median) && fin(holdRoc) && fin(sAll?.lgbm_weekly?.roc_auc?.median);
+  const accReady =
+    fin(sAll?.deployed?.precision_at_100?.median) &&
+    fin(sAll?.lgbm_weekly?.precision_at_100?.median) &&
+    fin(sAll?.deployed?.precision_at_100?.min) &&
+    fin(sAll?.deployed?.precision_at_100?.max);
+  const noDataCard = (what: string) => (
+    <section
+      role="status"
+      className="rounded-[26px] p-[18px_16px] sm:p-[26px_28px] border border-[var(--ln)] text-sm"
+      style={{ background: 'var(--sf)', color: 'var(--mu)' }}
+    >
+      {what}: нет данных от сервера. Обновите страницу или нажмите «Перечитать результаты» ниже.
+    </section>
+  );
+
   const bench = report?.performance_benchmark;
   const httpBench = report?.http_load_benchmark;
   const models = report?.model_comparison;
@@ -183,32 +203,44 @@ export const MetricsView: React.FC<MetricsViewProps> = ({ onOpenSettings }) => {
       />
 
       {/* 2. ROC-AUC rings */}
-      <RocAucRings
-        standRoc={backtest?.summary?.all?.deployed?.roc_auc?.median ?? 0.65}
-        holdoutRoc={report?.model_comparison?.champion_lightgbm?.roc_auc ?? 0.771}
-        pilotRoc={backtest?.summary?.all?.lgbm_weekly?.roc_auc?.median ?? 0.84}
-      />
+      {rocReady ? (
+        <RocAucRings
+          standRoc={sAll?.deployed?.roc_auc?.median}
+          holdoutRoc={holdRoc}
+          pilotRoc={sAll?.lgbm_weekly?.roc_auc?.median}
+        />
+      ) : (
+        noDataCard('Насколько хорошо различает каналы')
+      )}
 
       {/* 3. Accuracy rings (Сколько из 100 подтверждается) */}
-      <AccuracyRings
-        standPrecisionPct={(backtest?.summary?.all?.deployed?.precision_at_100?.median ?? 0.22) * 100}
-        pilotPrecisionPct={(backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median ?? 0.38) * 100}
-        standMinPct={(backtest?.summary?.all?.deployed?.precision_at_100?.min ?? 0.14) * 100}
-        standMaxPct={(backtest?.summary?.all?.deployed?.precision_at_100?.max ?? 0.38) * 100}
-        lgbmWeeklyPrecisionAt100Median={backtest?.summary?.all?.lgbm_weekly?.precision_at_100?.median}
-        prevalenceMedian={backtest?.summary?.all?.prevalence?.median}
-      />
+      {accReady ? (
+        <AccuracyRings
+          standPrecisionPct={(sAll?.deployed?.precision_at_100?.median as number) * 100}
+          pilotPrecisionPct={(sAll?.lgbm_weekly?.precision_at_100?.median as number) * 100}
+          standMinPct={(sAll?.deployed?.precision_at_100?.min as number) * 100}
+          standMaxPct={(sAll?.deployed?.precision_at_100?.max as number) * 100}
+          lgbmWeeklyPrecisionAt100Median={sAll?.lgbm_weekly?.precision_at_100?.median}
+          prevalenceMedian={sAll?.prevalence?.median}
+        />
+      ) : (
+        noDataCard('Сколько из 100 подтверждается')
+      )}
 
       {/* 4. Three checks accordion */}
-      <ChecksAccordion
-        firstCutoff={firstCutoff}
-        lastCutoff={lastCutoff}
-        deployedPrecisionMedianPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.median ?? 0.22) * 100)}
-        deployedPrecisionMinPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.min ?? 0.14) * 100)}
-        deployedPrecisionMaxPct={Math.round((backtest?.summary?.all?.deployed?.precision_at_100?.max ?? 0.38) * 100)}
-        holdoutRocAuc={report?.model_comparison?.champion_lightgbm?.roc_auc ?? 0.771}
-        mismatchesTotal={mismatchesTotal}
-      />
+      {accReady && fin(holdRoc) ? (
+        <ChecksAccordion
+          firstCutoff={firstCutoff}
+          lastCutoff={lastCutoff}
+          deployedPrecisionMedianPct={Math.round((sAll?.deployed?.precision_at_100?.median as number) * 100)}
+          deployedPrecisionMinPct={Math.round((sAll?.deployed?.precision_at_100?.min as number) * 100)}
+          deployedPrecisionMaxPct={Math.round((sAll?.deployed?.precision_at_100?.max as number) * 100)}
+          holdoutRocAuc={holdRoc}
+          mismatchesTotal={mismatchesTotal}
+        />
+      ) : (
+        noDataCard('Три проверки')
+      )}
 
       {/* 5. Reproduce block */}
       <ReproduceBlock

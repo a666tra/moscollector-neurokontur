@@ -236,7 +236,7 @@ export const WhoGuessesBetter: React.FC<Props> = ({
                 {/* "best" badge is always rendered (hidden when not applicable) so the layout never shifts */}
                 <span
                   aria-hidden={!g.isBest}
-                  className="inline-flex items-center gap-1 self-start mt-2 px-2.5 py-1 rounded-full text-white text-[11px] sm:text-xs font-bold leading-tight whitespace-nowrap transition-[opacity,transform] duration-200"
+                  className="inline-flex items-center gap-1 self-start mt-2 px-2.5 py-1 rounded-full text-[var(--onac)] text-[11px] sm:text-xs font-bold leading-tight whitespace-nowrap transition-[opacity,transform] duration-200"
                   style={{
                     background: g.color,
                     visibility: g.isBest ? 'visible' : 'hidden',

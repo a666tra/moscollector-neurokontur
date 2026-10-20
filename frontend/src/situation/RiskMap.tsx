@@ -365,6 +365,8 @@ export const RiskMap: React.FC<Props> = ({
 
     // Track active pin IDs in this render
     const currentPinIds = new Set<string>();
+    // Infinite pulse animations are costly on weak GPUs: only the first 8 risky pins (and the selected one) pulse
+    let pulseBudget = 8;
 
     for (let i = 0; i < pins.length; i++) {
       const p = pins[i];
@@ -379,7 +381,11 @@ export const RiskMap: React.FC<Props> = ({
       const pinLabel = p.label || p.textLabel || (textLabel ? textLabel(p) : undefined);
       const showPill = (showPillSet.has(p.objectId) || isHov) && (p.done || pinLabel != null || p.pct != null);
       const inTop100 = top100RiskSet.has(p.objectId);
-      const pulse = inTop100 && !p.done;
+      let pulse = inTop100 && !p.done;
+      if (pulse && !sel) {
+        if (pulseBudget > 0) pulseBudget--;
+        else pulse = false;
+      }
       const isCritical = p.risk === 'CRITICAL';
       const isWarning = p.risk === 'WARNING';
 

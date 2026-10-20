@@ -171,7 +171,11 @@ export const InteractiveChart: React.FC<Props> = ({
             <button
               key={l.full}
               type="button"
-              onClick={() => l.set((v: boolean) => !v)}
+              onClick={() => {
+                // keep at least one line visible: an empty chart tells nothing
+                if (l.on && [showDeployed, showLgbm, showRule].filter(Boolean).length === 1) return;
+                l.set((v: boolean) => !v);
+              }}
               aria-pressed={l.on}
               aria-label={l.full}
               title={l.title}
@@ -358,7 +362,7 @@ export const InteractiveChart: React.FC<Props> = ({
                 ({formatDate(activeWeek?.cutoff)})
               </span>
               {activeIdx === selectedWeekIdx && (
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--ac)] text-white">
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[var(--ac)] text-[var(--onac)]">
                   закреплена
                 </span>
               )}

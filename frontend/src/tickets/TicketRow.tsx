@@ -39,7 +39,8 @@ export const TicketRow: React.FC<TicketRowProps> = ({
   const isWork = ticket.status === 'В_РАБОТЕ';
   const isDone = ticket.status === 'ВЫПОЛНЕН';
 
-  const riskPercent = Math.round(ticket.failure_risk_percent);
+  const riskPercent = Number.isFinite(ticket.failure_risk_percent) ? Math.round(ticket.failure_risk_percent) : 0;
+  const riskText = Number.isFinite(ticket.failure_risk_percent) ? `${riskPercent}%` : '—';
 
   // Border and badge color
   const borderColor = isUrgent
@@ -198,8 +199,8 @@ export const TicketRow: React.FC<TicketRowProps> = ({
               {/* Mini Risk Bar */}
               <div
                 className="inline-flex items-center gap-1 shrink-0"
-                aria-label={`Оценка по журналу СМВУ: ${riskPercent}%`}
-                title="Оценка по журналу СМВУ (вероятность отклонения телеметрии)"
+                aria-label={`Оценка по журналу СМВУ: ${riskText}`}
+                title="Балл риска по журналу СМВУ: ранжирует каналы, не является вероятностью отказа"
               >
                 <div className="w-8 sm:w-11 h-1.5 rounded-full bg-[var(--ln)] overflow-hidden shrink-0">
                   <div
@@ -216,7 +217,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
                     color: riskPercent >= 70 ? 'var(--rdt)' : riskPercent >= 40 ? 'var(--amt)' : 'var(--ok)',
                   }}
                 >
-                  {riskPercent}%
+                  {riskText}
                 </span>
               </div>
 
@@ -267,7 +268,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
                   className="serif text-4xl sm:text-5xl font-normal leading-none num"
                   style={{ color: riskPercent >= 70 ? 'var(--rdt)' : 'var(--amt)' }}
                 >
-                  {riskPercent}%
+                  {riskText}
                 </span>
                 <div className="flex-1">
                   <div className="h-2.5 rounded-full bg-[var(--ln)] overflow-hidden">
@@ -324,9 +325,9 @@ export const TicketRow: React.FC<TicketRowProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      const free = BRIGADES.reduce((best, b) =>
-                        (brigadeLoad[b] || 0) < (brigadeLoad[best] || 0) ? b : best
-                      , BRIGADES[0]);
+                      // this ticket's own assignment must not count as load, or repeated taps would flip between brigades
+                      const load = (b: string) => (brigadeLoad[b] || 0) - (ticket.assigned_team === b ? 1 : 0);
+                      const free = BRIGADES.reduce((best, b) => (load(b) < load(best) ? b : best), BRIGADES[0]);
                       onSelectBrigade?.(ticket.ticket_id, free);
                     }}
                     aria-label="Автоматически: самая свободная бригада"

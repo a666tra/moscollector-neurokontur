@@ -116,17 +116,19 @@ const Root: React.FC = () => {
 
   if (!entered) {
     return (
-      <Landing
-        onSelectRole={handleSelectRole}
-        onOpenQuality={() => {
-          setRoleState('disp');
-          setView('quality');
-        }}
-        onOpenScenarios={() => {
-          setRoleState('disp');
-          setView('scenarios');
-        }}
-      />
+      <ErrorBoundary>
+        <Landing
+          onSelectRole={handleSelectRole}
+          onOpenQuality={() => {
+            setRoleState('disp');
+            setView('quality');
+          }}
+          onOpenScenarios={() => {
+            setRoleState('disp');
+            setView('scenarios');
+          }}
+        />
+      </ErrorBoundary>
     );
   }
   return <Workspace role={role} view={view} setView={setView} onExit={handleExit} />;
@@ -160,12 +162,16 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
         get('/api/alarms/confirmed'),
         fetch('/api/health').then(r => (r.ok ? r.json() : null)).catch(() => null),
       ]);
-      if (obj) setObjects(obj);
+      // Unexpected shapes are treated as a load failure (error screen with «Повторить»), not rendered
+      if (!Array.isArray(obj) || !Array.isArray(conf) || (pred && !Array.isArray(pred.items))) {
+        throw new Error('Unexpected API response shape');
+      }
+      setObjects(obj);
       if (pred) {
         setPredictions(pred.items || []);
         if (typeof pred.total === 'number') setTotalPredictions(pred.total);
       }
-      if (conf) setConfirmed(conf);
+      setConfirmed(conf);
       if (health?.data_snapshot_date) setSnapshotDate(health.data_snapshot_date);
     } catch (err: any) {
       console.error('Failed to load data:', err);
@@ -772,7 +778,9 @@ const Workspace: React.FC<{ role: UserRole; view: View; setView: (v: View) => vo
           {tool === 'signal' ? <FalseAlarmFilter /> : <StreamSimulator onRefreshStats={load} />}
         </Drawer>
       )}
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} />
+      <ErrorBoundary key={settingsOpen ? 'open' : 'closed'}>
+        <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} />
+      </ErrorBoundary>
     </div>
   );
 };

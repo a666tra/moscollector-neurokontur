@@ -15,7 +15,7 @@
   --acs: oklch(0.93 0.04 262);
   --onac: #ffffff;
   --onrd: #ffffff;
-  --ongn: #ffffff;
+  --ongn: oklch(0.17 0.03 160);
   --rd: oklch(0.6 0.21 27);
   --rds: oklch(0.94 0.04 27);
   --rdt: oklch(0.5 0.19 27);

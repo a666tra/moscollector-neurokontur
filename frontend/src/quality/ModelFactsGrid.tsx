@@ -7,9 +7,7 @@ interface ModelFactsGridProps {
 }
 
 export const ModelFactsGrid: React.FC<ModelFactsGridProps> = ({ latencyMs, channelsCount }) => {
-  const latencyVal = typeof latencyMs === 'number' && Number.isFinite(latencyMs)
-    ? Math.round(latencyMs)
-    : 63;
+  const latencyText = typeof latencyMs === 'number' && Number.isFinite(latencyMs) ? `${Math.round(latencyMs)} мс` : '—';
 
   const facts = [
     { k: 'Модель', v: 'LightGBM (чемпион)', icon: Zap },
@@ -19,7 +17,7 @@ export const ModelFactsGrid: React.FC<ModelFactsGridProps> = ({ latencyMs, chann
     { k: 'Проверка', v: '21 неделя', icon: BarChart3 },
     { 
       k: 'Пересчёт всех каналов', 
-      v: `${latencyVal} мс${channelsCount ? ` (${channelsCount.toLocaleString('ru-RU')} кан.)` : ''}`, 
+      v: `${latencyText}${channelsCount ? ` (${channelsCount.toLocaleString('ru-RU')} кан.)` : ''}`, 
       icon: Gauge 
     },
   ];

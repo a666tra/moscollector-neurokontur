@@ -417,7 +417,7 @@ export const FieldObjectCard: React.FC<Props> = ({
               ? { background: 'var(--ac)', color: 'var(--onac, #fff)' }
               : step === 2
               ? allChecked
-                ? { background: 'var(--gn)', color: '#fff' }
+                ? { background: 'var(--gn)', color: 'var(--ongn)' }
                 : { background: 'var(--sf2)', color: 'var(--mu)', cursor: 'default' }
               : { background: 'var(--ink)', color: 'var(--bg)' }
           }
@@ -536,7 +536,7 @@ export const FieldObjectCard: React.FC<Props> = ({
         >
           <span
             className="w-28 h-28 rounded-full flex items-center justify-center shadow-xl animate-[nkPopA_0.6s_cubic-bezier(0.2,1.5,0.4,1)_both]"
-            style={{ background: 'var(--gn)', color: '#fff' }}
+            style={{ background: 'var(--gn)', color: 'var(--ongn)' }}
           >
             <Check className="w-16 h-16" strokeWidth={3.5} />
           </span>
