@@ -40,31 +40,15 @@ export const VerdictHeader: React.FC<Props> = ({
     fast !== null &&
     fastIncidents !== null;
 
-  // Comparison grammar logic per requirement:
-  // If |lgbm - rule| <= 2: "догоняет правило"
-  // If lgbm - rule > 2: "выше правила"
-  // If rule - lgbm > 2: "ниже правила"
-  const compPhrase = React.useMemo(() => {
-    if (lgbm === null || rule === null) return 'догоняет правило:';
-    const diff = lgbm - rule;
-    if (Math.abs(diff) <= 2) {
-      return 'догоняет правило:';
-    } else if (diff > 2) {
-      return 'выше правила:';
-    } else {
-      return 'ниже правила:';
-    }
-  }, [lgbm, rule]);
-
   // Wording follows the numbers (never a fixed «слабее»/«лучше» regardless of data)
-  const standPhrase =
+  const headline =
     deployed === null || rule === null
-      ? 'сравнивается с простым правилом:'
+      ? 'сравнивается с простым правилом'
       : deployed < rule
-        ? 'слабее простого правила:'
+        ? 'пока слабее простого правила'
         : deployed > rule
-          ? 'сильнее простого правила:'
-          : 'на уровне простого правила:';
+          ? 'сильнее простого правила'
+          : 'на уровне простого правила';
   const calmPhrase =
     lgbmCalm === null || ruleCalm === null
       ? 'сравнивается так'
@@ -130,30 +114,48 @@ export const VerdictHeader: React.FC<Props> = ({
             Нет данных
           </p>
         ) : (
-          <p className="serif text-lg sm:text-xl lg:text-2xl font-normal leading-snug text-[var(--ink)] m-0">
-            Модель на стенде (январская, без дообучения) {standPhrase}{' '}
-            <strong className="num font-bold text-[var(--ac)]">{deployed}</strong> против{' '}
-            <strong className="num font-bold text-[var(--mu)]">{rule}</strong> из 100. Модель с
-            еженедельным дообучением (пилот, расчёт) {compPhrase}{' '}
-            <strong className="num font-bold text-[var(--gn)]">{lgbm}</strong> против{' '}
-            <strong className="num font-bold text-[var(--mu)]">{rule}</strong>, а на тихих каналах, где
-            сбоев за неделю не было (правило там по построению ничего не находит), {calmPhrase}:{' '}
-            <strong className="num font-bold text-[var(--gn)]">{lgbmCalm}</strong> против{' '}
-            <strong className="num font-bold text-[var(--mu)]">{ruleCalm}</strong> из 100. Быстрый
-            контур сокращает поток тревог с{' '}
-            <strong className="num font-bold text-[var(--ink)]">
-              {naive.toLocaleString('ru-RU')}
-            </strong>{' '}
-            до <strong className="num font-bold text-[var(--ac)]">{fast}</strong> в сутки (
-            {fastIncidents} инцидентов диспетчеру; синтетика, seed 42).
-          </p>
+          <>
+            <p className="serif text-xl sm:text-2xl font-normal leading-snug text-[var(--ink)] m-0">
+              Модель на стенде {headline}
+            </p>
+
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="rounded-2xl p-3 min-w-0" style={{ background: 'var(--sf2)' }}>
+                <div className="serif text-[32px] sm:text-[40px] leading-none num" style={{ color: 'var(--ac)' }}>
+                  {deployed}
+                </div>
+                <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--ink)] mt-1.5 leading-tight">Модель на стенде</div>
+                <div className="text-[11px] sm:text-xs text-[var(--mu)] leading-tight">из 100 · правило {rule}</div>
+              </div>
+              <div className="rounded-2xl p-3 min-w-0" style={{ background: 'var(--sf2)' }}>
+                <div className="serif text-[32px] sm:text-[40px] leading-none num" style={{ color: 'var(--gn)' }}>
+                  {lgbm}
+                </div>
+                <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--ink)] mt-1.5 leading-tight">Дообучение</div>
+                <div className="text-[11px] sm:text-xs text-[var(--mu)] leading-tight">расчёт · из 100</div>
+              </div>
+              <div className="rounded-2xl p-3 min-w-0" style={{ background: 'var(--sf2)' }}>
+                <div className="serif text-[32px] sm:text-[40px] leading-none num" style={{ color: 'var(--ac)' }}>
+                  {fast}
+                </div>
+                <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--ink)] mt-1.5 leading-tight">тревог в сутки</div>
+                <div className="text-[11px] sm:text-xs text-[var(--mu)] leading-tight">
+                  вместо {naive.toLocaleString('ru-RU')} · {fastIncidents} инцид.
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[13px] sm:text-sm text-[var(--mu)] m-0 leading-snug">
+              На тихих каналах, где правило ничего не находит, модель с дообучением {calmPhrase}: {lgbmCalm} против{' '}
+              {ruleCalm} из 100.
+            </p>
+          </>
         )}
 
         <div className="flex items-center gap-2 pt-1 text-xs text-[var(--mu)]">
           <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-[var(--am)]" />
           <span>
-            Все показатели рассчитаны на реальном бэктесте (21 неделя) и полигоне сценариев;
-            рублёвая экономия не моделируется.
+            Рассчитано на реальном бэктесте (21 неделя) и полигоне сценариев. Рублёвая экономия не моделируется.
           </span>
         </div>
       </div>

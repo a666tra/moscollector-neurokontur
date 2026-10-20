@@ -178,7 +178,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({
       });
       setTickets((prev) => [newTicket, ...prev]);
       setExpandedTicketId(newTicket.ticket_id);
-      toast(`Создан черновик наряда ${newTicket.ticket_id} для самого рискованного канала без наряда. Бригаду назначьте кнопкой «Назначить».`, 'success');
+      toast(`Черновик наряда ${newTicket.ticket_id} создан. Назначьте бригаду.`, 'success');
       onRefreshStats?.();
     } catch (err: any) {
       toast(err?.message || 'Не удалось сформировать наряд', 'error');
