@@ -375,6 +375,11 @@ ${ticket.assigned_team}
         </div>
       )}
 
+      {/* Сводная панель: плитки, статусы и кнопка карты — на светлой «карточке», как в «Качестве модели» */}
+      <div
+        className="rounded-[26px] shadow-[var(--sh)] border border-[var(--ln)] p-3.5 sm:p-5 space-y-5 sm:space-y-6 min-w-0"
+        style={{ background: 'var(--sf)' }}
+      >
       {/* Top 3 Tiles: Срочно / Скоро / Не трогать */}
       <TicketTiles
         urgentCount={urgentCount}
@@ -406,6 +411,7 @@ ${ticket.assigned_team}
           <span>{showMobileMap ? 'Скрыть карту' : 'Показать заявки на карте'}</span>
         </button>
       </div>
+      </div>
 
       {/* Mobile Mini Map (when toggled open) */}
       {showMobileMap && (
@@ -429,8 +435,8 @@ ${ticket.assigned_team}
         <div className="min-w-0 space-y-3.5">
           {/* Search + Model Suggestions Toolbar */}
           <div
-            className="flex items-center gap-3 pb-2.5 border-b-[1.5px]"
-            style={{ borderColor: 'var(--ink)' }}
+            className="flex items-center gap-3 px-4 py-2 rounded-[22px] shadow-[var(--sh)] border border-[var(--ln)]"
+            style={{ background: 'var(--sf)' }}
           >
             <label className="flex-1 min-w-[120px] flex items-center gap-2 text-[var(--mu)]">
               <Search className="w-4 h-4 shrink-0 text-[var(--mu)]" />
