@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet';
 import {
   ChevronRight,
+  ChevronUp,
   Plus,
   Minus,
   Maximize2,
@@ -52,10 +53,10 @@ export const Situation: React.FC<Props> = ({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null);
 
-  // Mobile sheet states from URL params or defaults
+  // Mobile sheet states from URL params or defaults: Situation mobile sheet has two states (peek / full)
   const [mobileSnap, setMobileSnap] = useState<SnapHeight>(() => {
-    const s = new URLSearchParams(window.location.search).get('snap') as SnapHeight;
-    return s === 'peek' || s === 'half' || s === 'full' ? s : 'peek';
+    const s = new URLSearchParams(window.location.search).get('snap');
+    return s === 'full' || s === 'half' ? 'full' : 'peek';
   });
   const [mobileTab, setMobileTab] = useState<'card' | 'queue'>(() => {
     const t = new URLSearchParams(window.location.search).get('tab');
@@ -207,6 +208,7 @@ export const Situation: React.FC<Props> = ({
   const handlePickChannel = (channelId: string) => {
     setSelectedId(channelId);
     setMobileTab('card');
+    setMobileSnap('full');
   };
 
   const handlePickObject = (objectId: string) => {
@@ -215,7 +217,9 @@ export const Situation: React.FC<Props> = ({
       ranked.find(p => p.object_id === objectId);
     if (!best) return;
     setSelectedId(best.channel_id);
-    setMobileTab('card');
+    if (mobileTab === 'queue') {
+      setMobileTab('card');
+    }
   };
 
   const handleMapHover = (objectId: string | null) => {
@@ -294,14 +298,51 @@ export const Situation: React.FC<Props> = ({
     </div>
   );
 
-  const focusOffsetY =
-    typeof window !== 'undefined' && window.innerWidth < 1024
-      ? mobileSnap === 'peek'
-        ? 0.015
-        : mobileSnap === 'half'
-        ? 0.032
-        : 0.048
-      : 0;
+  const focusOffsetY = useMemo(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 1024) return 0;
+    const h = window.innerHeight || 800;
+    const targetRatio = mobileSnap === 'peek' ? 0.45 : 0.07;
+    return ((0.5 - targetRatio) * h) / 7320;
+  }, [mobileSnap]);
+
+  // Peek badge, title and subtitle derivations for mobile collapsed state
+  const isDone = selected ? !!decided[selected.channel_id] : false;
+  const isUrgent = selected?.risk_level === 'CRITICAL';
+  const isSoon = selected?.risk_level === 'WARNING' || selected?.risk_level === 'ATTENTION';
+  const pct = selected ? Math.round(probabilityOf(selected) * 100) : 0;
+
+  let peekBadgeBg = 'var(--sf2)';
+  let peekBadgeFg = 'var(--ink)';
+  if (isDone) {
+    peekBadgeBg = 'var(--gns)';
+    peekBadgeFg = 'var(--gnt)';
+  } else if (isUrgent) {
+    peekBadgeBg = 'var(--rds)';
+    peekBadgeFg = 'var(--rdt)';
+  } else if (isSoon) {
+    peekBadgeBg = 'var(--ams)';
+    peekBadgeFg = 'var(--amt)';
+  }
+
+  const peekBadgeText = isDone ? '✓' : `${pct} %`;
+
+  let statusText = 'проверить скоро';
+  if (isDone) {
+    const d = decided[selected.channel_id];
+    statusText = d ? d.split('·')[0].trim() : 'решено';
+  } else if (isUrgent) {
+    statusText = 'срочно проверить';
+  } else {
+    statusText = 'проверить скоро';
+  }
+
+  const selObject = selected ? objectsById[selected.object_id] : null;
+  const peekTitle = selObject
+    ? cleanName(selObject.name)
+    : selected
+    ? cleanName(selected.object_name)
+    : '';
+  const peekSubtitle = `${statusText} · ${index + 1} из ${list.length}`;
 
   return (
     <div className="relative h-full w-full min-h-0 overflow-hidden flex flex-col lg:block select-none">
@@ -528,7 +569,7 @@ export const Situation: React.FC<Props> = ({
         <button
           onClick={() => {
             setMobileTab('queue');
-            setMobileSnap('half');
+            setMobileSnap('full');
           }}
           className="min-h-[44px] px-3.5 rounded-full border flex items-center gap-1.5 text-[13px] font-semibold shrink-0 shadow-sm transition-colors hover:bg-[var(--sf2)]"
           style={{ background: 'var(--sf)', borderColor: 'var(--ln)', color: 'var(--ink)' }}
@@ -542,13 +583,13 @@ export const Situation: React.FC<Props> = ({
 
       {/* Mobile Floating Zoom Controls */}
       <div
-        className="lg:hidden flex flex-col rounded-full overflow-hidden absolute right-3 bottom-[224px] z-[500] shadow-md border"
+        className="lg:hidden flex flex-col rounded-full overflow-hidden absolute right-3 bottom-[108px] z-[450] shadow-md border"
         style={{
           background: 'var(--sf)',
           borderColor: 'var(--ln)',
           boxShadow: 'var(--sh)',
           color: 'var(--ink)',
-          zIndex: 500,
+          zIndex: 450,
         }}
       >
         <button
@@ -568,65 +609,119 @@ export const Situation: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* Mobile BottomSheet (FieldBottomSheet reused) */}
+      {/* Mobile BottomSheet (FieldBottomSheet reused with peek/full) */}
       <div className="lg:hidden" style={{ zIndex: 500 }}>
-        <FieldBottomSheet snap={mobileSnap} onSnapChange={setMobileSnap} className="!z-[500]">
-          {mobileSnap !== 'peek' && (
-            <div className="flex gap-1 mx-4 mb-2 p-1 rounded-[14px] shrink-0" style={{ background: 'var(--sf2)' }}>
-              <button
-                onClick={() => setMobileTab('card')}
-                className="flex-1 min-h-[44px] rounded-[11px] font-semibold text-[14px] transition-all"
-                style={
-                  mobileTab === 'card'
-                    ? { background: 'var(--sf)', color: 'var(--ink)', boxShadow: 'var(--sh)' }
-                    : { background: 'transparent', color: 'var(--mu)' }
-                }
+        <FieldBottomSheet
+          snap={mobileSnap}
+          onSnapChange={setMobileSnap}
+          snaps={['peek', 'full']}
+          heights={{ peek: '96px', full: '90%' }}
+          className="!z-[500]"
+        >
+          {mobileSnap === 'peek' ? (
+            selected ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setMobileSnap('full')}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setMobileSnap('full');
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-4 pb-3.5 min-h-[56px] text-left cursor-pointer select-none focus-visible:outline-none"
+                aria-label="Развернуть карточку канала"
               >
-                Канал
-              </button>
-              <button
-                onClick={() => setMobileTab('queue')}
-                className="flex-1 min-h-[44px] rounded-[11px] font-semibold text-[14px] transition-all"
-                style={
-                  mobileTab === 'queue'
-                    ? { background: 'var(--sf)', color: 'var(--ink)', boxShadow: 'var(--sh)' }
-                    : { background: 'transparent', color: 'var(--mu)' }
-                }
-              >
-                Очередь ({today.length})
-              </button>
-            </div>
-          )}
-
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            {mobileTab === 'queue' ? (
-              <div className="h-full flex flex-col p-4 pt-1 overflow-y-auto">
-                <div className="serif text-[22px] font-normal leading-tight text-[var(--ink)] mb-1">
-                  Очередь на сегодня
-                </div>
-                <div className="text-[12px] text-[var(--mu)] mb-3">
-                  {today.length} каналов с самой высокой оценкой · всего в базе{' '}
-                  {(totalPredictions || predictions.length).toLocaleString('ru-RU')}
-                </div>
-                <div className="flex-1 overflow-y-auto">{renderQueueRows()}</div>
+                <span
+                  className="min-w-[56px] h-10 rounded-[12px] flex items-center justify-center font-bold text-[15px] shrink-0 font-variant-numeric:tabular-nums px-2"
+                  style={{ background: peekBadgeBg, color: peekBadgeFg }}
+                >
+                  {peekBadgeText}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-semibold text-[15.5px] truncate text-[var(--ink)] leading-snug">
+                    {peekTitle}
+                  </span>
+                  <span className="block font-medium text-[13px] text-[var(--mu)] truncate mt-0.5">
+                    {peekSubtitle}
+                  </span>
+                </span>
+                <span
+                  className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: 'var(--sf2)', color: 'var(--ink)' }}
+                  aria-hidden="true"
+                >
+                  <ChevronUp className="w-5 h-5 text-[var(--ink)]" />
+                </span>
               </div>
             ) : (
-              selected && (
-                <ChannelCard
-                  item={selected}
-                  object={objectsById[selected.object_id]}
-                  position={index + 1}
-                  total={list.length}
-                  done={decided[selected.channel_id]}
-                  compact={mobileSnap === 'peek'}
-                  onPrev={() => step(-1)}
-                  onNext={() => step(1)}
-                  onDecided={onDecided}
-                  onOpenTickets={onOpenTickets}
-                />
-              )
-            )}
-          </div>
+              <div className="w-full flex items-center justify-center px-4 pb-3.5 min-h-[56px] text-[13.5px] text-[var(--mu)]">
+                Нет каналов под этот фильтр
+              </div>
+            )
+          ) : (
+            <>
+              {/* Tabs: Канал / Очередь (N) */}
+              <div
+                className="flex gap-1 mx-3.5 mb-2.5 p-1 rounded-[14px] shrink-0"
+                style={{ background: 'var(--sf2)' }}
+              >
+                <button
+                  onClick={() => setMobileTab('card')}
+                  className="flex-1 min-h-[44px] rounded-[11px] font-semibold text-[14.5px] transition-all"
+                  style={
+                    mobileTab === 'card'
+                      ? { background: 'var(--sf)', color: 'var(--ink)', boxShadow: 'var(--sh)' }
+                      : { background: 'transparent', color: 'var(--mu)' }
+                  }
+                >
+                  Канал
+                </button>
+                <button
+                  onClick={() => setMobileTab('queue')}
+                  className="flex-1 min-h-[44px] rounded-[11px] font-semibold text-[14.5px] transition-all"
+                  style={
+                    mobileTab === 'queue'
+                      ? { background: 'var(--sf)', color: 'var(--ink)', boxShadow: 'var(--sh)' }
+                      : { background: 'transparent', color: 'var(--mu)' }
+                  }
+                >
+                  Очередь ({today.length})
+                </button>
+              </div>
+
+              {/* Sheet Body */}
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {mobileTab === 'queue' ? (
+                  <div className="h-full flex flex-col p-4 pt-1 overflow-y-auto">
+                    <div className="serif text-[22px] font-normal leading-tight text-[var(--ink)] mb-1">
+                      Очередь на сегодня
+                    </div>
+                    <div className="text-[12px] text-[var(--mu)] mb-3">
+                      {today.length} каналов с самой высокой оценкой · всего в базе{' '}
+                      {(totalPredictions || predictions.length).toLocaleString('ru-RU')}
+                    </div>
+                    <div className="flex-1 overflow-y-auto">{renderQueueRows()}</div>
+                  </div>
+                ) : (
+                  selected && (
+                    <ChannelCard
+                      item={selected}
+                      object={objectsById[selected.object_id]}
+                      position={index + 1}
+                      total={list.length}
+                      done={decided[selected.channel_id]}
+                      onPrev={() => step(-1)}
+                      onNext={() => step(1)}
+                      onDecided={onDecided}
+                      onOpenTickets={onOpenTickets}
+                    />
+                  )
+                )}
+              </div>
+            </>
+          )}
         </FieldBottomSheet>
       </div>
     </div>
